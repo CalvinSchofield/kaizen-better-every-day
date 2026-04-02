@@ -598,13 +598,81 @@ const OrgChart = () => {
         srMgmtNodes.push(createSrMgmtLabelNode(srMgmtId, children));
       });
 
+      // When grouping by office, wrap MGMT groups under office containers instead of Sr MGMT
+      if (groupByOffice) {
+        const officeChildren = new Map<string, TreeNode[]>();
+        const noOfficeNodes: TreeNode[] = [];
+
+        groupedRoots.forEach((mgmtNode) => {
+          const mgmtGroupId = mgmtNode.id.startsWith("mgmt-") ? mgmtNode.id.replace("mgmt-", "") : null;
+          const mg = mgmtGroupId ? mgmtGroupMap.get(mgmtGroupId) : null;
+          const officeId = mg?.office_id;
+
+          if (officeId) {
+            if (!officeChildren.has(officeId)) officeChildren.set(officeId, []);
+            officeChildren.get(officeId)!.push(mgmtNode);
+          } else {
+            noOfficeNodes.push(mgmtNode);
+          }
+        });
+
+        const officeNodes: TreeNode[] = [];
+        officeChildren.forEach((children, officeId) => {
+          const office = treeData.offices.find((o: any) => o.id === officeId);
+          officeNodes.push({
+            id: `office-${officeId}`,
+            name: office?.name || "Office",
+            userId: null,
+            stage: null,
+            profilePhotoUrl: null,
+            role: null,
+            year: null,
+            isAreaDirector: false,
+            roleColor: "area_director",
+            isLabelNode: true,
+            isOfficeNode: true,
+            officeId,
+            children: sortByDownlineSize(children),
+          });
+        });
+
+        const finalGrouped = sortByDownlineSize([...officeNodes, ...noOfficeNodes]);
+        return sortByDownlineSize([...finalGrouped, ...ungroupedRoots]);
+      }
+
+      // Default: group by Sr MGMT
+      const mgmtGroupToSrMgmt = new Map<string, string>();
+      mgmtGroups.forEach((mg) => {
+        if (mg.sr_mgmt_group_id) mgmtGroupToSrMgmt.set(mg.id, mg.sr_mgmt_group_id);
+      });
+
+      const srMgmtChildren = new Map<string, TreeNode[]>();
+      const standaloneMgmtNodes: TreeNode[] = [];
+
+      groupedRoots.forEach((mgmtNode) => {
+        const mgmtGroupId = mgmtNode.id.startsWith("mgmt-") ? mgmtNode.id.replace("mgmt-", "") : null;
+        const srMgmtId = mgmtGroupId ? mgmtGroupToSrMgmt.get(mgmtGroupId) : null;
+
+        if (srMgmtId) {
+          if (!srMgmtChildren.has(srMgmtId)) srMgmtChildren.set(srMgmtId, []);
+          srMgmtChildren.get(srMgmtId)!.push(mgmtNode);
+        } else {
+          standaloneMgmtNodes.push(mgmtNode);
+        }
+      });
+
+      const srMgmtNodes: TreeNode[] = [];
+      srMgmtChildren.forEach((children, srMgmtId) => {
+        srMgmtNodes.push(createSrMgmtLabelNode(srMgmtId, children));
+      });
+
       const finalGrouped = sortByDownlineSize([...srMgmtNodes, ...standaloneMgmtNodes]);
 
       return sortByDownlineSize([...finalGrouped, ...ungroupedRoots]);
     }
 
     return sortByDownlineSize(dedupedRoots);
-  }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
+  }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap, groupByOffice]);
 
 
   // Build a lookup for full recruit data — cross-references current org structure
