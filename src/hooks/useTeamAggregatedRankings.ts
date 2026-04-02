@@ -437,7 +437,10 @@ export const useTeamAggregatedRankings = ({
         reps.push({
           userId,
           name: repInfo.name,
-          teamName: repInfo.teamName,
+          teamId: teamInfo?.teamId || null,
+          teamName: teamInfo?.teamName || repInfo.teamName,
+          mgmtGroupId: teamInfo?.mgmtGroupId || null,
+          mgmtGroupName: teamInfo?.mgmtGroupName || undefined,
           year: repInfo.year,
           phone: repInfo.phone,
           timezone: repInfo.timezone,
