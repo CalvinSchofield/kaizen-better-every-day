@@ -200,6 +200,7 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
           teamName,
           mgmtGroupId: teamInfo?.mgmtGroupId || null,
           mgmtGroupName,
+          recruiterName: teamInfo?.recruiterName || null,
           stats: {
             doors: entry.doors_knocked || 0,
             dms: entry.decision_makers || 0,
