@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { AppSplashScreen } from "./AppSplashScreen";
 import { usePrefetchData } from "@/hooks/usePrefetchData";
 import { PushNotificationInitializer } from "./PushNotificationInitializer";
 import { useRepData } from "@/hooks/useRepData";
