@@ -177,6 +177,8 @@ function layoutNodes(
     isAreaDirector: node.isAreaDirector,
     roleColor: nodeRoleColor,
     isLabelNode: node.isLabelNode,
+    isOfficeNode: node.isOfficeNode,
+    officeId: node.officeId,
     x: cx,
     y: cy,
     childCount: node.children.length,
