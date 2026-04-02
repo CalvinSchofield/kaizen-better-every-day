@@ -486,7 +486,7 @@ export default function Settings() {
               className="text-center text-lg font-semibold h-10 border-0 bg-transparent shadow-none focus-visible:ring-1"
             />
             <p className="text-xs text-muted-foreground">
-              {repData?.year || "Rep"}{repData?.team_name ? ` · ${repData.team_name}` : ''}
+              {repData?.year || "Rep"}
             </p>
           </div>
           {hasProfileChanges && (
