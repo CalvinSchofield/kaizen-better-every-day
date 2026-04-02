@@ -662,6 +662,19 @@ const TeamReports = () => {
           avgFPPerRep={heroMetrics.avgFPPerRep}
           periodLabel={getPeriodLabel()}
           isLive={heroMetrics.isLive}
+          comparison={heroComparison}
+          sparklineData={heroSparkline}
+          onFpClick={heroGroupBreakdown.length >= 2 ? () => setHeroDrillDownOpen(true) : undefined}
+        />
+
+        {/* Hero Drill-Down Drawer */}
+        <HeroDrillDownDrawer
+          open={heroDrillDownOpen}
+          onOpenChange={setHeroDrillDownOpen}
+          title="FP+ Breakdown"
+          groups={heroGroupBreakdown}
+          dailyTrend={heroSparkline}
+          periodLabel={getPeriodLabel()}
         />
 
         {/* Tab Navigation */}
@@ -702,6 +715,7 @@ const TeamReports = () => {
                 repCount={aggregatedRankings?.repCount}
                 aggregatedLoading={aggregatedLoading}
                 rankingsTitle={getRankingsTitle()}
+                groupedByTeam={insightsData?.groupedByTeam}
               />
             </TabsContent>
 
@@ -726,6 +740,7 @@ const TeamReports = () => {
                   dailyTrendByMgmt={insightsData?.dailyTrendByMgmt}
                   accessLevel={accessData?.accessLevel || 'none'}
                   cumulativeLoading={cumulativeLoading}
+                  comparisonData={comparisonData}
                   canceledStats={canceledStats}
                   canceledLoading={canceledLoading}
                   canceledTitle={getCanceledTitle()}
