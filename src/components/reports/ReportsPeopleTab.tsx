@@ -6,7 +6,7 @@ import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
 import { RepGoals } from "@/hooks/useRepGoals";
 import { AccessLevel, hasMinAccess } from "@/utils/roleHierarchy";
 import { useMemo } from "react";
-
+import { CoachingAlerts } from "./v2/CoachingAlerts";
 interface ReportsPeopleTabProps {
   // View type
   viewType: 'today' | 'yesterday' | 'aggregated';
