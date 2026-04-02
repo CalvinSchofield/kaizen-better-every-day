@@ -554,7 +554,7 @@ export default function Settings() {
                 onCheckedChange: async (enabled) => {
                   setIsSavingSalesLogger(true);
                   try {
-                    const { error } = await supabase.from('reps').update({ sales_log_enabled: enabled }).eq('id', repData?.id);
+                    const { error } = await supabase.from('reps').update({ sales_logger_enabled: enabled }).eq('id', repData?.id);
                     if (error) throw error;
                     await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
                     toast({ title: enabled ? "Sales Logger enabled" : "Sales Logger disabled" });
