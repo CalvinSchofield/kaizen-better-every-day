@@ -204,9 +204,16 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             key?.startsWith('competitors-cache') ||
             key?.startsWith('blitzes-cache') ||
             key?.startsWith('team-access-cache') ||
-            key?.startsWith('kaizen-') ||
             key?.startsWith('season-config-cache') ||
             key?.startsWith('group-recruits-cache')) {
+          keysToRemove.push(key);
+        }
+      }
+      // Also clear kaizen- keys, but preserve identity-related keys that
+      // are managed by the auth layer (useCurrentUserId handles its own cleanup)
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('kaizen-') && key !== 'kaizen-current-user-id') {
           keysToRemove.push(key);
         }
       }

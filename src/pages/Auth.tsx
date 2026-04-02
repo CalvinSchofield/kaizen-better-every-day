@@ -152,13 +152,10 @@ const Auth = () => {
         hapticSuccess();
         // Welcome message will show on the loading screen instead
         
-        // Check if setup has been completed
-        const setupComplete = localStorage.getItem('kaizen-setup-complete');
-        if (setupComplete) {
-          navigate("/");
-        } else {
-          navigate("/setup");
-        }
+        // Always navigate to home — ProtectedRoute + useSetupStatus will
+        // gate to /goals if setup is genuinely incomplete, using DB truth
+        // rather than a localStorage flag that gets cleared on unexpected signouts.
+        navigate("/");
       } else {
         // Sign up — require invite code
         if (!inviteCode) {
