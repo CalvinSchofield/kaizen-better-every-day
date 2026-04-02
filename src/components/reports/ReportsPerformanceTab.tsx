@@ -79,7 +79,6 @@ interface ReportsPerformanceTabProps {
     percentComplete?: number;
   }>;
   onGoalPaceDrawerOpen?: () => void;
-  cumulativeLoading?: boolean;
   
   canceledStats?: any;
   canceledLoading?: boolean;
