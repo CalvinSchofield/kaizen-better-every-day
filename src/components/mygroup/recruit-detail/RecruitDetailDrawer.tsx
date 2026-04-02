@@ -7,6 +7,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/utils/withTimeout";
 
 // Mobile-optimized session getter: reads local cache only, no network refresh
 const getSessionFast = async () => {
@@ -443,24 +444,32 @@ export const RecruitDetailDrawer = ({
 
     // Look up the team leader's phone for group text
     let leaderPhone: string | null = null;
-    if (contactForHelp?.role === 'leader' && contactForHelp.phone) {
-      leaderPhone = normalizePhoneForSms(contactForHelp.phone);
-    } else if (recruit.teamId) {
-      const { data: teamData } = await supabase
-        .from('teams')
-        .select('lead_user_id')
-        .eq('id', recruit.teamId)
-        .maybeSingle();
-      if (teamData?.lead_user_id) {
+    try {
+      leaderPhone = await withTimeout((async () => {
+        if (contactForHelp?.role === 'leader' && contactForHelp.phone) {
+          return normalizePhoneForSms(contactForHelp.phone);
+        }
+
+        if (!recruit.teamId) return null;
+
+        const { data: teamData } = await supabase
+          .from('teams')
+          .select('lead_user_id')
+          .eq('id', recruit.teamId)
+          .maybeSingle();
+
+        if (!teamData?.lead_user_id) return null;
+
         const { data: leaderRep } = await supabase
           .from('reps')
           .select('phone')
           .eq('user_id', teamData.lead_user_id)
           .maybeSingle();
-        if (leaderRep?.phone) {
-          leaderPhone = normalizePhoneForSms(leaderRep.phone);
-        }
-      }
+
+        return leaderRep?.phone ? normalizePhoneForSms(leaderRep.phone) : null;
+      })(), 1200, 'Leader phone lookup timed out');
+    } catch (error) {
+      console.warn('[RecruitDetailDrawer] Falling back to solo SMS intent:', error);
     }
 
     // Open SMS app (group or solo)

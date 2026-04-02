@@ -104,12 +104,15 @@ export const useCurrentUserId = () => {
 
       const newUserId = authResult.userId;
 
-      // CRITICAL: If we had a cached userId but auth returns null/error,
-      // the session is invalid/expired - clear all caches to prevent stale data display
+      // On native iOS we can transiently lose auth visibility even though a relaunch restores it.
+      // Preserve the cached identity here and only clear caches on an explicit SIGNED_OUT event.
       if (cachedUserId && !newUserId) {
-        console.log('[useCurrentUserId] Session invalid/expired, clearing all caches');
-        clearAllRepCaches();
-        clearStaleCaches();
+        console.warn('[useCurrentUserId] Auth returned no user; preserving cached user id until explicit sign-out');
+        setUserId(cachedUserId);
+        storeCachedUserId(cachedUserId);
+        setIsReady(true);
+        setAuthVerified(true);
+        return;
       }
 
       // If user changed (e.g., different account), clear old user's caches
@@ -133,17 +136,31 @@ export const useCurrentUserId = () => {
       const newUserId = session?.user?.id ?? null;
       const currentCached = getCachedUserId();
       
-      // Handle session expiry/logout - clear all caches
-      if (currentCached && !newUserId) {
+      // Only treat explicit sign-out as a real logout.
+      if (event === 'SIGNED_OUT') {
         console.log('[useCurrentUserId] Auth change: session ended, clearing caches');
         clearAllRepCaches();
         clearStaleCaches();
+        setUserId(null);
+        storeCachedUserId(null);
+        setIsReady(true);
+        setAuthVerified(true);
+        return;
       }
       
       // If user changed, clear old caches
       if (currentCached && newUserId && currentCached !== newUserId) {
         console.log('[useCurrentUserId] Auth change: user switched, clearing caches');
         clearAllRepCaches();
+      }
+
+      if (!newUserId && currentCached) {
+        console.warn(`[useCurrentUserId] Auth event ${event} returned no session; preserving cached user id`);
+        setUserId(currentCached);
+        storeCachedUserId(currentCached);
+        setIsReady(true);
+        setAuthVerified(true);
+        return;
       }
       
       setUserId(newUserId);

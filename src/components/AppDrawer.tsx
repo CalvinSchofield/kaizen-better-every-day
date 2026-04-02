@@ -28,6 +28,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { clearPersistedCache, clearCachedLayoutState } from "@/lib/queryPersister";
 import { hapticSelection, hapticLight } from "@/utils/haptics";
 import { getInitials } from "@/utils/nameUtils";
+import { getSessionSafe } from "@/utils/authSession";
 
 // ── Reusable sub-components ──
 
@@ -143,61 +144,33 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
     setIsRefreshing(true);
     hapticLight();
     try {
-      // 1. Refresh auth session FIRST — ensures valid token before any refetch
-      console.log('[Refresh] Step 1: Refreshing auth session…');
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshData?.session) {
-        console.warn('[Refresh] Session refresh failed, trying getSession fallback');
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData?.session) {
-          toast({
-            title: "Session expired",
-            description: "Please log out and sign in again.",
-            variant: "destructive",
-          });
-          setIsRefreshing(false);
-          return;
-        }
-      }
-      console.log('[Refresh] Auth session valid');
+      console.log('[Refresh] Relaunch-style refresh starting…');
 
-      // 2. Clear persisted caches (localStorage) — but auth/userId cache stays
+      const { session } = await getSessionSafe();
+      if (!session) {
+        toast({
+          title: "Session expired",
+          description: "Please log out and sign in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await queryClient.cancelQueries();
+
+      // Clear app caches but preserve auth + cached user identity, then hard reload.
       clearPersistedCache();
       clearCachedLayoutState();
 
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (!key) continue;
-        // Preserve auth-critical keys and track backups
-        if (key === 'kaizen-current-user-id' || key.startsWith('track-backup-')) continue;
-        if (key.startsWith('rep-data-cache') || 
-            key.startsWith('rep-goals-cache') ||
-            key.startsWith('preseason-fp-cache') ||
-            key.startsWith('ytd-prmr-cache') ||
-            key.startsWith('cumulative-fp-cache') ||
-            key.startsWith('goals-knocking-days-cache') ||
-            key.startsWith('goals-season-config-cache') ||
-            key.startsWith('competitors-cache') ||
-            key.startsWith('blitzes-cache') ||
-            key.startsWith('team-access-cache') ||
-            key.startsWith('season-config-cache') ||
-            key.startsWith('group-recruits-cache')) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
-
-      // 3. Invalidate all queries (NOT clear!) so they refetch with fresh auth
-      // clear() destroys the cache entirely and causes auth state loss + stuck loading
-      await queryClient.invalidateQueries({ refetchType: 'all' });
-
-      console.log('[Refresh] Complete — all queries invalidated');
-      toast({
-        title: "Data refreshed",
-        description: "All cached data has been cleared and reloaded.",
-      });
       setOpen(false);
+      toast({
+        title: "Refreshing app",
+        description: "Restarting with a clean session and fresh data.",
+      });
+
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 150);
     } catch (error) {
       console.error("Refresh error:", error);
       toast({
