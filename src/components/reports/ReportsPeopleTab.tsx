@@ -34,6 +34,14 @@ interface ReportsPeopleTabProps {
   
   // Goals data for plateau detection (optional)
   allGoals?: RepGoals[];
+  
+  // Coaching alerts
+  onRepClick?: (userId: string) => void;
+  groupedByTeam?: Array<{
+    teamName: string;
+    totals: { fp: number };
+    members: Array<{ userId: string; name: string; fp: number }>;
+  }>;
 }
 
 export const ReportsPeopleTab = ({
