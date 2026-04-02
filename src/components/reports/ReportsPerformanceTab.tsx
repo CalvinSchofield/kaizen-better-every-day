@@ -218,6 +218,31 @@ export const ReportsPerformanceTab = ({
       {/* AI Coach */}
       <AICoachSection />
 
+      {/* Group Comparison Chart */}
+      <GroupComparisonChart
+        groupedByTeam={groupedByTeam}
+        groupedByMgmt={groupedByMgmt}
+        accessLevel={accessLevel}
+        isLoading={isLoading}
+      />
+
+      {/* Period-over-Period Comparison */}
+      {comparisonData && (
+        <PeriodComparisonCard
+          current={comparisonData.current}
+          previous={comparisonData.previous}
+          currentLabel={comparisonData.currentLabel}
+          previousLabel={comparisonData.previousLabel}
+        />
+      )}
+
+      {/* Goal Pace Tracker */}
+      {goalPaceReps && goalPaceReps.length > 0 && onGoalPaceDrawerOpen && (
+        <GoalPaceCard
+          reps={goalPaceReps}
+          onOpenDrawer={onGoalPaceDrawerOpen}
+        />
+      )}
       {/* Sales Funnel */}
       {insightsData.funnelData && (
         <Card className="p-4">
