@@ -1,105 +1,103 @@
 
 
-# Reports People Tab — Org-Aware Hierarchical Grouping
+# Reports Page — World-Class Sales Dashboard Upgrade
 
-## Problem
-The People tab on Reports shows reps in flat performance-category buckets (Outstanding / Working / Need Attention). There's no organizational grouping — a Regional, Sr Manager, MGMT Lead, and Team Lead all see the same flat list. It doesn't match the Structure tab and becomes unwieldy for leaders with 40+ reps.
+## What We're Building
+Transform the Reports page from an informational display into an actionable coaching dashboard. Three pillars: **smarter hero with drill-down**, **visual team comparison charts**, and **intelligent coaching alerts**.
 
-## Design
-Group reps by their **formal org hierarchy** (MGMT Group > Team > Individual), adapting the nesting depth to the viewer's access level:
+---
 
-```text
-Team Lead sees:
-┌─────────────────────────────┐
-│ ★ Outstanding (3)           │
-│   Rep A — 2.0 FP+           │
-│   Rep B — 1.0 FP+           │
-│ ⚡ Working (5)              │
-│   Rep C — 24 doors          │
-│ ⚠ Need Attention (1)        │
-│   Rep D — Low pitch rate     │
-└─────────────────────────────┘
-  (Unchanged — no nested groups needed)
+## 1. Smarter Hero Card with Drill-Down
 
-MGMT Group Lead sees:
-┌─────────────────────────────┐
-│ Team Quinn (8)     12.5 FP+ │
-│  ├ ★ Rep A — 3.0 FP+       │
-│  ├ ⚡ Rep B — 40 doors      │
-│  └ ⚠ Rep C — Low pitch     │
-│ Team Calvin (6)     8.0 FP+ │
-│  ├ ★ Rep D — 2.0 FP+       │
-│  └ ⚡ Rep E — 18 doors      │
-└─────────────────────────────┘
+**Replace `ReportsHeroCard` with an enhanced version:**
 
-Sr Manager / AD / Regional sees:
-┌─────────────────────────────┐
-│ ▼ MGMT Group Gunnar (14) FP│
-│   Team Quinn (8)   12.5 FP+ │
-│    ├ Rep A — 3.0 FP+        │
-│    └ Rep B — 40 doors       │
-│   Team Calvin (6)   8.0 FP+ │
-│    └ Rep D — 2.0 FP+        │
-│ ▼ MGMT Group Joe (10)   FP │
-│   Team Sarah (5)    ...      │
-│   Team Mike (5)     ...      │
-└─────────────────────────────┘
-```
+- **Tappable FP+ stat** → opens a breakdown drawer showing FP by MGMT Group / Team (bar chart) and a daily sparkline for the period
+- **Period-over-period delta** → show "↑12% vs last week" or "↓3% vs last month" with a mini sparkline behind the number (using existing `useTeamInsightsData` comparison logic)
+- **Tappable PRMR** → shows avg PRMR per sale, upgrade vs FP breakdown
+- **Live view**: Keep working count + ping dot, add "X on pace to beat last week" sentence
+- **Aggregated view**: Show per-rep average and total, with the comparison delta always visible
 
-Key behaviors:
-- **Team Lead**: Keep existing category-based view (Outstanding/Working/Attention) — their scope is small enough
-- **MGMT Group Lead**: Group by Teams within their group, sorted by team FP desc
-- **Sr Manager+**: Group by MGMT Group > Team, collapsible at both levels
-- **Area Director**: Same as above but includes all reps assigned to their office(s)
-- Performance badges (Outstanding star, Attention warning) appear inline on each rep row regardless of grouping level
-- Aggregate stats (FP+, PRMR, rep count) roll up to each group header
-- Search filters across all levels
-- Sort dropdown still works, applied within each group
+**Files:** Modify `ReportsHeroCard.tsx`, create `HeroDrillDownDrawer.tsx`
 
-## Plan
+---
 
-### 1. Create `OrgGroupedRepList` component
-New component `src/components/reports/OrgGroupedRepList.tsx` that:
-- Accepts reps with their `teamId`, `teamName`, `mgmtGroupId`, `mgmtGroupName` (already available from `accessibleReps`)
-- Accepts `accessLevel` to determine grouping depth
-- Accepts the org `hierarchy` object from `useTeamAccess` to resolve group membership
-- Builds a nested tree: MGMT Group > Team > Rep
-- Renders collapsible sections with aggregate stats at each level
-- Preserves the performance categorization as inline badges/indicators on each rep
-- Includes search bar and sort controls
+## 2. Team/Group Comparison Charts (Performance Tab)
 
-### 2. Enrich rep data with org IDs
-In `useTeamLiveData` and `useTeamAggregatedRankings`:
-- `useTeamLiveData` already resolves `teamId`, `teamName`, `mgmtGroupName` from the team-access cache — also add `mgmtGroupId`
-- `useTeamAggregatedRankings` currently only has `teamName` from `team_leader` field — enrich it to also pull `teamId`, `teamName`, `mgmtGroupId`, `mgmtGroupName` from the team-access cache (same pattern as live data)
+**Add three new visual sections to `ReportsPerformanceTab`:**
 
-### 3. Update `ReportsPeopleTab` to pass org context
-- Pass `accessLevel` and `hierarchy` from `TeamReports.tsx` down to `ReportsPeopleTab`
-- For `viewType === 'today'`: Use `OrgGroupedRepList` when access level is MGMT lead or higher; keep `LiveLeaderboard` for Team Leads
-- For `viewType === 'yesterday'`: Same logic
-- For aggregated views: Use `OrgGroupedRepList` for MGMT lead+; keep current for Team Leads
+### a) Group Comparison Bar Chart
+- Horizontal bar chart comparing MGMT Groups (for Sr Manager+) or Teams (for MGMT Lead) on FP+
+- Each bar shows the group name, FP total, and rep count
+- Tappable bars drill into that group's breakdown
+- Sorted by FP desc, color-coded (primary for top, muted for rest)
+- Falls back to rep-level bars for Team Leads
 
-### 4. Update `HierarchicalRepList` (WorkingRepsDrawer)
-- Refactor to use the same `OrgGroupedRepList` component, or update it to group by MGMT Group > Team when the viewer has that scope
+### b) Period-over-Period Trend
+- Side-by-side comparison cards: "This Week vs Last Week" or "This Month vs Last Month"
+- Key metrics (FP+, PRMR, Doors, Presentations) with trend arrows and percent change
+- A small area chart showing the daily production curve for current vs previous period overlaid
+- Uses existing `useTeamInsightsData` — just needs to fetch the comparison period
 
-### 5. Wire up in `TeamReports.tsx`
-- Pass `accessData.accessLevel`, `accessData.hierarchy`, and `accessData.accessibleReps` through to `ReportsPeopleTab`
-- The data flow: `useTeamAccess` provides org structure → `ReportsPeopleTab` → `OrgGroupedRepList` groups reps using the hierarchy
+### c) Goal Pace Tracker (elevated)
+- Currently `GoalPaceSection` is a tiny tappable pill — elevate it into a proper card
+- Show a stacked horizontal bar: green (on pace), amber (at risk), red (behind), gray (no goals)
+- Below the bar: the 3 most urgent "at risk" or "behind" reps with their gap-to-goal
+- Tappable to open the existing `GoalPaceDrawer`
+
+**Files:** Create `GroupComparisonChart.tsx`, `PeriodComparisonCard.tsx`, modify `ReportsPerformanceTab.tsx`
+
+---
+
+## 3. Actionable Coaching Alerts
+
+**Upgrade `AlertsHighlights` and surface it prominently on the People tab:**
+
+Currently this component exists but isn't wired into the main Reports page. We'll:
+
+- **Surface it at the top of the People tab** (above the org-grouped list) as dismissible coaching cards
+- **Add new alert types:**
+  - "Rep X has Y doors but 0 transitions — pitch training needed" (effort without skill)
+  - "Team Quinn is Z% ahead of Team Calvin" (competitive comparison)
+  - "Rep hasn't started yet today — averaged N FP+ last week" (late start, live view only)
+  - "Rep X hit a new personal best this period" (celebration)
+- **Each alert is tappable** → opens the RepDrillDownDrawer for that person
+- **Smart filtering**: Only show top 3 most actionable alerts to avoid noise
+
+**Files:** Modify `AlertsHighlights.tsx`, wire into `ReportsPeopleTab.tsx`
+
+---
+
+## 4. Wire Everything Together in TeamReports.tsx
+
+- Compute comparison period data (previous week/month) and pass to hero + performance tab
+- Pass `groupedByTeam` and `groupedByMgmt` data (already computed in `useTeamInsightsData`) to the new comparison charts
+- Pass coaching alert data to People tab
+- Add `onRepClick` drill-down handler that opens `RepDrillDownDrawer` from any tappable element
+
+---
 
 ## Technical Details
 
-**Data already available** (no new DB queries needed):
-- `accessData.hierarchy` contains offices > srMgmtGroups > mgmtGroups > teams
-- `accessData.accessibleReps` has `teamId`, `teamName`, `mgmtGroupId`, `mgmtGroupName` per rep
-- Live/aggregated data hooks already have team info — just need to add `mgmtGroupId`
+**Data sources — no new queries needed:**
+- `useTeamInsightsData` already returns `groupedByTeam`, `groupedByMgmt`, `repBreakdown`, `dailyTrendByTeam`, `dailyTrendByMgmt`
+- `useTeamAggregatedRankings` has per-rep stats with team/mgmt group IDs
+- `useTeamCumulativeFP` has daily cumulative data
+- Goal pace data available via existing `useGoalPaceCalculator` hooks
+
+**New comparison period query:**
+- Add a `comparisonDateRange` param to `TeamReports.tsx` that fetches the prior equivalent period
+- Use a second `useTeamInsightsData` call with the comparison range (conditionally enabled)
 
 **Files to create:**
-- `src/components/reports/OrgGroupedRepList.tsx` — Main hierarchical grouping component
+- `src/components/reports/v2/HeroDrillDownDrawer.tsx` — FP breakdown by group/team
+- `src/components/reports/v2/GroupComparisonChart.tsx` — Horizontal bar chart comparing groups
+- `src/components/reports/v2/PeriodComparisonCard.tsx` — This vs last period cards with overlay chart
 
 **Files to modify:**
-- `src/hooks/useTeamLiveData.ts` — Add `mgmtGroupId` to live rep data
-- `src/hooks/useTeamAggregatedRankings.ts` — Add `teamId`, `mgmtGroupId`, `mgmtGroupName` from cache
-- `src/components/reports/ReportsPeopleTab.tsx` — Accept and pass org context, swap in `OrgGroupedRepList`
-- `src/pages/TeamReports.tsx` — Pass `accessLevel` and `hierarchy` to people tab
-- `src/components/reports/v2/HierarchicalRepList.tsx` — Update to use org-aware grouping
+- `src/components/reports/ReportsHeroCard.tsx` — Add sparkline, deltas, tappable stats
+- `src/components/reports/ReportsPerformanceTab.tsx` — Add comparison charts, elevate goal pace
+- `src/components/reports/ReportsPeopleTab.tsx` — Surface coaching alerts at top
+- `src/components/reports/v2/AlertsHighlights.tsx` — Add new alert types, smart filtering
+- `src/components/reports/v2/GoalPaceSection.tsx` — Upgrade from pill to visual card
+- `src/pages/TeamReports.tsx` — Wire comparison data, drill-down handlers
 
