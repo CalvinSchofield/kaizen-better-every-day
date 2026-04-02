@@ -933,8 +933,8 @@ export default function Settings() {
           </DrawerHeader>
           <div className="px-4 pb-6 overflow-y-auto">
             <MeVsMeSettings isOpen={true} onOpenChange={() => {}} />
-          </DrawerContent>
-        </Drawer>
+          </div>
+        </DrawerContent>
       </Drawer>
 
       {/* Developer Tools Drawer */}
