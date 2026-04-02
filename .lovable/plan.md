@@ -1,84 +1,105 @@
 
 
-# Settings Page Redesign — World-Class Mobile App
+# Reports People Tab — Org-Aware Hierarchical Grouping
 
-## Current State
-The Settings page is 1814 lines of monolithic code with a flat list of Card+Collapsible sections. It looks like a generic form page, not a polished mobile settings experience. There's also a build error that needs fixing first.
+## Problem
+The People tab on Reports shows reps in flat performance-category buckets (Outstanding / Working / Need Attention). There's no organizational grouping — a Regional, Sr Manager, MGMT Lead, and Team Lead all see the same flat list. It doesn't match the Structure tab and becomes unwieldy for leaders with 40+ reps.
 
-## Design Vision
-Model it after iOS/Android settings pages: grouped rows with icons, clean section headers, subtle separators, and tap-to-navigate rows. Think Apple Settings or Spotify's settings — no bulky cards, no collapsible chevrons everywhere.
-
-## Architecture
+## Design
+Group reps by their **formal org hierarchy** (MGMT Group > Team > Individual), adapting the nesting depth to the viewer's access level:
 
 ```text
-┌─────────────────────────────────┐
-│  Profile Hero (photo + name)    │
-│  ────────────────────────────── │
-│  ACCOUNT                        │
-│  ☀️  Summer Season  ›  Apr–Sep  │
-│  🎯  Preseason Commitments  ›   │
-│  ────────────────────────────── │
-│  TRACKING (vets only)           │
-│  📊  EFP Mode          [toggle] │
-│  📉  Cancel Rate         10%  › │
-│  🔢  Custom Counters       3  › │
-│  📋  Sales Logger      [toggle] │
-│  ────────────────────────────── │
-│  ME VS ME (vets only)           │
-│  🏆  Me vs Me          [toggle] │
-│  ────────────────────────────── │
-│  NOTIFICATIONS                  │
-│  🔔  Push Notifications    ›    │
-│  ────────────────────────────── │
-│  RECAPS                         │
-│  📊  Pay Level            100›  │
-│  📖  Past Recaps            ›   │
-│  ✨  Team Recaps            ›   │
-│  ────────────────────────────── │
-│  ABOUT                          │
-│  🔄  Replay Intro           ›   │
-│  🗺️  Reset Page Tours       ›   │
-│  🧪  Developer Tools        ›   │ (Calvin only)
-│  ────────────────────────────── │
-│  Sign Out                        │
-└─────────────────────────────────┘
+Team Lead sees:
+┌─────────────────────────────┐
+│ ★ Outstanding (3)           │
+│   Rep A — 2.0 FP+           │
+│   Rep B — 1.0 FP+           │
+│ ⚡ Working (5)              │
+│   Rep C — 24 doors          │
+│ ⚠ Need Attention (1)        │
+│   Rep D — Low pitch rate     │
+└─────────────────────────────┘
+  (Unchanged — no nested groups needed)
+
+MGMT Group Lead sees:
+┌─────────────────────────────┐
+│ Team Quinn (8)     12.5 FP+ │
+│  ├ ★ Rep A — 3.0 FP+       │
+│  ├ ⚡ Rep B — 40 doors      │
+│  └ ⚠ Rep C — Low pitch     │
+│ Team Calvin (6)     8.0 FP+ │
+│  ├ ★ Rep D — 2.0 FP+       │
+│  └ ⚡ Rep E — 18 doors      │
+└─────────────────────────────┘
+
+Sr Manager / AD / Regional sees:
+┌─────────────────────────────┐
+│ ▼ MGMT Group Gunnar (14) FP│
+│   Team Quinn (8)   12.5 FP+ │
+│    ├ Rep A — 3.0 FP+        │
+│    └ Rep B — 40 doors       │
+│   Team Calvin (6)   8.0 FP+ │
+│    └ Rep D — 2.0 FP+        │
+│ ▼ MGMT Group Joe (10)   FP │
+│   Team Sarah (5)    ...      │
+│   Team Mike (5)     ...      │
+└─────────────────────────────┘
 ```
+
+Key behaviors:
+- **Team Lead**: Keep existing category-based view (Outstanding/Working/Attention) — their scope is small enough
+- **MGMT Group Lead**: Group by Teams within their group, sorted by team FP desc
+- **Sr Manager+**: Group by MGMT Group > Team, collapsible at both levels
+- **Area Director**: Same as above but includes all reps assigned to their office(s)
+- Performance badges (Outstanding star, Attention warning) appear inline on each rep row regardless of grouping level
+- Aggregate stats (FP+, PRMR, rep count) roll up to each group header
+- Search filters across all levels
+- Sort dropdown still works, applied within each group
 
 ## Plan
 
-### 1. Create a reusable `SettingsRow` component
-A single row with icon, title, subtitle, and a right-side accessory (chevron, toggle, value badge). Used for every item on the page.
+### 1. Create `OrgGroupedRepList` component
+New component `src/components/reports/OrgGroupedRepList.tsx` that:
+- Accepts reps with their `teamId`, `teamName`, `mgmtGroupId`, `mgmtGroupName` (already available from `accessibleReps`)
+- Accepts `accessLevel` to determine grouping depth
+- Accepts the org `hierarchy` object from `useTeamAccess` to resolve group membership
+- Builds a nested tree: MGMT Group > Team > Rep
+- Renders collapsible sections with aggregate stats at each level
+- Preserves the performance categorization as inline badges/indicators on each rep
+- Includes search bar and sort controls
 
-### 2. Create a `SettingsSection` component
-Renders a section label + a rounded container with dividers between rows. Like iOS grouped table sections.
+### 2. Enrich rep data with org IDs
+In `useTeamLiveData` and `useTeamAggregatedRankings`:
+- `useTeamLiveData` already resolves `teamId`, `teamName`, `mgmtGroupName` from the team-access cache — also add `mgmtGroupId`
+- `useTeamAggregatedRankings` currently only has `teamName` from `team_leader` field — enrich it to also pull `teamId`, `teamName`, `mgmtGroupId`, `mgmtGroupName` from the team-access cache (same pattern as live data)
 
-### 3. Rebuild the Profile hero
-Large centered avatar with camera overlay, editable name below it, and the rep's role/year as a subtitle. Clean, minimal.
+### 3. Update `ReportsPeopleTab` to pass org context
+- Pass `accessLevel` and `hierarchy` from `TeamReports.tsx` down to `ReportsPeopleTab`
+- For `viewType === 'today'`: Use `OrgGroupedRepList` when access level is MGMT lead or higher; keep `LiveLeaderboard` for Team Leads
+- For `viewType === 'yesterday'`: Same logic
+- For aggregated views: Use `OrgGroupedRepList` for MGMT lead+; keep current for Team Leads
 
-### 4. Refactor Settings.tsx into grouped sections
-- Extract all handler logic into the same file but organize the JSX into clean `SettingsSection` blocks
-- Inline toggles for simple on/off settings (EFP mode, Sales Logger)
-- Navigation rows (chevron ›) for complex settings that open Drawers: Summer Dates, Cancel Rate, Custom Counters, Notifications, Recaps
-- Keep existing Drawer-based editing UIs but trigger them from clean rows instead of collapsibles
+### 4. Update `HierarchicalRepList` (WorkingRepsDrawer)
+- Refactor to use the same `OrgGroupedRepList` component, or update it to group by MGMT Group > Team when the viewer has that scope
 
-### 5. Style the page
-- Remove all Card wrappers — use full-width grouped rows with `bg-card rounded-xl` per section
-- Section headers: uppercase, small, muted text with left padding
-- Rows: 56px height, consistent padding, right-aligned accessories
-- Subtle dividers between rows (not between sections)
-- Page background stays `bg-background`
-
-### 6. Fix build error
-Investigate and resolve the current build failure before applying changes.
+### 5. Wire up in `TeamReports.tsx`
+- Pass `accessData.accessLevel`, `accessData.hierarchy`, and `accessData.accessibleReps` through to `ReportsPeopleTab`
+- The data flow: `useTeamAccess` provides org structure → `ReportsPeopleTab` → `OrgGroupedRepList` groups reps using the hierarchy
 
 ## Technical Details
 
-**New files:**
-- `src/components/settings/SettingsRow.tsx` — Reusable row (icon, title, subtitle, accessory slot)
-- `src/components/settings/SettingsSection.tsx` — Section wrapper with label
+**Data already available** (no new DB queries needed):
+- `accessData.hierarchy` contains offices > srMgmtGroups > mgmtGroups > teams
+- `accessData.accessibleReps` has `teamId`, `teamName`, `mgmtGroupId`, `mgmtGroupName` per rep
+- Live/aggregated data hooks already have team info — just need to add `mgmtGroupId`
 
-**Modified files:**
-- `src/pages/Settings.tsx` — Complete rewrite of JSX structure; all existing handlers/state preserved, just reorganized
+**Files to create:**
+- `src/components/reports/OrgGroupedRepList.tsx` — Main hierarchical grouping component
 
-**No database changes needed.** All existing functionality (save profile, toggle EFP, counters, notifications, recaps) remains identical — only the presentation layer changes.
+**Files to modify:**
+- `src/hooks/useTeamLiveData.ts` — Add `mgmtGroupId` to live rep data
+- `src/hooks/useTeamAggregatedRankings.ts` — Add `teamId`, `mgmtGroupId`, `mgmtGroupName` from cache
+- `src/components/reports/ReportsPeopleTab.tsx` — Accept and pass org context, swap in `OrgGroupedRepList`
+- `src/pages/TeamReports.tsx` — Pass `accessLevel` and `hierarchy` to people tab
+- `src/components/reports/v2/HierarchicalRepList.tsx` — Update to use org-aware grouping
 
