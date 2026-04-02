@@ -335,6 +335,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             userId,
             name: repInfo?.name || 'Unknown',
             teamId,
+            mgmtGroupId,
             teamName,
             mgmtGroupName,
             recruiterName,
