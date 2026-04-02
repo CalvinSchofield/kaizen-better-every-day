@@ -8,6 +8,10 @@ import { SalesFunnelChart } from "@/components/insights/SalesFunnelChart";
 import { TeamProgressChart } from "./TeamProgressChart";
 import { TeamCanceledStatsCard } from "./TeamCanceledStatsCard";
 import { TrendingUp, TrendingDown, Target, Clock } from "lucide-react";
+import { GroupComparisonChart } from "./v2/GroupComparisonChart";
+import { PeriodComparisonCard } from "./v2/PeriodComparisonCard";
+import { GoalPaceCard } from "./v2/GoalPaceCard";
+import { AccessLevel } from "@/utils/roleHierarchy";
 
 interface FunnelData {
   doors: { total: number; conversionToNext: number };
