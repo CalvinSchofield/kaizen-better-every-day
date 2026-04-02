@@ -16,6 +16,7 @@ export interface OrgRepData {
   teamName?: string | null;
   mgmtGroupId?: string | null;
   mgmtGroupName?: string | null;
+  recruiterName?: string | null;
   fp: number;
   prmr: number;
   doors: number;
