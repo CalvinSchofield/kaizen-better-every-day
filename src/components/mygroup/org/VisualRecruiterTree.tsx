@@ -239,6 +239,7 @@ interface VisualRecruiterTreeProps {
   groupByOffice?: boolean;
   onGroupByOfficeChange?: (value: boolean) => void;
   showGroupByOfficeToggle?: boolean;
+  onOfficeNodeClick?: (officeId: string) => void;
 }
 
 export const VisualRecruiterTree = ({
