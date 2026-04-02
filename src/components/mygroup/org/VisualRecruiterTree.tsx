@@ -249,6 +249,7 @@ export const VisualRecruiterTree = ({
   groupByOffice = false,
   onGroupByOfficeChange,
   showGroupByOfficeToggle = false,
+  onOfficeNodeClick,
 }: VisualRecruiterTreeProps) => {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
