@@ -424,6 +424,7 @@ export const useTeamAggregatedRankings = ({
       const reps: RepRankingData[] = [];
       userTotals.forEach((totals, userId) => {
         const repInfo = repsMap.get(userId);
+        const teamInfo = repInfoMap.get(userId);
         if (!repInfo) return;
 
         const avgStartMinutes = totals.startTimeCount > 0 
