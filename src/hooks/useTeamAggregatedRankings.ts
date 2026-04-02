@@ -9,6 +9,7 @@ export interface RepRankingData {
   teamName?: string;
   mgmtGroupId?: string | null;
   mgmtGroupName?: string;
+  recruiterName?: string | null;
   year?: string;
   phone?: string;
   timezone?: string;
@@ -441,6 +442,7 @@ export const useTeamAggregatedRankings = ({
           teamName: teamInfo?.teamName || repInfo.teamName,
           mgmtGroupId: teamInfo?.mgmtGroupId || null,
           mgmtGroupName: teamInfo?.mgmtGroupName || undefined,
+          recruiterName: teamInfo?.recruiterName || null,
           year: repInfo.year,
           phone: repInfo.phone,
           timezone: repInfo.timezone,
