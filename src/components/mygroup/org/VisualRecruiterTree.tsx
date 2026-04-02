@@ -376,7 +376,7 @@ export const VisualRecruiterTree = ({
                 <AnimatePresence>
                   {nodes.map((node) => {
                     if (node.isLabelNode) {
-                      return <LabelNodeRenderer key={node.id} node={node} PADDING={PADDING} collapsedIds={collapsedIds} toggleCollapse={toggleCollapse} />;
+                      return <LabelNodeRenderer key={node.id} node={node} PADDING={PADDING} collapsedIds={collapsedIds} toggleCollapse={toggleCollapse} onOfficeNodeClick={node.isOfficeNode ? onOfficeNodeClick : undefined} />;
                     }
 
                     const cleanName = getCleanName(node.name);
