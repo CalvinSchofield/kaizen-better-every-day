@@ -239,6 +239,11 @@ export const ReportsPeopleTab = ({
   if (useOrgGrouping) {
     return (
       <div className="space-y-4">
+        <CoachingAlerts
+          reps={coachingReps}
+          onRepClick={onRepClick}
+          groupedByTeam={groupedByTeam}
+        />
         <RookieCohortCard reps={aggregatedReps || []} />
         <OrgGroupedRepList
           reps={aggregatedOrgReps}
