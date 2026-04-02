@@ -101,27 +101,79 @@ const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0
   );
 };
 
-// Generate pulse sentence based on metrics and baseline
+// Detect if a period label represents a completed (past) timeframe
+const isCompletedPeriod = (label: string): boolean => {
+  const lower = label.toLowerCase();
+  return lower.startsWith('last') || lower === 'yesterday';
+};
+
+// Detect if a period is ongoing (not live, not completed)
+const isOngoingPeriod = (label: string): boolean => {
+  const lower = label.toLowerCase();
+  return lower.startsWith('this') || lower === 'preseason' || lower === 'ytd' || lower === 'season';
+};
+
+// Generate pulse sentence based on metrics, baseline, and period context
 const generatePulseSentence = (
   fp: number,
   doors: number,
+  closes: number,
+  activeReps: number,
+  periodLabel: string,
   baseline?: TeamBaseline,
   isLiveView?: boolean,
 ): string => {
-  if (!baseline || !isLiveView) {
+  // LIVE view with baseline — use pace comparison
+  if (isLiveView && baseline) {
+    const expectedFP = baseline.teamExpectedFPToday || 0;
+    if (expectedFP <= 0) return `${fp.toFixed(1)} FP+ produced today`;
+    const pct = (fp / expectedFP) * 100;
+    if (pct >= 110) return `Production is ${(pct - 100).toFixed(0)}% above expected pace 🔥`;
+    if (pct >= 90) return "Team is tracking on pace with baseline";
+    if (pct >= 70) return `Team is ${(100 - pct).toFixed(0)}% behind normal pace`;
+    return `Team is significantly behind expected pace — ${(100 - pct).toFixed(0)}% below baseline`;
+  }
+
+  // No activity yet
+  if (fp <= 0 && doors <= 0) {
+    if (isLiveView) return "Waiting for field activity to begin";
+    if (isCompletedPeriod(periodLabel)) return `No recorded activity for ${periodLabel.toLowerCase()}`;
+    return "No activity recorded yet this period";
+  }
+
+  // COMPLETED period — past tense coaching summary
+  if (isCompletedPeriod(periodLabel)) {
+    if (fp > 0 && activeReps > 0) {
+      const perRep = (fp / activeReps).toFixed(2);
+      return `${fp.toFixed(1)} FP+ across ${activeReps} reps — ${perRep} per rep`;
+    }
+    if (fp > 0) return `${fp.toFixed(1)} FP+ produced ${periodLabel.toLowerCase()}`;
+    return `${doors} doors knocked, no closes ${periodLabel.toLowerCase()}`;
+  }
+
+  // ONGOING period — present tense with context
+  if (isOngoingPeriod(periodLabel)) {
+    if (fp > 0 && closes > 0) {
+      return `${fp.toFixed(1)} FP+ on ${closes} closes so far`;
+    }
     if (fp > 0) return `${fp.toFixed(1)} FP+ produced so far`;
+    return `${doors} doors knocked, working towards first close`;
+  }
+
+  // LIVE without baseline / fallback
+  if (isLiveView) {
+    if (fp > 0) return `${fp.toFixed(1)} FP+ produced today`;
     if (doors > 0) return `${doors} doors knocked, working towards first sale`;
     return "Waiting for field activity to begin";
   }
 
-  const expectedFP = (baseline.teamExpectedFPToday || 0);
-  if (expectedFP <= 0) return `${fp.toFixed(1)} FP+ produced today`;
-
-  const pct = ((fp / expectedFP) * 100);
-  if (pct >= 110) return `Production is ${(pct - 100).toFixed(0)}% above expected pace 🔥`;
-  if (pct >= 90) return "Team is tracking on pace with baseline";
-  if (pct >= 70) return `Team is ${(100 - pct).toFixed(0)}% behind normal pace`;
-  return `Team is significantly behind expected pace — ${(100 - pct).toFixed(0)}% below baseline`;
+  // Custom range / generic fallback
+  if (fp > 0 && activeReps > 0) {
+    const perRep = (fp / activeReps).toFixed(2);
+    return `${fp.toFixed(1)} FP+ across ${activeReps} reps — ${perRep} per rep`;
+  }
+  if (fp > 0) return `${fp.toFixed(1)} FP+ produced in this period`;
+  return `${doors} doors knocked in this period`;
 };
 
 // Map metric keys to StatTile labels
