@@ -225,7 +225,7 @@ export const PulseHero = ({
   const expectedFP = teamBaseline?.teamExpectedFPToday;
   const fpDelta = calcDelta(fp, expectedFP);
 
-  const pulseSentence = generatePulseSentence(fp, doors, teamBaseline, isLiveView);
+  const pulseSentence = generatePulseSentence(fp, doors, closes, activeReps, periodLabel, teamBaseline, isLiveView);
 
   // Determine pulse color
   const pulseColor = !fpDelta ? "text-muted-foreground" 
