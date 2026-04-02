@@ -364,7 +364,7 @@ const TeamReports = () => {
   // Build sparkline data for hero card
   const heroSparkline = useMemo(() => {
     if (!insightsData?.dailyTrend || insightsData.dailyTrend.length < 2) return undefined;
-    return insightsData.dailyTrend.map((d: any) => ({ date: d.date, fp: d.fp }));
+    return insightsData.dailyTrend.map((d: any) => ({ date: d.date, fp: d.fp, prmr: d.prmr || 0 }));
   }, [insightsData?.dailyTrend]);
 
   // Compute comparison data for period-over-period
