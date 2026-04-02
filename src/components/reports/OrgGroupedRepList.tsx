@@ -107,7 +107,7 @@ interface GroupHeaderProps {
   workingCount: number;
   isLive: boolean;
   isExpanded: boolean;
-  depth: number; // 0 = mgmt group, 1 = team
+  depth: number; // 0 = mgmt group, 1 = team, 2 = recruiter group
 }
 
 const GroupHeader = ({ label, repCount, totalFP, workingCount, isLive, isExpanded, depth }: GroupHeaderProps) => (
@@ -135,6 +135,47 @@ const GroupHeader = ({ label, repCount, totalFP, workingCount, isLive, isExpande
     )}
   </div>
 );
+
+// ── recruiter sub-grouping helper ───────────────────────────────
+
+type RecruiterBucket = { name: string; reps: OrgRepData[] };
+
+const groupByRecruiter = (reps: OrgRepData[]): { groups: RecruiterBucket[]; solo: OrgRepData[] } => {
+  const recruiterMap = new Map<string, OrgRepData[]>();
+  const noRecruiter: OrgRepData[] = [];
+  
+  reps.forEach(rep => {
+    const rName = rep.recruiterName?.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+    if (rName) {
+      if (!recruiterMap.has(rName)) recruiterMap.set(rName, []);
+      recruiterMap.get(rName)!.push(rep);
+    } else {
+      noRecruiter.push(rep);
+    }
+  });
+  
+  // Only create recruiter groups if there are 2+ reps under that recruiter
+  // Otherwise fold them into the solo list
+  const groups: RecruiterBucket[] = [];
+  const solo = [...noRecruiter];
+  
+  recruiterMap.forEach((members, name) => {
+    if (members.length >= 2) {
+      groups.push({ name, reps: members });
+    } else {
+      solo.push(...members);
+    }
+  });
+  
+  // Sort groups by FP desc
+  groups.sort((a, b) => {
+    const aFP = a.reps.reduce((s, r) => s + r.fp, 0);
+    const bFP = b.reps.reduce((s, r) => s + r.fp, 0);
+    return bFP - aFP;
+  });
+  
+  return { groups, solo };
+};
 
 // ── main component ──────────────────────────────────────────────
 
