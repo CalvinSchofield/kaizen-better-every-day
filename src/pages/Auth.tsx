@@ -402,6 +402,7 @@ const Auth = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
+                autoComplete={isLogin ? "username" : "email"}
               />
               {!isLogin && (
                 <p className="text-xs text-muted-foreground">
