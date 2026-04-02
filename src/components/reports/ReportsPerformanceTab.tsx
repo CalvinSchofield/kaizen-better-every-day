@@ -59,7 +59,26 @@ interface ReportsPerformanceTabProps {
   dailyTrendByRep?: any;
   dailyTrendByTeam?: any;
   dailyTrendByMgmt?: any;
-  accessLevel: import("@/utils/roleHierarchy").AccessLevel;
+  accessLevel: AccessLevel;
+  cumulativeLoading?: boolean;
+  
+  // Period comparison
+  comparisonData?: {
+    current: { fp: number; prmr: number; doors: number; presentations: number; closes: number; hoursWorked: number; repsWorked: number };
+    previous: { fp: number; prmr: number; doors: number; presentations: number; closes: number; hoursWorked: number; repsWorked: number } | null;
+    currentLabel: string;
+    previousLabel: string;
+  };
+  
+  // Goal pace
+  goalPaceReps?: Array<{
+    name: string;
+    userId: string;
+    status: 'on_pace' | 'at_risk' | 'behind' | 'no_goals';
+    gapToGoal?: number;
+    percentComplete?: number;
+  }>;
+  onGoalPaceDrawerOpen?: () => void;
   cumulativeLoading?: boolean;
   
   canceledStats?: any;
