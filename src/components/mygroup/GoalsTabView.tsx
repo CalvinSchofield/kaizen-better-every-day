@@ -370,7 +370,28 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
 
         const hasGoals = goals?.setup_complete && activeGoal > 0;
 
-        if (paceResult) {
+        if (hasGoals && currentProgress >= activeGoal) {
+          // Goal already met — don't show as behind
+          paceStatus = 'goal-met';
+          pacePercentage = 100;
+          if (paceResult) {
+            expectedAtThisPoint = paceResult.expectedAtThisPoint;
+            variance = paceResult.paceVariance;
+            futurePlannedDays = paceResult.futurePlannedDays;
+            daysRemaining = paceResult.futurePlannedDays;
+          }
+        } else if (hasGoals && knockingDays === 0) {
+          // Rep hasn't knocked a single qualifying day — we can't determine pace
+          paceStatus = 'not-started';
+          pacePercentage = 0;
+          const todayStr = format(today, 'yyyy-MM-dd');
+          const totalFuturePlanned = plannedDays.filter(d => d.planned_date > todayStr).length;
+          futurePlannedDays = totalFuturePlanned;
+          daysRemaining = totalFuturePlanned;
+          if (daysRemaining > 0 && activeGoal > 0) {
+            dailyTarget = Math.max(0, activeGoal - currentProgress) / daysRemaining;
+          }
+        } else if (paceResult) {
           expectedAtThisPoint = paceResult.expectedAtThisPoint;
           variance = paceResult.paceVariance;
           dailyTarget = paceResult.remainingDailyNeeded;
@@ -392,12 +413,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           const totalFuturePlanned = plannedDays.filter(d => d.planned_date > todayStr).length;
           futurePlannedDays = totalFuturePlanned;
           daysRemaining = totalFuturePlanned;
-          if (knockingDays === 0 && currentProgress === 0) {
-            paceStatus = totalFuturePlanned > 0 ? 'on-track' : 'behind';
-          } else {
-            pacePercentage = activeGoal > 0 ? (currentProgress / activeGoal) * 100 : 0;
-            paceStatus = 'behind';
-          }
+          pacePercentage = activeGoal > 0 ? (currentProgress / activeGoal) * 100 : 0;
+          paceStatus = 'behind';
           if (daysRemaining > 0 && activeGoal > 0) {
             dailyTarget = Math.max(0, activeGoal - currentProgress) / daysRemaining;
           }
