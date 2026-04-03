@@ -10,7 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   Sun, AlertCircle, Calendar, ChevronLeft, ChevronRight,
-  Bell, Pencil, ChevronDown, ChevronUp, Filter, Palmtree
+  Bell, Pencil, ChevronDown, ChevronUp, Filter, Palmtree, TrendingUp, Users
 } from "lucide-react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { getInitials } from "@/utils/nameUtils";
@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // Default summer dates
 const DEFAULT_SUMMER_START = '2026-04-12';
 const DEFAULT_SUMMER_END = '2026-09-27';
+const SEASON_START = '2025-09-28';
 
 const parseLocalDate = (dateString: string): Date => {
   const [year, month, day] = dateString.split('-').map(Number);
@@ -92,6 +93,8 @@ export const SummerAvailabilityView = () => {
     },
   });
 
+  const canSeePace = hasMinAccess(accessLevel, 'mgmt_group_lead');
+
   // Team data
   const { data: teamData, isLoading: teamLoading } = useQuery({
     queryKey: ['team-summer-availability', teamAccess?.accessibleUserIds],
@@ -109,6 +112,43 @@ export const SummerAvailabilityView = () => {
       };
     },
     enabled: !!teamAccess?.accessibleUserIds?.length,
+  });
+
+  // Fetch pace data for all accessible reps (MGMT group lead+ only)
+  const { data: paceDataMap } = useQuery({
+    queryKey: ['summer-avail-pace', teamAccess?.accessibleUserIds],
+    queryFn: async () => {
+      const userIds = teamAccess?.accessibleUserIds || [];
+      if (!userIds.length) return new Map<string, number>();
+
+      // Fetch finalized daily entries for the season to calculate avg FP+/day per rep
+      const { data: entries } = await supabase
+        .from('daily_entries')
+        .select('user_id, fp_plus, doors_knocked')
+        .in('user_id', userIds)
+        .gte('entry_date', SEASON_START)
+        .eq('is_finalized', true);
+
+      if (!entries) return new Map<string, number>();
+
+      // Build per-rep: total FP+ and knocking days
+      const repStats = new Map<string, { totalFp: number; knockingDays: number }>();
+      for (const e of entries) {
+        const stat = repStats.get(e.user_id) || { totalFp: 0, knockingDays: 0 };
+        stat.totalFp += e.fp_plus || 0;
+        if ((e.doors_knocked || 0) >= 4) stat.knockingDays++;
+        repStats.set(e.user_id, stat);
+      }
+
+      // Convert to avg FP+/day
+      const paceMap = new Map<string, number>();
+      for (const [uid, stat] of repStats) {
+        paceMap.set(uid, stat.knockingDays > 0 ? stat.totalFp / stat.knockingDays : 0);
+      }
+      return paceMap;
+    },
+    enabled: canSeePace && !!teamAccess?.accessibleUserIds?.length,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Build people list
@@ -254,7 +294,33 @@ export const SummerAvailabilityView = () => {
     return { activePeople: active, outOfRangePeople: outOfRange };
   }, [readyPeople, weekDays]);
 
-  // Check if a rep is off on a given date
+  // Weekly stats: working rep count + projected FP+
+  const weeklyStats = useMemo(() => {
+    const weekDateStrs = weekDays.map(d => format(d, 'yyyy-MM-dd'));
+    let workingReps = 0;
+    let totalWorkingDays = 0;
+    let projectedFP = 0;
+
+    activePeople.forEach(p => {
+      let repWorkingDays = 0;
+      weekDateStrs.forEach(dayStr => {
+        if (!p.personalSummerStart || !p.personalSummerEnd) return;
+        if (dayStr < p.personalSummerStart || dayStr > p.personalSummerEnd) return;
+        if (p.excludedSummerDays.includes(dayStr)) return;
+        repWorkingDays++;
+      });
+      if (repWorkingDays > 0) {
+        workingReps++;
+        totalWorkingDays += repWorkingDays;
+        const pace = paceDataMap?.get(p.userId) || 0;
+        projectedFP += pace * repWorkingDays;
+      }
+    });
+
+    return { workingReps, totalWorkingDays, projectedFP };
+  }, [activePeople, weekDays, paceDataMap]);
+
+
   const isRepOff = useCallback((person: PersonSummerInfo, dateStr: string): 'off' | 'excluded' | 'working' | 'not-started' | 'ended' => {
     if (!person.personalSummerStart || !person.personalSummerEnd) return 'off';
     if (dateStr < person.personalSummerStart) return 'not-started';
@@ -411,6 +477,28 @@ export const SummerAvailabilityView = () => {
           Jump to this week
         </button>
       )}
+
+      {/* Weekly Stats */}
+      <div className="flex items-center gap-3 px-1">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Users className="h-3.5 w-3.5" />
+          <span className="font-medium text-foreground">{weeklyStats.workingReps}</span>
+          <span>reps working</span>
+          <span className="text-muted-foreground/60">·</span>
+          <span className="font-medium text-foreground">{weeklyStats.totalWorkingDays}</span>
+          <span>rep-days</span>
+        </div>
+        {canSeePace && weeklyStats.projectedFP > 0 && (
+          <>
+            <span className="text-muted-foreground/40">|</span>
+            <div className="flex items-center gap-1.5 text-xs">
+              <TrendingUp className="h-3.5 w-3.5 text-primary" />
+              <span className="font-semibold text-primary">{weeklyStats.projectedFP.toFixed(1)}</span>
+              <span className="text-muted-foreground">FP+ projected</span>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Calendar Grid */}
       <div className="border rounded-xl overflow-hidden bg-background shadow-sm">
