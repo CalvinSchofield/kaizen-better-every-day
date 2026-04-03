@@ -1145,7 +1145,7 @@ const OrgChart = () => {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               {dragConfirm && dragConfirm.source.totalDescendants > 0 && (
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                <AlertTriangle className="h-5 w-5 text-destructive" />
               )}
               {dragConfirm && dragConfirm.source.totalDescendants > 0 ? "Branch Move" : "Reassign Recruiter"}
             </AlertDialogTitle>
