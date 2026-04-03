@@ -6,6 +6,8 @@ import { ActiveRecord } from "@/utils/teamRecordDetection";
 import { RecordBanner } from "./RecordBanner";
 import { MicroSparkline } from "./MicroSparkline";
 import { ComparisonTotals, SparklinePoint } from "@/hooks/useReportsV2Comparison";
+import { IntradayPaceResult, generatePacePulseSentence } from "@/utils/intradayPaceCalculations";
+import { IntradayPaceBar } from "./IntradayPaceBar";
 
 interface PulseHeroProps {
   doors: number;
@@ -35,6 +37,8 @@ interface PulseHeroProps {
   comparisonTotals?: ComparisonTotals | null;
   comparisonLabel?: string;
   sparklineHistory?: SparklinePoint[];
+  // Intraday pace (live view only)
+  intradayPace?: IntradayPaceResult;
 }
 
 type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'closes' | 'fp';
@@ -209,6 +213,7 @@ export const PulseHero = ({
   onAvgStartClick, onFpClick,
   activeRecords = [], onRecordBannerClick,
   comparisonTotals, comparisonLabel, sparklineHistory,
+  intradayPace,
 }: PulseHeroProps) => {
   if (isLoading) {
     return (
@@ -236,8 +241,13 @@ export const PulseHero = ({
   };
 
   // Calculate deltas from comparison data (period-over-period)
+  // In live view with intraday pace, use pace deltas instead
   const calcDelta = (metricKey: MetricKey): number | null => {
-    // For live view, use baseline delta for FP only (existing behavior)
+    // Live view with intraday pace — use pace-based deltas
+    if (isLiveView && intradayPace?.hasEnoughData) {
+      return intradayPace.deltas[metricKey as keyof typeof intradayPace.deltas] ?? null;
+    }
+    // For live view without pace, use baseline delta for FP only (existing behavior)
     if (isLiveView && metricKey === 'fp' && teamBaseline?.teamExpectedFPToday) {
       const expected = teamBaseline.teamExpectedFPToday;
       if (expected > 0) return ((fp - expected) / expected) * 100;
@@ -267,7 +277,12 @@ export const PulseHero = ({
     return avg > 0 ? avg : undefined;
   };
 
-  const pulseSentence = generatePulseSentence(
+  // Use intraday pace sentence when available, otherwise fall back to existing logic
+  const paceSentence = intradayPace?.hasEnoughData 
+    ? generatePacePulseSentence(intradayPace, intradayPace.dayName)
+    : null;
+  
+  const pulseSentence = paceSentence || generatePulseSentence(
     fp, doors, closes, activeReps, periodLabel, teamBaseline, isLiveView,
     comparisonTotals, comparisonLabel,
   );
@@ -298,6 +313,11 @@ export const PulseHero = ({
         <p className="text-[10px] text-muted-foreground/70 -mt-1 ml-6">
           {comparisonLabel}
         </p>
+      )}
+
+      {/* Intraday Pace Bar (live view only) */}
+      {isLiveView && intradayPace && intradayPace.hasEnoughData && (
+        <IntradayPaceBar pace={intradayPace} />
       )}
 
       {/* Stat tiles grid - 3x2 */}

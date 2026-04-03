@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { format, subDays, getDay } from "date-fns";
+import { IntradayPaceResult, calculateIntradayPace, getDayType, generatePacePulseSentence } from "@/utils/intradayPaceCalculations";
 import { ActiveRecord, detectActiveRecords, AllTimeGroupRecords } from "@/utils/teamRecordDetection";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { useTeamLiveData } from "./useTeamLiveData";
@@ -140,6 +141,9 @@ export interface ReportsV2Data {
   
   // Team baseline
   teamBaseline?: TeamBaseline;
+  
+  // Intraday pace (live view only)
+  intradayPace?: IntradayPaceResult;
   
   // Rep-level data
   repsWithEffort: RepWithEffort[];
@@ -598,11 +602,18 @@ export const useReportsV2Data = ({
       
       // Calculate team baseline from 14-day data
       let teamBaseline: TeamBaseline | undefined;
+      let intradayPace: IntradayPaceResult | undefined;
       if (baselineQuery.data) {
         const { entries, plannedDays, reps } = baselineQuery.data;
         
-        // Build per-rep baselines
-        const repBaselines: RepBaseline[] = reps
+        // Determine today's day type for intraday pacing
+        const todayDayIndex = today.getDay(); // 0=Sun, 6=Sat
+        const currentDayType = getDayType(todayDayIndex);
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDayName = dayNames[todayDayIndex];
+        
+        // Build per-rep baselines (overall for team baseline)
+        const buildRepBaselines = (dayTypeFilter?: 'weekday' | 'saturday') => reps
           .filter(r => r.user_id)
           .map(rep => {
             const repEntries = entries
@@ -629,11 +640,35 @@ export const useReportsV2Data = ({
               rep.user_id!,
               rep.name,
               repEntries,
-              isWorkingToday
+              isWorkingToday,
+              dayTypeFilter,
             );
           });
         
+        // Overall baselines (no day-type filter) for general team baseline
+        const repBaselines = buildRepBaselines();
         teamBaseline = calculateTeamBaseline(repBaselines);
+        
+        // Day-type-specific baselines for intraday pacing
+        if (currentDayType) {
+          const dayTypeBaselines = buildRepBaselines(currentDayType);
+          
+          // Get current local time in minutes from midnight
+          const nowMinutes = today.getHours() * 60 + today.getMinutes();
+          
+          const actualKpis = {
+            doors: totals.doors,
+            dms: totals.dms,
+            pitches: totals.pitches,
+            transitions: totals.transitions,
+            presentations: totals.presentations,
+            fp: totals.fp,
+          };
+          
+          const pace = calculateIntradayPace(dayTypeBaselines, actualKpis, nowMinutes, currentDayType);
+          pace.dayName = currentDayName;
+          intradayPace = pace;
+        }
       }
       
       // Get names of reps currently working (unfinalized entries)
@@ -655,6 +690,7 @@ export const useReportsV2Data = ({
         teamGoalStatus,
         teamGoalStatusDetails,
         teamBaseline,
+        intradayPace,
         repsWithEffort,
         funnelData: {
           doors: totals.doors,

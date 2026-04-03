@@ -159,6 +159,7 @@ export const ReportsV2Page = () => {
     teamGoalStatus, teamGoalStatusDetails,
     enhancedGoalPace,
     teamBaseline,
+    intradayPace,
     repsWithEffort, funnelData,
     dailyTrend, hourlyActivity,
     activeRecords,
@@ -460,6 +461,7 @@ export const ReportsV2Page = () => {
         comparisonTotals={comparisonTotals}
         comparisonLabel={comparisonLabel}
         sparklineHistory={sparklineHistory}
+        intradayPace={intradayPace}
       />
 
       {/* Goal Pace Section */}
