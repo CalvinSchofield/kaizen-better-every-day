@@ -8,6 +8,7 @@ interface DayTiming {
   startTime: string | null;
   endTime: string | null;
   hoursWorked: number;
+  timezone?: string | null;
 }
 
 interface RepTimingChartProps {
@@ -19,7 +20,28 @@ const HOUR_START = 6; // 6 AM
 const HOUR_END = 23; // 11 PM
 const TOTAL_HOURS = HOUR_END - HOUR_START;
 
-const isoToHours = (iso: string): number => {
+/**
+ * Extract the local hour (decimal) for an ISO timestamp in the rep's timezone.
+ * This ensures a rep who starts at 1pm local always shows as 1pm regardless
+ * of the viewer's timezone.
+ */
+const isoToLocalHours = (iso: string, tz?: string | null): number => {
+  if (tz) {
+    try {
+      const d = new Date(iso);
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false,
+      }).formatToParts(d);
+      const hour = Number(parts.find(p => p.type === 'hour')?.value ?? 0);
+      const minute = Number(parts.find(p => p.type === 'minute')?.value ?? 0);
+      return hour + minute / 60;
+    } catch {
+      // fallback below
+    }
+  }
   const d = new Date(iso);
   return d.getHours() + d.getMinutes() / 60;
 };
@@ -39,8 +61,8 @@ export const RepTimingChart = ({ days, className }: RepTimingChartProps) => {
     if (validDays.length === 0) return { avgStart: 0, avgEnd: 0, totalHours: 0 };
     let sumStart = 0, sumEnd = 0, sumH = 0;
     validDays.forEach(d => {
-      sumStart += isoToHours(d.startTime!);
-      sumEnd += isoToHours(d.endTime!);
+      sumStart += isoToLocalHours(d.startTime!, d.timezone);
+      sumEnd += isoToLocalHours(d.endTime!, d.timezone);
       sumH += d.hoursWorked;
     });
     return {
@@ -63,7 +85,7 @@ export const RepTimingChart = ({ days, className }: RepTimingChartProps) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-muted-foreground">Work Times</h3>
-        <div className="flex items-center gap-3 text-[10px] font-medium text-muted-foreground">
+        <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground flex-wrap justify-end">
           <span className="bg-muted/50 px-2 py-0.5 rounded-full">
             avg {formatTime12(avgStart)} → {formatTime12(avgEnd)}
           </span>
@@ -93,8 +115,8 @@ export const RepTimingChart = ({ days, className }: RepTimingChartProps) => {
 
         {/* Bars */}
         {validDays.map((day, i) => {
-          const start = isoToHours(day.startTime!);
-          const end = isoToHours(day.endTime!);
+          const start = isoToLocalHours(day.startTime!, day.timezone);
+          const end = isoToLocalHours(day.endTime!, day.timezone);
           const leftPct = Math.max(0, ((start - HOUR_START) / TOTAL_HOURS) * 100);
           const widthPct = Math.min(100 - leftPct, ((end - start) / TOTAL_HOURS) * 100);
           const dayLabel = format(parseISO(day.date), 'EEE');
