@@ -1138,6 +1138,37 @@ const OrgChart = () => {
         }}
         onStepAction={handleTourAction}
       />
+
+      {/* Drag reassignment confirmation */}
+      <AlertDialog open={!!dragConfirm} onOpenChange={(open) => !open && setDragConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {dragConfirm && dragConfirm.source.totalDescendants > 0 && (
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              )}
+              {dragConfirm && dragConfirm.source.totalDescendants > 0 ? "Branch Move" : "Reassign Recruiter"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {dragConfirm && (
+                <>
+                  Move <strong>{getCleanName(dragConfirm.source.name)}</strong>
+                  {dragConfirm.source.totalDescendants > 0 && (
+                    <> and their <strong>{dragConfirm.source.totalDescendants} recruit{dragConfirm.source.totalDescendants !== 1 ? "s" : ""}</strong></>
+                  )}
+                  {" "}under <strong>{getCleanName(dragConfirm.targetName)}</strong>?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={dragSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={dragSaving} onClick={executeDragReassignment}>
+              {dragSaving ? "Moving..." : dragConfirm?.source.totalDescendants ? "Move Branch" : "Move"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
