@@ -37,6 +37,8 @@ interface PulseHeroProps {
   comparisonTotals?: ComparisonTotals | null;
   comparisonLabel?: string;
   sparklineHistory?: SparklinePoint[];
+  // Intraday pace (live view only)
+  intradayPace?: IntradayPaceResult;
 }
 
 type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'closes' | 'fp';
