@@ -396,9 +396,6 @@ export const VisualRecruiterTree = ({
             <TransformComponent
               wrapperStyle={{ width: "100%", height: "70vh", minHeight: 350 }}
               wrapperProps={{
-                ref: (el: HTMLDivElement | null) => {
-                  if (dragWrapperRef) dragWrapperRef.current = el;
-                },
                 onTouchMove: isDragging ? onDragTouchMove : undefined,
                 onTouchEnd: isDragging ? onDragTouchEnd : undefined,
                 onMouseMove: isDragging ? onDragMouseMove : undefined,
