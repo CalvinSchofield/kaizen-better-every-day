@@ -359,11 +359,12 @@ export const RepDrillDownDrawer = ({
           {/* Goal Progress */}
           {downlineGoalPace.hasGoals && (
             <div className="p-4 border-b">
-              <UnifiedGoalProgress
-                data={downlineGoalPace}
-                mode="compact"
-                compactTimeframes={['D', 'Y']}
-                showPaceContext
+              <RepGoalSnapshot
+                goalPaceData={downlineGoalPace}
+                periodFp={currentTotals?.fp || 0}
+                periodLabel={periodLabel}
+                dateRangeStart={dateRangeStart}
+                dateRangeEnd={dateRangeEnd}
               />
             </div>
           )}
