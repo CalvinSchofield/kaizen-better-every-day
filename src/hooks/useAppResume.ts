@@ -4,6 +4,7 @@ import { App } from '@capacitor/app';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionSafe } from '@/utils/authSession';
+import { persistTokensToNative } from '@/utils/nativeTokenStorage';
 
 /**
  * Comprehensive app resume handler for Capacitor/TestFlight reliability.
@@ -59,6 +60,8 @@ export function useAppResume() {
           return;
         }
         console.log('[useAppResume] Session verified successfully');
+        // Re-persist tokens to native storage after successful refresh
+        persistTokensToNative();
       } catch (err) {
         console.error('[useAppResume] Auth recovery error:', err);
         return;

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionSafe } from '@/utils/authSession';
 import { clearAllRepCaches } from './useRepData';
+import { persistTokensToNative, clearNativeTokens } from '@/utils/nativeTokenStorage';
 
 // Shared localStorage key (used by useRepData too)
 const USER_ID_STORAGE_KEY = 'kaizen-current-user-id';
@@ -114,6 +115,7 @@ export const useCurrentUserId = () => {
       clearUnexpectedSignOutRetry();
       clearAllRepCaches();
       clearStaleCaches();
+      clearNativeTokens(); // Wipe native storage on explicit sign-out
       setUserId(null);
       storeCachedUserId(null);
       setIsReady(true);
@@ -258,6 +260,11 @@ export const useCurrentUserId = () => {
       storeCachedUserId(newUserId);
       setIsReady(true);
       setAuthVerified(true);
+
+      // Persist tokens to native storage on every auth state change
+      if (newUserId) {
+        persistTokensToNative();
+      }
     });
     
     return () => {
