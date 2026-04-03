@@ -27,6 +27,8 @@ import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
 import { GoalAttentionAlerts } from "@/components/reports/v2/GoalAttentionAlerts";
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
+import { KpiDetailDrawer, KpiMetricKey } from "@/components/reports/v2/KpiDetailDrawer";
+import { FpDetailDrawer } from "@/components/reports/v2/FpDetailDrawer";
 import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, resolveFilteredUserIds } from "@/components/filters/UnifiedFilterDrawer";
 import { LeaderAICoachComingSoon } from '@/components/reports/LeaderAICoachComingSoon';
 import { Sparkles } from "lucide-react";
