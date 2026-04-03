@@ -131,7 +131,7 @@ export const RepPeriodKpis = ({
               )}
 
               {/* Delta */}
-              {delta !== null && (
+              {delta !== null ? (
                 <div className={cn(
                   "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold",
                   getDeltaColor(delta)
@@ -140,6 +140,11 @@ export const RepPeriodKpis = ({
                    delta < -5 ? <TrendingDown className="w-2.5 h-2.5" /> :
                    <Minus className="w-2.5 h-2.5" />}
                   {delta > 0 ? '+' : ''}{delta}%
+                </div>
+              ) : (
+                <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-muted-foreground bg-muted/50">
+                  <Minus className="w-2.5 h-2.5" />
+                  —
                 </div>
               )}
             </motion.div>
