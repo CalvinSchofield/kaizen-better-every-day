@@ -24,6 +24,7 @@ export interface SparklinePoint {
   doors: number;
   dms: number;
   pitches: number;
+  transitions: number;
   presentations: number;
   closes: number;
   fp: number;
