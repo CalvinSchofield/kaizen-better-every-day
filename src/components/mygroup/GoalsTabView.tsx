@@ -83,10 +83,12 @@ interface RepGoalInfo {
 }
 
 const STATUS_CONFIG: Record<PaceStatus, { label: string; icon: typeof TrendingUp; color: string; bg: string; border: string }> = {
+  'goal-met': { label: 'Goal Met', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-l-emerald-500' },
   ahead: { label: 'Ahead', icon: TrendingUp, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-l-emerald-500' },
   'on-track': { label: 'On Track', icon: CheckCircle2, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10', border: 'border-l-blue-500' },
   behind: { label: 'Behind', icon: TrendingDown, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10', border: 'border-l-amber-500' },
   critical: { label: 'At Risk', icon: AlertTriangle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10', border: 'border-l-red-500' },
+  'not-started': { label: 'Not Started', icon: Minus, color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-l-muted-foreground/30' },
   'no-goals': { label: 'No Goals', icon: Minus, color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-l-muted-foreground/30' },
 };
 
