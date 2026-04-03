@@ -209,7 +209,7 @@ const generatePulseSentence = (
 };
 
 export const PulseHero = ({
-  doors, dms, pitches, presentations, closes, fp, prmr,
+  doors, dms, pitches, transitions, presentations, closes, fp, prmr,
   avgStartTime, avgEndTime, activeHours,
   activeReps, workingCount, isLiveView,
   teamBaseline, periodLabel, isLoading, onWorkingClick,
