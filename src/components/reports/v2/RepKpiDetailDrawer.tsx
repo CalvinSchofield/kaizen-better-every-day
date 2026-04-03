@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import {
-  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
-} from "@/components/ui/drawer";
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
 import { MicroSparkline } from "./MicroSparkline";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
