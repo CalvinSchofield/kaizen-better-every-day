@@ -7,6 +7,10 @@ interface MicroSparklineProps {
   className?: string;
   /** Optional average/benchmark value to render as a faint horizontal "gold line" */
   goldLine?: number;
+  /** Show the numeric value label on the gold line */
+  showGoldLabel?: boolean;
+  /** Format function for gold label */
+  formatGoldLabel?: (v: number) => string;
   /** Color of the sparkline stroke */
   color?: string;
 }
