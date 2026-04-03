@@ -16,6 +16,7 @@ interface RepPeriodKpisProps {
   avgEndTime?: string | null;
   onSummaryRowClick?: () => void;
   summaryExpanded?: boolean;
+  onKpiTap?: (metricKey: MetricKey) => void;
 }
 
 type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'fp';
