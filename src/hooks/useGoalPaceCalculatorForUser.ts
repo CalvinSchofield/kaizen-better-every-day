@@ -284,9 +284,9 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
       })),
       personalSummerStart,
       personalSummerEnd: seasonConfig?.personal_summer_end || null,
-      efpModeEnabled: false, // Downline always shows FP+ (not EFP)
+      efpModeEnabled,
       conversionFactor: 1,
-      metricLabel: 'FP+',
+      metricLabel: efpModeEnabled ? 'EFP' : 'FP+',
       knockingDaysCompleted: knockingDays,
     });
   }, [goals, focusTier, isPreseason, currentProgress, todayFP, todayLiveFP, plannedDays, allEntries, personalSummerStart, seasonConfig, knockingDays, mustDoGoal, willDoGoal, couldDoGoal]);
