@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Progress } from '@/components/ui/progress';
 import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 import { formatFP } from '@/lib/formatters';
 import type { GoalPaceData, PaceSeverity } from '@/hooks/useGoalPaceCalculator';
@@ -43,6 +42,12 @@ export const RepGoalSnapshot = ({
   const tierKey = focusTier === 'preseason' ? 'preseason' : focusTier;
   const tierCfg = GOAL_TIER_CONFIG[tierKey as keyof typeof GOAL_TIER_CONFIG];
 
+  // The full season goal (use unbuffered for display)
+  const seasonGoal = unbufferedGoal || activeGoal;
+  
+  // Prior progress = total progress minus what was done this period
+  const priorProgress = Math.max(0, currentProgress - periodFp);
+
   // Original planned pace (goal / total planned days)
   const originalDailyPace = useMemo(() => {
     const totalPlannedDays = season.plannedDaysTotal;
@@ -50,7 +55,7 @@ export const RepGoalSnapshot = ({
     return activeGoal / totalPlannedDays;
   }, [activeGoal, season.plannedDaysTotal]);
 
-  // What was NEEDED just for this period to stay on pace
+  // What was expected for THIS period specifically
   const periodExpected = useMemo(() => {
     if (!dateRangeStart || !dateRangeEnd || originalDailyPace <= 0) return 0;
     const calDays = differenceInCalendarDays(dateRangeEnd, dateRangeStart) + 1;
@@ -58,20 +63,21 @@ export const RepGoalSnapshot = ({
     return originalDailyPace * estimatedWorkDays;
   }, [dateRangeStart, dateRangeEnd, originalDailyPace]);
 
-  const showPeriodRow = periodExpected > 0 && dateRangeStart && dateRangeEnd;
+  // Where they should have been at end of this period (prior + period expected)
+  const expectedAtEndOfPeriod = priorProgress + periodExpected;
 
-  // Period bar: periodFp vs periodExpected — did they do enough THIS period?
-  const periodPercent = periodExpected > 0
-    ? Math.min(120, (periodFp / periodExpected) * 100)
-    : periodFp > 0 ? 100 : 0;
+  const showPeriodSegment = periodExpected > 0 && dateRangeStart && dateRangeEnd;
+
+  // Season percentages (all relative to seasonGoal)
+  const priorPct = seasonGoal > 0 ? Math.min(100, (priorProgress / seasonGoal) * 100) : 0;
+  const periodPct = seasonGoal > 0 ? Math.min(100 - priorPct, (periodFp / seasonGoal) * 100) : 0;
+  const totalPct = seasonGoal > 0 ? Math.min(100, (currentProgress / seasonGoal) * 100) : 0;
+  const expectedMarkerPct = seasonGoal > 0 ? Math.min(100, (expectedAtEndOfPeriod / seasonGoal) * 100) : 0;
+
+  // Did they hit pace for this period?
   const periodHit = periodFp >= periodExpected;
   const periodShortfall = periodExpected - periodFp;
-
-  // Season progress
-  const seasonGoal = unbufferedGoal || activeGoal;
-  const seasonPercent = seasonGoal > 0
-    ? Math.min(100, (currentProgress / seasonGoal) * 100)
-    : 0;
+  const periodSurplus = periodFp - periodExpected;
 
   const paceDiff = season.paceDiff;
   const sev = severityConfig[severity];
@@ -94,92 +100,120 @@ export const RepGoalSnapshot = ({
         )}
       </div>
 
-      {/* Period Row — Did they hit the pace target for this window? */}
-      {showPeriodRow && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground font-medium">{periodLabel} Needed</span>
-            <span className="font-semibold tabular-nums text-foreground">
-              {formatFP(periodExpected)} {metricLabel}
-            </span>
-          </div>
+      {/* Season goal summary */}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground font-medium">
+          {isPreseason ? 'Preseason' : 'Season'}
+        </span>
+        <span className="font-semibold tabular-nums text-foreground">
+          {formatFP(currentProgress)} / {formatFP(seasonGoal)} {metricLabel}
+        </span>
+      </div>
 
-          {/* Bar: actual vs needed */}
-          <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted/30 dark:bg-muted/50 border border-border/30">
-            {/* Expected marker line at 100% */}
+      {/* Unified season bar with period segment highlighted */}
+      <div className="space-y-1">
+        <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/30 dark:bg-muted/50 border border-border/30">
+          {/* Prior progress (muted/completed) */}
+          {priorPct > 0 && (
             <div
-              className="absolute inset-y-0 w-px bg-foreground/40 z-10"
-              style={{ left: `${Math.min(100, 100)}%` }}
+              className="absolute inset-y-0 left-0 rounded-l-full bg-primary/40 transition-all duration-700"
+              style={{ width: `${priorPct}%` }}
             />
-            {/* Actual production bar */}
+          )}
+          
+          {/* This period's contribution (bright highlight) */}
+          {periodPct > 0 && (
             <div
               className={cn(
-                "absolute inset-y-0 left-0 rounded-full transition-all duration-700 shadow-sm",
-                periodHit ? "bg-emerald-500" : "bg-amber-500"
+                "absolute inset-y-0 transition-all duration-700",
+                periodHit ? "bg-emerald-500" : "bg-amber-500",
+                priorPct === 0 && "rounded-l-full",
               )}
-              style={{ width: `${Math.min(periodPercent, 100)}%` }}
+              style={{ 
+                left: `${priorPct}%`, 
+                width: `${periodPct}%`,
+              }}
             />
-          </div>
+          )}
 
-          {/* Result line */}
-          <div className="flex items-center justify-between text-[10px]">
+          {/* Expected marker line — where they SHOULD be after this period */}
+          {showPeriodSegment && expectedMarkerPct > 0 && (
+            <div
+              className="absolute inset-y-0 w-0.5 bg-foreground/50 z-10"
+              style={{ left: `${expectedMarkerPct}%` }}
+            />
+          )}
+        </div>
+
+        {/* Legend row */}
+        {showPeriodSegment && (
+          <div className="flex items-center gap-3 text-[10px]">
+            {priorPct > 0 && (
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <div className="w-2 h-2 rounded-sm bg-primary/40" />
+                Prior: {formatFP(priorProgress)}
+              </div>
+            )}
             <div className={cn(
-              "flex items-center gap-1 font-semibold",
+              "flex items-center gap-1 font-medium",
               periodHit ? "text-emerald-500" : "text-amber-500"
             )}>
-              {periodHit ? (
-                <>
-                  <Check className="w-3 h-3" />
-                  Produced {formatFP(periodFp)} — hit pace
-                </>
-              ) : (
-                <>
-                  <X className="w-3 h-3" />
-                  Produced {formatFP(periodFp)} — short {formatFP(periodShortfall)}
-                </>
-              )}
+              <div className={cn(
+                "w-2 h-2 rounded-sm",
+                periodHit ? "bg-emerald-500" : "bg-amber-500"
+              )} />
+              {periodLabel}: {formatFP(periodFp)}
             </div>
-            <span className={cn(
-              "font-semibold tabular-nums",
-              periodHit ? "text-emerald-500" : "text-amber-500"
-            )}>
-              {Math.round(periodPercent)}%
-            </span>
+            <div className="flex items-center gap-1 text-muted-foreground ml-auto">
+              <div className="w-0.5 h-2 bg-foreground/50" />
+              Expected
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Period result callout */}
+      {showPeriodSegment && (
+        <div className={cn(
+          "flex items-center justify-between text-[10px] px-2 py-1.5 rounded-lg",
+          periodHit ? "bg-emerald-500/5" : "bg-amber-500/5"
+        )}>
+          <div className={cn(
+            "flex items-center gap-1 font-semibold",
+            periodHit ? "text-emerald-500" : "text-amber-500"
+          )}>
+            {periodHit ? (
+              <>
+                <Check className="w-3 h-3" />
+                {periodLabel}: +{formatFP(periodSurplus)} ahead of pace
+              </>
+            ) : (
+              <>
+                <X className="w-3 h-3" />
+                {periodLabel}: short {formatFP(periodShortfall)} ({formatFP(periodFp)} of {formatFP(periodExpected)} needed)
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* Season Row */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground font-medium">
-            {isPreseason ? 'Preseason' : 'Season'}
-          </span>
-          <span className="font-semibold tabular-nums text-foreground">
-            {formatFP(currentProgress)} / {formatFP(seasonGoal)} {metricLabel}
-          </span>
+      {/* Season pace badge */}
+      <div className="flex items-center justify-end gap-1.5">
+        <div className={cn(
+          "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
+          sev.bg, sev.color
+        )}>
+          <SevIcon className="w-3 h-3" />
+          {sev.label}
+          {paceDiff !== 0 && (
+            <span className="tabular-nums ml-0.5">
+              {paceDiff > 0 ? '+' : ''}{formatFP(paceDiff)}
+            </span>
+          )}
         </div>
-        <div className="relative">
-          <Progress value={seasonPercent} className="h-2" />
-        </div>
-        {/* Pace badge */}
-        <div className="flex items-center justify-end gap-1.5">
-          <div className={cn(
-            "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
-            sev.bg, sev.color
-          )}>
-            <SevIcon className="w-3 h-3" />
-            {sev.label}
-            {paceDiff !== 0 && (
-              <span className="tabular-nums ml-0.5">
-                {paceDiff > 0 ? '+' : ''}{formatFP(paceDiff)}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px] text-muted-foreground tabular-nums">
-            {Math.round(seasonPercent)}%
-          </span>
-        </div>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {Math.round(totalPct)}%
+        </span>
       </div>
     </div>
   );
