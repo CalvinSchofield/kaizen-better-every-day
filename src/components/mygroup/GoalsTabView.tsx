@@ -566,23 +566,41 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
 
   return (
     <div className="space-y-3">
-      {/* Top row: Filter button + active filter badge */}
-      <div className="flex items-center justify-between">
+      {/* Top row: Filter + tier selector */}
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {isUnifiedFilterActive(filterState) && (
-            <Badge variant="secondary" className="text-[10px] truncate max-w-[200px]">
+            <Badge variant="secondary" className="text-[10px] truncate max-w-[160px]">
               {filterState.scope === 'watchlist' && '👀 '}
               {filterState.yearFilters.length > 0 && filterState.yearFilters.join(', ')}
               {filterState.selectedNodes.length > 0 && ` · ${filterState.selectedNodes.map(n => n.name).join(', ')}`}
               {' '}({filteredUserIds.length})
             </Badge>
           )}
+          {!isGlobalPreseason && (
+            <div className="flex rounded-lg border overflow-hidden">
+              {(['mustDo', 'willDo', 'couldDo'] as SummerTier[]).map(tier => (
+                <button
+                  key={tier}
+                  onClick={() => setActiveTier(tier)}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-medium transition-colors",
+                    activeTier === tier
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted text-muted-foreground"
+                  )}
+                >
+                  {GOAL_TIER_CONFIG[tier].shortLabel}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setFilterOpen(true)}
-          className="relative h-8 px-2"
+          className="relative h-8 px-2 flex-shrink-0"
         >
           <Filter className="h-4 w-4" />
           {isUnifiedFilterActive(filterState) && (
@@ -634,35 +652,16 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
 
       {/* Aggregate Summary Card */}
       <div className="rounded-2xl border bg-card p-4 space-y-3">
-        {/* Goal tier selector */}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground">
-              {isGlobalPreseason ? 'Preseason' : 'Summer'} • {withGoals.length + noGoals.length} reps
+              {isGlobalPreseason ? 'Preseason' : tierLabel} • {withGoals.length + noGoals.length} reps
             </p>
             <div className="flex items-baseline gap-2 mt-0.5">
               <span className="text-2xl font-bold tabular-nums">{aggregate.totalProgress.toFixed(1)}</span>
               <span className="text-sm text-muted-foreground">/ {aggregate.totalGoal}</span>
             </div>
           </div>
-          {!isGlobalPreseason && (
-            <div className="flex rounded-lg border overflow-hidden">
-              {(['mustDo', 'willDo', 'couldDo'] as SummerTier[]).map(tier => (
-                <button
-                  key={tier}
-                  onClick={() => setActiveTier(tier)}
-                  className={cn(
-                    "px-2.5 py-1 text-xs font-medium transition-colors",
-                    activeTier === tier
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted text-muted-foreground"
-                  )}
-                >
-                  {GOAL_TIER_CONFIG[tier].shortLabel}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Progress bar */}
