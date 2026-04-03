@@ -473,8 +473,9 @@ export const CalendarView = ({
   }), [entries, viewMode, currentDate, weekStart, weekEnd]);
 
   return (
-    <div className={cn(
-      "min-h-screen p-4 pb-24 transition-all duration-500",
+    <div className={cn(      
+      "min-h-screen p-4 transition-all duration-500",
+      planningMode ? "pb-36" : "pb-24",
       planningMode
         ? "bg-gradient-to-b from-primary/8 via-primary/3 to-background"
         : "bg-background"
@@ -1078,7 +1079,7 @@ export const CalendarView = ({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 60, opacity: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-40"
+            className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-40"
           >
             <div className="bg-card border border-border rounded-2xl shadow-lg px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
