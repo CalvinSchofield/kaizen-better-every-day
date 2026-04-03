@@ -432,6 +432,28 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         }, 0);
         const periodProgress = efpModeEnabled ? calculateEfp(periodPrmr) : periodFpPlus;
 
+        // Period planned days and expected production
+        const periodPlannedDays = plannedDays.filter(d =>
+          d.planned_date >= dateRange.start && d.planned_date <= dateRange.end
+        ).length;
+        const periodExpected = periodPlannedDays * dailyTarget;
+
+        // Period pace status
+        let periodPaceStatus: PaceStatus = paceStatus;
+        if (isPeriodFiltered && hasGoals) {
+          if (currentProgress >= activeGoal) {
+            periodPaceStatus = 'goal-met';
+          } else if (periodPlannedDays === 0) {
+            periodPaceStatus = periodKnockingDays > 0 ? 'on-track' : 'not-started';
+          } else if (periodExpected > 0) {
+            const periodRatio = periodProgress / periodExpected;
+            if (periodRatio >= 1.1) periodPaceStatus = 'ahead';
+            else if (periodRatio >= 0.9) periodPaceStatus = 'on-track';
+            else if (periodRatio >= 0.65) periodPaceStatus = 'behind';
+            else periodPaceStatus = 'critical';
+          }
+        }
+
         return {
           userId: rep.user_id!,
           notionPageId: rep.id,
