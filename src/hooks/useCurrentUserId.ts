@@ -7,9 +7,9 @@ import { clearAllRepCaches } from './useRepData';
 const USER_ID_STORAGE_KEY = 'kaizen-current-user-id';
 const EXPECTED_SIGN_OUT_KEY = 'kaizen-expected-signout-at';
 const EXPECTED_SIGN_OUT_WINDOW_MS = 15000;
-const UNEXPECTED_SIGN_OUT_RETRY_MS = 2000;
-const UNEXPECTED_SIGN_OUT_FINAL_RETRY_MS = 5000;
-const UNEXPECTED_SIGN_OUT_SETTLE_MS = 800;
+const UNEXPECTED_SIGN_OUT_RETRY_MS = 4000;
+const UNEXPECTED_SIGN_OUT_FINAL_RETRY_MS = 10000;
+const UNEXPECTED_SIGN_OUT_SETTLE_MS = 1500;
 
 /**
  * Get cached userId synchronously - for instant hydration
