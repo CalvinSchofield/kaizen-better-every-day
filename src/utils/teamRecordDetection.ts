@@ -45,6 +45,9 @@ export interface ActiveRecord {
   label: string;
   currentValue: number;
   recordValue: number;
+  /** The previous record value (second-best all-time) — what was beaten */
+  previousRecordValue?: number;
+  previousRecordDate?: string;
   recordDate: string;
   recordReps: number;
   isRecord: boolean;
@@ -53,6 +56,7 @@ export interface ActiveRecord {
   granularity: 'daily' | 'weekly' | 'monthly';
   /** Contextual description e.g. "Best Tuesday this Quarter" */
   contextualLabel?: string;
+}
 }
 
 interface EntryLike {
