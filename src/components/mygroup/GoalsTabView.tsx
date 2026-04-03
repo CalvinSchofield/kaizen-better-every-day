@@ -726,9 +726,25 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
 
         {/* Period production line (when not viewing full season) */}
         {isPeriodFiltered && (
-          <div className="bg-muted/30 rounded-lg px-3 py-2 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{getPeriodLabel()}</span>
-            <span className="text-sm font-semibold tabular-nums">+{aggregate.periodProgress.toFixed(1)} FP+</span>
+          <div className="bg-muted/30 rounded-lg px-3 py-2 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{getPeriodLabel()}</span>
+              <span className="text-sm font-semibold tabular-nums">
+                +{aggregate.periodProgress.toFixed(1)}{aggregate.periodExpected > 0 ? ` / ${aggregate.periodExpected.toFixed(1)} exp` : ''} FP+
+              </span>
+            </div>
+            {aggregate.periodExpected > 0 && (
+              <div className="h-1.5 bg-muted/60 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    aggregate.periodPercent >= 90 ? "bg-emerald-500" :
+                    aggregate.periodPercent >= 65 ? "bg-amber-500" : "bg-red-500"
+                  )}
+                  style={{ width: `${Math.min(100, aggregate.periodPercent)}%` }}
+                />
+              </div>
+            )}
           </div>
         )}
 
