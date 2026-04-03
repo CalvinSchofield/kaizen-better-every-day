@@ -38,6 +38,47 @@ export const RepGoalSnapshot = ({
     hasGoals,
   } = goalPaceData;
 
+  const tierKey = focusTier === 'preseason' ? 'preseason' : focusTier;
+  const tierCfg = GOAL_TIER_CONFIG[tierKey as keyof typeof GOAL_TIER_CONFIG];
+  const seasonGoal = unbufferedGoal || activeGoal;
+
+  const ytdPct = seasonGoal > 0 ? Math.min(100, (currentProgress / seasonGoal) * 100) : 0;
+
+  const ytdExpectedPct = useMemo(() => {
+    if (seasonGoal <= 0 || season.plannedDaysTotal <= 0) return 0;
+    const expected = (activeGoal / season.plannedDaysTotal) * season.plannedDaysElapsed;
+    return Math.min(100, Math.max(0, (expected / seasonGoal) * 100));
+  }, [activeGoal, seasonGoal, season.plannedDaysTotal, season.plannedDaysElapsed]);
+
+  const originalDailyPace = useMemo(() => {
+    if (season.plannedDaysTotal <= 0 || activeGoal <= 0) return 0;
+    return activeGoal / season.plannedDaysTotal;
+  }, [activeGoal, season.plannedDaysTotal]);
+
+  const periodExpected = useMemo(() => {
+    if (originalDailyPace <= 0) return 0;
+    if (periodDaysWorked !== undefined && periodDaysWorked > 0) {
+      return originalDailyPace * periodDaysWorked;
+    }
+    if (!dateRangeStart || !dateRangeEnd) return 0;
+    const msPerDay = 86400000;
+    const calDays = Math.round((dateRangeEnd.getTime() - dateRangeStart.getTime()) / msPerDay) + 1;
+    const workDays = Math.max(1, Math.round(calDays * (6 / 7)));
+    return originalDailyPace * workDays;
+  }, [dateRangeStart, dateRangeEnd, originalDailyPace, periodDaysWorked]);
+
+  const hasPeriodContext = periodExpected > 0 && dateRangeStart && dateRangeEnd;
+  const periodDelta = periodFp - periodExpected;
+  const periodHit = periodDelta >= 0;
+
+  const sevConfig: Record<PaceSeverity, { label: string; color: string; bg: string; border: string; icon: typeof TrendingUp }> = {
+    green: { label: 'On Pace', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: TrendingUp },
+    amber: { label: 'At Risk', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: Minus },
+    red: { label: 'Behind', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', icon: TrendingDown },
+  };
+  const sev = sevConfig[severity];
+  const SevIcon = sev.icon;
+
   // ── No Goals State ──
   if (!hasGoals) {
     return (
@@ -61,57 +102,10 @@ export const RepGoalSnapshot = ({
     );
   }
 
-  const tierKey = focusTier === 'preseason' ? 'preseason' : focusTier;
-  const tierCfg = GOAL_TIER_CONFIG[tierKey as keyof typeof GOAL_TIER_CONFIG];
-
-  const seasonGoal = unbufferedGoal || activeGoal;
-
-  // ── YTD calculations ──
-  const ytdPct = seasonGoal > 0 ? Math.min(100, (currentProgress / seasonGoal) * 100) : 0;
-
-  // Where they SHOULD be right now based on planned days elapsed
-  const ytdExpectedPct = useMemo(() => {
-    if (seasonGoal <= 0 || season.plannedDaysTotal <= 0) return 0;
-    const expected = (activeGoal / season.plannedDaysTotal) * season.plannedDaysElapsed;
-    return Math.min(100, Math.max(0, (expected / seasonGoal) * 100));
-  }, [activeGoal, seasonGoal, season.plannedDaysTotal, season.plannedDaysElapsed]);
-
-  // ── Period calculations ──
-  const originalDailyPace = useMemo(() => {
-    if (season.plannedDaysTotal <= 0 || activeGoal <= 0) return 0;
-    return activeGoal / season.plannedDaysTotal;
-  }, [activeGoal, season.plannedDaysTotal]);
-
-  const periodExpected = useMemo(() => {
-    if (originalDailyPace <= 0) return 0;
-    if (periodDaysWorked !== undefined && periodDaysWorked > 0) {
-      return originalDailyPace * periodDaysWorked;
-    }
-    if (!dateRangeStart || !dateRangeEnd) return 0;
-    const msPerDay = 86400000;
-    const calDays = Math.round((dateRangeEnd.getTime() - dateRangeStart.getTime()) / msPerDay) + 1;
-    const workDays = Math.max(1, Math.round(calDays * (6 / 7)));
-    return originalDailyPace * workDays;
-  }, [dateRangeStart, dateRangeEnd, originalDailyPace, periodDaysWorked]);
-
-  const hasPeriodContext = periodExpected > 0 && dateRangeStart && dateRangeEnd;
-  const periodDelta = periodFp - periodExpected;
-  const periodHit = periodDelta >= 0;
-
-  // ── Severity config ──
-  const sevConfig: Record<PaceSeverity, { label: string; color: string; bg: string; border: string; icon: typeof TrendingUp }> = {
-    green: { label: 'On Pace', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: TrendingUp },
-    amber: { label: 'At Risk', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: Minus },
-    red: { label: 'Behind', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', icon: TrendingDown },
-  };
-  const sev = sevConfig[severity];
-  const SevIcon = sev.icon;
-
   return (
     <div className="space-y-3">
       {/* ── Section 1: Season Standing ── */}
       <div className="space-y-2.5">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
             Goal Progress
@@ -126,7 +120,6 @@ export const RepGoalSnapshot = ({
           )}
         </div>
 
-        {/* Big number + severity */}
         <div className="flex items-baseline justify-between">
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl font-bold tabular-nums tracking-tight text-foreground">
@@ -145,11 +138,8 @@ export const RepGoalSnapshot = ({
           </div>
         </div>
 
-        {/* Progress bar with expected marker */}
         <div className="relative">
           <Progress value={ytdPct} className="h-2.5" />
-
-          {/* Expected marker — vertical line */}
           {ytdExpectedPct > 0 && ytdExpectedPct <= 100 && (
             <div
               className="absolute top-1/2 -translate-y-1/2 z-10"
@@ -169,7 +159,6 @@ export const RepGoalSnapshot = ({
             ? "bg-emerald-500/5 border-emerald-500/15"
             : "bg-amber-500/5 border-amber-500/15",
         )}>
-          {/* Top row: period info + sold vs needed */}
           <div className="flex items-center justify-between">
             <div>
               <span className="text-xs font-medium text-foreground">{periodLabel}</span>
@@ -192,7 +181,6 @@ export const RepGoalSnapshot = ({
             </div>
           </div>
 
-          {/* Delta line */}
           <div className="mt-1.5 flex items-center gap-1.5">
             <div className={cn(
               "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold",
