@@ -1,95 +1,44 @@
 
 
-## Redesign RepDrillDownDrawer — World-Class Rep Drill-Down
+## Track Page Finalized View — What Needs Updating
 
-### Current State
-The `RepDrillDownDrawer` currently shows a day-by-day activity ring view with stats grid, goal progress, coaching callouts, and SMS action. It lacks:
-- A link to the rep's profile page
-- KPI tiles with historical comparison (sparklines + deltas) like Reports V2
-- A momentum/pulse sentence for the individual rep
-- Beautiful timing visualization
-- Reports V2 visual language
+### Current State Comparison
 
-### What Changes
+The **Track finalized view** (lines 240-518 in `Track.tsx`) and the **redesigned RepDrillDownDrawer** share many of the same components but the Track page is now behind in terms of design language. Here's the gap:
 
-**1. Header Redesign — Profile Link + Context**
-- Add `ProfileAvatar` (clickable → navigates to `/profile/:userId`) next to the rep's name
-- Keep year badge and team name
-- Replace calendar icon with a small "View Profile" link/button using `ExternalLink` icon
-- Keep the calendar button as secondary action
+| Feature | RepDrillDownDrawer (new) | Track Finalized View (current) | Gap |
+|---|---|---|---|
+| **Stats display** | `FinalizedStatsGrid` — clean 4+3 grid | Inline stat ribbon with expandable funnel breakdown | Different pattern |
+| **Goal progress** | `UnifiedGoalProgress` compact (D/Y) | `GoalResultCard` (already wraps UnifiedGoalProgress) | Already aligned ✅ |
+| **Historical comparison** | `RepPeriodKpis` with sparklines + deltas | `MeVsMeCard` — table-based this year vs last year | Different, but MeVsMeCard is self-comparison which is appropriate for the rep's own view |
+| **Timing viz** | `RepTimingChart` — Gantt bars for period | None — just start/end in `FinalizedDayHeader` | Missing on Track page |
+| **Activity viz** | Ring/Timeline toggle | Ring/Timeline toggle | Already aligned ✅ |
+| **Coaching** | Removed from drawer | `CoachingCard` — contextual tips | Keep — appropriate for self-view |
+| **Header** | ProfileAvatar + badges | `FinalizedDayHeader` with check icon | Different but appropriate |
 
-**2. Period Stats Section — Mini Pulse Hero for the Rep**
-Add a new section at the top (above the day view) showing the **aggregate stats for the selected date range** (passed from ReportsV2 via `dateRangeStart`/`dateRangeEnd`). This mirrors PulseHero:
-- Momentum sentence: "{name} produced {fp} FP+ {period} — {delta}% vs {comparison}"
-- 6 KPI tiles (Doors, DMs, Pitches, Trans, Pres, FP+) with delta percentages from comparison period
-- PRMR prominently displayed
-- Uses the same comparison logic from `useReportsV2Comparison` but filtered to a single `user_id`
+### Recommended Changes
 
-**New hook: `useRepComparison`** — adapts `useReportsV2Comparison` for a single rep by filtering `daily_entries` to one `user_id`. Returns `ComparisonTotals` and sparkline history for that rep only.
+The Track finalized view is the rep's **own** end-of-day recap. It should stay personal (coaching, competitions, streak) but adopt the cleaner stats layout from the drawer redesign:
 
-**3. Timing Visualization**
-- Show avg start time, avg end time, and total active hours for the period
-- Add a simple bar chart showing daily work windows (start → end) for each day in the range, stacked vertically — similar to a Gantt-style view
-- Reuse `HourlyActivityChart` for the selected day view
+**1. Replace inline stat ribbon with `FinalizedStatsGrid`**
+The expandable funnel view (lines 314-410) is functional but cluttered. Replace with the same `FinalizedStatsGrid` component already used in the drawer — it's cleaner, clickable for sales log, and consistent.
 
-**4. Day View — Keep but Refine**
-- Keep the existing WeekActivityStrip, ActivityRing/Timeline, FinalizedStatsGrid, and SalesLogDrawer
-- Remove the old goal section and coaching callouts from day view
-- Add the `UnifiedGoalProgress` bar in compact mode (D/Y) at the top of the day section
+**2. No other changes needed**
+- `GoalResultCard` already uses `UnifiedGoalProgress` — already consistent
+- `MeVsMeCard` is self-comparison (this year vs last year) which is unique to the rep's own view — keep it
+- `CoachingCard` provides actionable tips for tomorrow — keep it (intentionally removed from the leader's drill-down but appropriate for self-view)
+- `StreakOutcomeCard`, `CompetitionsCard`, `PendingInstallAlertCard` — all personal context, keep them
+- `RepTimingChart` and `RepPeriodKpis` don't make sense for a single-day self-view
+- `FinalizedDayHeader` is appropriate — it shows "Day Complete" status which is correct for the rep's own track page
 
-**5. Remove from Drawer**
-- Goal progress calculation logic (the big `useMemo` block) — replace with `useGoalPaceCalculatorForUser` compact display
-- `EffortCoachingCallouts` and `CoachingCallouts` — keep the drawer focused on data, not coaching text
-- `PurposeDisplayCard` — available on profile page
-- SMS button — move to a small icon in the header
+### Files to Modify
 
-**6. Layout Structure**
-```text
-┌─────────────────────────────────┐
-│ [Avatar] Name [Vet] → Profile   │
-│ Team Name                       │
-├─────────────────────────────────┤
-│ PERIOD OVERVIEW (Last Month)    │
-│ "3.2 FP+ — ↓12% vs prior"      │
-│ ┌─────┬─────┬─────┐            │
-│ │Doors│ DMs │Pitch│            │
-│ │ 142 │  38 │  24 │            │
-│ │↓12% │↑5%  │↓8%  │            │
-│ ├─────┼─────┼─────┤            │
-│ │Trans│Pres │ FP+ │            │
-│ │  8  │  6  │ 3.2 │            │
-│ │↓15% │↑20% │↓12% │            │
-│ └─────┴─────┴─────┘            │
-│ $272 PRMR  1:30 PM→6:45 PM     │
-│ 5.2h avg active                 │
-├─────────────────────────────────┤
-│ DAILY WORK TIMES               │
-│ ▓▓▓▓▓▓░░░  Mon (1p-7p)        │
-│ ▓▓▓▓░░░░░  Tue (2p-6p)        │
-│ ▓▓▓▓▓▓▓░░  Wed (12p-7p)       │
-├─────────────────────────────────┤
-│ Goal: ━━━━━━━━━░░ 72% (D/Y)   │
-├─────────────────────────────────┤
-│ M T W T F S S  (week strip)    │
-│     [Activity Ring / Timeline]  │
-│     [Stats Grid for day]       │
-└─────────────────────────────────┘
-```
-
-### Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| `src/hooks/useRepComparison.ts` | **Create** — single-rep comparison hook (adapts useReportsV2Comparison for one userId) |
-| `src/components/reports/v2/RepDrillDownDrawer.tsx` | **Rewrite** — new layout with profile link, period KPIs, timing chart, streamlined day view |
-| `src/components/reports/v2/RepTimingChart.tsx` | **Create** — daily work-window visualization (horizontal bars showing start→end for each day) |
-| `src/components/reports/v2/RepPeriodKpis.tsx` | **Create** — mini KPI grid with deltas for a single rep (reuses StatTile pattern from PulseHero) |
-| `src/pages/ReportsV2.tsx` | **Minor update** — ensure dateRange props pass correctly to the drawer |
+| File | Change |
+|---|---|
+| `src/pages/Track.tsx` | Replace inline stat ribbon (lines 314-410) with `FinalizedStatsGrid` component. Import and wire up sales log click handlers. |
 
 ### Technical Details
-
-- **`useRepComparison` hook**: Queries `daily_entries` for the single userId across both the current and comparison date ranges. Uses the same comparison range logic from `useReportsV2Comparison` (getComparisonRange). Returns per-metric deltas and sparkline points.
-- **`RepTimingChart`**: SVG-based horizontal bar chart. Each row = one day in the date range. Bar position maps work_start_time → work_end_time on a 6am–11pm axis. Color-coded by hours worked.
-- **Profile navigation**: Uses `ProfileAvatar` component with `onBeforeNavigate` to close the drawer chain before navigating.
-- **No new database changes** — all data already available in `daily_entries` and existing hooks.
+- Import `FinalizedStatsGrid` from `@/components/activity-ring`
+- Pass `entry`, `salesLog`, and wire `onClosesClick`/`onFPClick`/`onPRMRClick` to open the existing `SalesLogDrawer`
+- Remove ~95 lines of inline stat ribbon code, replace with ~12 lines
 
