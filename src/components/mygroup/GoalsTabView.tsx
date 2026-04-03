@@ -63,6 +63,7 @@ interface RepGoalInfo {
   knockingDays: number;
   futurePlannedDays: number;
   // Period-filtered progress
+  periodProgress: number;
   periodFpPlus: number;
   periodDoors: number;
   periodKnockingDays: number;
