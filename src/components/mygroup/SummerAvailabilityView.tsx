@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // Default summer dates
 const DEFAULT_SUMMER_START = '2026-04-12';
 const DEFAULT_SUMMER_END = '2026-09-27';
+const SEASON_START = '2025-09-28';
 
 const parseLocalDate = (dateString: string): Date => {
   const [year, month, day] = dateString.split('-').map(Number);
