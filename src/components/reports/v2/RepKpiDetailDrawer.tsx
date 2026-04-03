@@ -287,7 +287,7 @@ const EffortMetricContent = ({
                       {delta > 2 ? <TrendingUp className="w-2.5 h-2.5" /> :
                        delta < -2 ? <TrendingDown className="w-2.5 h-2.5" /> :
                        <Minus className="w-2.5 h-2.5" />}
-                      {delta > 0 ? '+' : ''}{delta.toFixed(1)}pp
+                      {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
                     </div>
                     <span className="text-[10px] text-muted-foreground">
                       vs {compPct.toFixed(1)}% {comparisonLabel}
