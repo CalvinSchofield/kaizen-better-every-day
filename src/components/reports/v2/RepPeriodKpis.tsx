@@ -49,6 +49,10 @@ export const RepPeriodKpis = ({
   repName,
   periodLabel,
   isLoading,
+  avgStartTime,
+  avgEndTime,
+  onSummaryRowClick,
+  summaryExpanded,
 }: RepPeriodKpisProps) => {
   if (isLoading) {
     return (
