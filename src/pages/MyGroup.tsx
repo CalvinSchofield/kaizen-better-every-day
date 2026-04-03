@@ -919,7 +919,7 @@ const MyGroup = () => {
           <X className="h-3 w-3" />
         </Badge>
       )}
-      {isLeader && (
+      {isFullLeader && (
         <Button 
           variant="ghost" 
           size="icon"
@@ -938,7 +938,7 @@ const MyGroup = () => {
           <Filter className="h-4 w-4" />
         </Button>
       )}
-      {isLeader && (
+      {isFullLeader && (
         <Button 
           variant="ghost" 
           size="icon"
