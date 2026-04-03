@@ -748,6 +748,198 @@ const OrgChart = () => {
     return map;
   }, [treeData]);
 
+  // ── Drag-and-drop infrastructure ──────────────────────
+  const [dragConfirm, setDragConfirm] = useState<{
+    source: DragNode;
+    targetId: string;
+    targetName: string;
+  } | null>(null);
+  const [dragSaving, setDragSaving] = useState(false);
+
+  // Collect all node IDs from tree + build subtree lookup
+  const { allNodeIds, nodeParentMap, nodeNameMap, nodeChildCountMap } = useMemo(() => {
+    const ids = new Set<string>();
+    const parentMap = new Map<string, string | null>();
+    const nameMap = new Map<string, string>();
+    const childCountMap = new Map<string, number>();
+    
+    const walk = (node: TreeNode, parentId: string | null) => {
+      if (!node.isLabelNode) {
+        ids.add(node.id);
+        parentMap.set(node.id, parentId);
+        nameMap.set(node.id, node.name);
+        childCountMap.set(node.id, node.children.filter(c => !c.isLabelNode).length);
+      }
+      for (const child of node.children) {
+        walk(child, node.isLabelNode ? parentId : node.id);
+      }
+    };
+    (fullTree || []).forEach(r => walk(r, null));
+    return { allNodeIds: ids, nodeParentMap: parentMap, nodeNameMap: nameMap, nodeChildCountMap: childCountMap };
+  }, [fullTree]);
+
+  // Build set of IDs the current user can manage (their downline)
+  const draggableNodeIds = useMemo(() => {
+    if (!fullTree || !currentAuthUserId) return new Set<string>();
+    const ids = new Set<string>();
+    
+    const collectDownline = (nodes: TreeNode[], collecting: boolean) => {
+      for (const node of nodes) {
+        if (node.isLabelNode) {
+          collectDownline(node.children, collecting);
+          continue;
+        }
+        if (node.userId === currentAuthUserId) {
+          // Don't add self, but collect children
+          collectDownline(node.children, true);
+          continue;
+        }
+        if (collecting) {
+          ids.add(node.id);
+          collectDownline(node.children, true);
+        } else {
+          collectDownline(node.children, false);
+        }
+      }
+    };
+    collectDownline(fullTree, false);
+    return ids;
+  }, [fullTree, currentAuthUserId]);
+
+  // Valid drop targets = all person nodes that the user can see (excluding label nodes)
+  const validDropTargetIds = useMemo(() => {
+    // For now, all non-label person nodes are valid targets except for those in the dragged subtree
+    // (subtree exclusion is handled in the hook itself)
+    return allNodeIds;
+  }, [allNodeIds]);
+
+  // Get all IDs in a node's subtree
+  const getSubtreeIds = useCallback((nodeId: string): Set<string> => {
+    const ids = new Set<string>();
+    const walk = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (node.isLabelNode) {
+          walk(node.children);
+          continue;
+        }
+        if (node.id === nodeId) {
+          // Collect all descendants
+          const collectAll = (children: TreeNode[]) => {
+            for (const c of children) {
+              if (!c.isLabelNode) ids.add(c.id);
+              collectAll(c.children);
+            }
+          };
+          collectAll(node.children);
+          return;
+        }
+        walk(node.children);
+      }
+    };
+    walk(fullTree || []);
+    return ids;
+  }, [fullTree]);
+
+  // Positioned nodes for hit-testing (shared ref updated by VisualRecruiterTree)
+  const [transformState, setTransformState] = useState({ scale: 1, posX: 0, posY: 0 });
+  const handleTransformChange = useCallback((scale: number, posX: number, posY: number) => {
+    setTransformState({ scale, posX, posY });
+  }, []);
+
+  // Handle confirmed drop
+  const handleDragDrop = useCallback((source: DragNode, targetId: string) => {
+    const targetName = nodeNameMap.get(targetId) || "Unknown";
+    setDragConfirm({ source, targetId, targetName });
+  }, [nodeNameMap]);
+
+  const executeDragReassignment = useCallback(async () => {
+    if (!dragConfirm) return;
+    setDragSaving(true);
+    try {
+      const { session } = await getSessionSafe();
+      if (!session) throw new Error("Not authenticated");
+
+      const { error } = await supabase.functions.invoke("update-rep-assignment", {
+        body: {
+          repId: dragConfirm.source.id,
+          recruiterUserId: (() => {
+            // Find the userId for the target node
+            const walk = (nodes: TreeNode[]): string | null => {
+              for (const n of nodes) {
+                if (n.id === dragConfirm.targetId && !n.isLabelNode) return n.userId;
+                const found = walk(n.children);
+                if (found) return found;
+              }
+              return null;
+            };
+            return walk(fullTree || []);
+          })(),
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Reassigned successfully",
+        description: `${getCleanName(dragConfirm.source.name)} moved under ${getCleanName(dragConfirm.targetName)}`,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["org-chart-full-tree"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
+      queryClient.invalidateQueries({ queryKey: ["team-access"] });
+      queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
+      queryClient.invalidateQueries({ queryKey: ["org-structure"] });
+    } catch (err) {
+      console.error("Drag reassignment error:", err);
+      toast({
+        title: "Error reassigning",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setDragSaving(false);
+      setDragConfirm(null);
+    }
+  }, [dragConfirm, fullTree, queryClient]);
+
+  // Check if current user has management rights (team_lead+ can drag)
+  const canDrag = useMemo(() => {
+    const managementLevels = new Set([
+      "team_lead", "mgmt_group_lead", "senior_manager", "area_director",
+      "regional", "sr_regional", "partner", "divisional", "corporate",
+    ]);
+    return managementLevels.has(accessLevel || "");
+  }, [accessLevel]);
+
+  // The drag hook
+  const {
+    isDragging,
+    draggedNode,
+    dragPosition,
+    dropTargetId,
+    subtreeIds,
+    wrapperRef: dragWrapperRef,
+    onTouchStart: dragTouchStart,
+    onTouchMove: dragTouchMove,
+    onTouchEnd: dragTouchEnd,
+    onMouseDown: dragMouseDown,
+    onMouseMove: dragMouseMove,
+    onMouseUp: dragMouseUp,
+    cancelDrag,
+    wasLongPress,
+  } = useDragReassign({
+    draggableNodeIds,
+    validDropTargetIds,
+    positionedNodes: [], // hit testing uses tree-space coords from the hook itself
+    scale: transformState.scale,
+    panOffset: { x: transformState.posX, y: transformState.posY },
+    padding: 60,
+    onDrop: handleDragDrop,
+    getSubtreeIds,
+    currentUserId: currentAuthUserId,
+  });
+
   // Drawer state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [drawerRecruit, setDrawerRecruit] = useState<Recruit | null>(null);
