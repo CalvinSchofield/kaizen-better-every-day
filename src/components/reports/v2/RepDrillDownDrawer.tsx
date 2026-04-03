@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Circle, AlignJustify, ExternalLink, MessageSquare } from "lucide-react";
+import { Circle, AlignJustify, ExternalLink, MessageSquare } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
