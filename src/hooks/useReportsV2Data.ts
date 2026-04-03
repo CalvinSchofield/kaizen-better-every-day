@@ -690,6 +690,7 @@ export const useReportsV2Data = ({
         teamGoalStatus,
         teamGoalStatusDetails,
         teamBaseline,
+        intradayPace,
         repsWithEffort,
         funnelData: {
           doors: totals.doors,
