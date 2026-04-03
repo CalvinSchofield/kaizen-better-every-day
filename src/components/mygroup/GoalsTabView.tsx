@@ -326,13 +326,21 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
         ).length;
 
+        // Determine if this rep uses EFP mode
+        const isVet = rep.year === 'Vet';
+        const efpModeEnabled = isVet && ((rep as any).efp_mode_enabled || false);
+        const calculateEfp = (prmr: number) => prmr / 85;
+
+        // The rep's progress in their own metric
+        const currentProgress = efpModeEnabled ? calculateEfp(currentPrmr) : currentFpPlus;
+
         // Pace calculation using the SELECTED tier (not the rep's focus tier)
         const activeGoal = getGoalForTier(goals, activeTier, isRepInPreseason);
 
         const paceInput: SalesPaceInput = {
           goals: goals ? {
             preseason_fp_goal: goals.preseason_fp_goal,
-            must_do_fp_goal: activeTier === 'mustDo' ? goals.must_do_fp_goal : goals.must_do_fp_goal,
+            must_do_fp_goal: goals.must_do_fp_goal,
             will_do_fp_goal: goals.will_do_fp_goal,
             could_do_fp_goal: goals.could_do_fp_goal,
             cancel_rate: goals.cancel_rate,
@@ -342,8 +350,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           knockingDays,
           currentFpPlus,
           currentPrmr,
-          efpModeEnabled: false,
-          calculateEfp: (prmr) => prmr / 85,
+          efpModeEnabled,
+          calculateEfp,
           personalSummerStart,
           activeTier: isRepInPreseason ? 'preseason' : activeTier,
         };
@@ -367,7 +375,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           futurePlannedDays = paceResult.futurePlannedDays;
           daysRemaining = paceResult.futurePlannedDays;
           const goalToUse = paceResult.fundedGoal;
-          pacePercentage = goalToUse > 0 ? (currentFpPlus / goalToUse) * 100 : 0;
+          pacePercentage = goalToUse > 0 ? (currentProgress / goalToUse) * 100 : 0;
 
           if (variance >= 0) {
             paceStatus = variance > 1 ? 'ahead' : 'on-track';
@@ -382,16 +390,24 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           const totalFuturePlanned = plannedDays.filter(d => d.planned_date > todayStr).length;
           futurePlannedDays = totalFuturePlanned;
           daysRemaining = totalFuturePlanned;
-          if (knockingDays === 0 && currentFpPlus === 0) {
+          if (knockingDays === 0 && currentProgress === 0) {
             paceStatus = totalFuturePlanned > 0 ? 'on-track' : 'behind';
           } else {
-            pacePercentage = activeGoal > 0 ? (currentFpPlus / activeGoal) * 100 : 0;
+            pacePercentage = activeGoal > 0 ? (currentProgress / activeGoal) * 100 : 0;
             paceStatus = 'behind';
           }
           if (daysRemaining > 0 && activeGoal > 0) {
-            dailyTarget = Math.max(0, activeGoal - currentFpPlus) / daysRemaining;
+            dailyTarget = Math.max(0, activeGoal - currentProgress) / daysRemaining;
           }
         }
+
+        // Period progress in the rep's metric
+        const periodPrmr = periodEntries.reduce((sum, e) => {
+          const salesLog = (e as any).sales_log as any[] | null;
+          if (salesLog && salesLog.length > 0) return sum + calculateFromSalesLog(salesLog).prmr;
+          return sum + (Number(e.prmr) || 0);
+        }, 0);
+        const periodProgress = efpModeEnabled ? calculateEfp(periodPrmr) : periodFpPlus;
 
         return {
           userId: rep.user_id!,
@@ -400,6 +416,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           year: rep.year || 'Rookie',
           stage: rep.stage || undefined,
           profilePhotoUrl: (rep as any).profile_photo_url || null,
+          efpModeEnabled,
           preseasonGoal: goals?.preseason_fp_goal || 0,
           mustDoGoal: goals?.must_do_fp_goal || 0,
           willDoGoal: goals?.will_do_fp_goal || 0,
@@ -409,10 +426,12 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           setupComplete: goals?.setup_complete || false,
           personalSummerStart,
           personalSummerEnd,
+          currentProgress,
           currentFpPlus,
           currentPrmr,
           knockingDays,
           futurePlannedDays,
+          periodProgress,
           periodFpPlus,
           periodDoors,
           periodKnockingDays,
