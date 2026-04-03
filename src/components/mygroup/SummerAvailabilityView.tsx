@@ -10,7 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   Sun, AlertCircle, Calendar, ChevronLeft, ChevronRight,
-  Bell, Pencil, ChevronDown, ChevronUp, Filter, Palmtree
+  Bell, Pencil, ChevronDown, ChevronUp, Filter, Palmtree, TrendingUp, Users
 } from "lucide-react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { getInitials } from "@/utils/nameUtils";
