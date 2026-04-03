@@ -1026,7 +1026,7 @@ const OrgChart = () => {
   }
 
   return (
-    <div className="p-4 space-y-4 pb-24" data-tour="org-chart-page">
+    <div className="p-4 landscape:p-2 space-y-4 landscape:space-y-2 pb-24" data-tour="org-chart-page">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div data-tour="org-chart-tabs">
           <TabsList className="w-full">
