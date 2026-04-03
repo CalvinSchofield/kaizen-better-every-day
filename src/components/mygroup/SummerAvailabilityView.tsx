@@ -80,11 +80,12 @@ export const SummerAvailabilityView = () => {
     queryFn: async () => {
       const { user } = await getSessionSafe();
       if (!user) return null;
-      const [repResult, configResult] = await Promise.all([
+      const [repResult, configResult, goalsResult] = await Promise.all([
         supabase.from('reps').select('user_id, name, phone, year, stage').eq('user_id', user.id).single(),
         supabase.from('season_config').select('personal_summer_start, personal_summer_end, excluded_summer_days').eq('user_id', user.id).single(),
+        supabase.from('rep_goals').select('setup_complete').eq('user_id', user.id).maybeSingle(),
       ]);
-      return { rep: repResult.data, config: configResult.data };
+      return { rep: repResult.data, config: configResult.data, goals: goalsResult.data };
     },
   });
 
