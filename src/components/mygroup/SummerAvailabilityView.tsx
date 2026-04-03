@@ -93,6 +93,8 @@ export const SummerAvailabilityView = () => {
     },
   });
 
+  const canSeePace = hasMinAccess(accessLevel, 'mgmt_group_lead');
+
   // Team data
   const { data: teamData, isLoading: teamLoading } = useQuery({
     queryKey: ['team-summer-availability', teamAccess?.accessibleUserIds],
@@ -110,6 +112,43 @@ export const SummerAvailabilityView = () => {
       };
     },
     enabled: !!teamAccess?.accessibleUserIds?.length,
+  });
+
+  // Fetch pace data for all accessible reps (MGMT group lead+ only)
+  const { data: paceDataMap } = useQuery({
+    queryKey: ['summer-avail-pace', teamAccess?.accessibleUserIds],
+    queryFn: async () => {
+      const userIds = teamAccess?.accessibleUserIds || [];
+      if (!userIds.length) return new Map<string, number>();
+
+      // Fetch finalized daily entries for the season to calculate avg FP+/day per rep
+      const { data: entries } = await supabase
+        .from('daily_entries')
+        .select('user_id, fp_plus, doors_knocked')
+        .in('user_id', userIds)
+        .gte('entry_date', SEASON_START)
+        .eq('is_finalized', true);
+
+      if (!entries) return new Map<string, number>();
+
+      // Build per-rep: total FP+ and knocking days
+      const repStats = new Map<string, { totalFp: number; knockingDays: number }>();
+      for (const e of entries) {
+        const stat = repStats.get(e.user_id) || { totalFp: 0, knockingDays: 0 };
+        stat.totalFp += e.fp_plus || 0;
+        if ((e.doors_knocked || 0) >= 4) stat.knockingDays++;
+        repStats.set(e.user_id, stat);
+      }
+
+      // Convert to avg FP+/day
+      const paceMap = new Map<string, number>();
+      for (const [uid, stat] of repStats) {
+        paceMap.set(uid, stat.knockingDays > 0 ? stat.totalFp / stat.knockingDays : 0);
+      }
+      return paceMap;
+    },
+    enabled: canSeePace && !!teamAccess?.accessibleUserIds?.length,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Build people list
