@@ -1243,16 +1243,18 @@ const MyGroup = () => {
         onOpenChange={(open) => !open && setEditingSuggestion(null)}
         suggestion={editingSuggestion}
       />
-      <TeamFilterSheet 
-        open={filterSheetOpen} 
+      <UnifiedFilterDrawer
+        open={filterSheetOpen}
         onOpenChange={setFilterSheetOpen}
-        teams={teamAccess?.teams || []}
+        filterState={smartFilter}
+        onFilterApply={setSmartFilter}
+        mode="mygroup"
+        hierarchy={teamAccess?.hierarchy}
         mgmtGroups={teamAccess?.mgmtGroups || []}
-        selectedFilter={selectedTeamFilter}
-        onFilterChange={setSelectedTeamFilter}
+        teams={teamAccess?.teams || []}
+        accessibleReps={teamAccess?.accessibleReps || []}
         accessLevel={teamAccess?.accessLevel || 'none'}
-        recruitCounts={teamRecruitCounts}
-        totalRecruits={allRecruits.length}
+        repCount={filteredRecruits.length}
       />
       <NeedsAttentionDrawer
         open={attentionDrawerOpen}
