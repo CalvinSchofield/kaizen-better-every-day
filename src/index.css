@@ -232,6 +232,7 @@ All colors MUST be HSL.
       --nav-height: 3.5rem;
       --nav-padding-bottom: max(0.25rem, var(--effective-safe-area-bottom));
     }
+  }
     
     /* Keyboard height - set dynamically by useKeyboardViewport hook */
     --keyboard-height: 0px;
