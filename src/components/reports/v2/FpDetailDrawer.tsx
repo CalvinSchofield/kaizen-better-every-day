@@ -92,6 +92,7 @@ const FpTabsDrawer = ({
                 totalFP={totalFP}
                 sparklineData={sparklineData}
                 sparklineAvg={sparklineAvg}
+                sparklineAvgLabel={sparklineAvgLabel}
                 onClose={() => onOpenChange(false)}
               />
             </TabsContent>
