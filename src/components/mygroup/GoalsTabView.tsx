@@ -56,7 +56,8 @@ interface RepGoalInfo {
   // Dates
   personalSummerStart: string | null;
   personalSummerEnd: string | null;
-  // Progress (full season)
+  // Progress (full season) — uses the rep's metric (FP+ or EFP)
+  currentProgress: number;
   currentFpPlus: number;
   currentPrmr: number;
   knockingDays: number;
