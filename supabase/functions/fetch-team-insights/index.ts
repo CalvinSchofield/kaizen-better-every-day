@@ -206,12 +206,11 @@ Deno.serve(async (req) => {
     const teamMgmtMap: Record<string, string> = {};
     (teamMgmtData || []).forEach(tm => { teamMgmtMap[tm.team_id] = tm.mgmt_group_id; });
 
-    // Fetch mgmt group names
-    const mgmtIds = [...new Set(Object.values(teamMgmtMap))];
-    const { data: mgmtData } = await supabase
-      .from('mgmt_groups')
-      .select('id, name')
-      .in('id', mgmtIds);
+    // Fetch mgmt group names — include both team-based and direct recruit-based mgmt IDs
+    const allMgmtIds = [...new Set([...Object.values(teamMgmtMap), ...Object.values(recruitMgmtMap)])];
+    const { data: mgmtData } = allMgmtIds.length > 0
+      ? await supabase.from('mgmt_groups').select('id, name').in('id', allMgmtIds)
+      : { data: [] };
 
     const mgmtNameMap: Record<string, string> = {};
     (mgmtData || []).forEach(m => { mgmtNameMap[m.id] = m.name; });
@@ -219,7 +218,8 @@ Deno.serve(async (req) => {
     // Enrich rep data with team/MGMT group info
     const enrichedReps = reps.map(rep => {
       const teamId = userTeamMap[rep.user_id];
-      const mgmtId = teamId ? teamMgmtMap[teamId] : null;
+      // Resolve mgmt group: from team mapping first, then direct recruit assignment
+      const mgmtId = (teamId ? teamMgmtMap[teamId] : null) || recruitMgmtMap[rep.user_id] || null;
       
       return {
         ...rep,
