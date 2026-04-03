@@ -537,6 +537,9 @@ export const RepDrillDownDrawer = ({
           userId={rep.userId}
           dateRange={dateRange}
         />
+
+      </DrawerContent>
+    </Drawer>
     </>
   );
 };
