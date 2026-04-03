@@ -14,14 +14,7 @@ import { useHeader } from '@/contexts/HeaderContext';
 
 import { Calendar as CalendarIcon, Lock, BarChart3, Sparkles } from 'lucide-react';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { CustomDateRangeDrawer } from '@/components/shared/CustomDateRangeDrawer';
 import { cn } from '@/lib/utils';
 import { InsightsChat } from '@/components/insights/InsightsChat';
 import { InsightsOverviewTab } from '@/components/insights/InsightsOverviewTab';
@@ -373,70 +366,19 @@ export default function Insights() {
       {/* AI Coach Chat */}
       <InsightsChat isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
-      {/* Custom Date Range Sheet */}
-      <Sheet open={showCustomDialog} onOpenChange={setShowCustomDialog}>
-        <SheetContent side="bottom" className="rounded-t-3xl">
-          <SheetHeader>
-            <SheetTitle>Select Custom Date Range</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Start Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customStartDate ? format(customStartDate, 'PPP') : 'Pick start date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customStartDate}
-                    onSelect={setCustomStartDate}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-2 block">End Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customEndDate}
-                    onSelect={setCustomEndDate}
-                    disabled={(date) => customStartDate ? date < customStartDate : false}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <Button 
-              onClick={() => {
-                setHasUserSelectedPreset(true);
-                setDatePreset('custom');
-                setShowCustomDialog(false);
-              }} 
-              className="w-full"
-              disabled={!customStartDate || !customEndDate}
-            >
-              Apply Date Range
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Custom Date Range Drawer */}
+      <CustomDateRangeDrawer
+        open={showCustomDialog}
+        onOpenChange={setShowCustomDialog}
+        startDate={customStartDate}
+        endDate={customEndDate}
+        onApply={(start, end) => {
+          setCustomStartDate(start);
+          setCustomEndDate(end);
+          setHasUserSelectedPreset(true);
+          setDatePreset('custom');
+        }}
+      />
 
       <PageTour
         steps={insightsTourSteps}
