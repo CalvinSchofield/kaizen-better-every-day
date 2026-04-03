@@ -315,6 +315,11 @@ export const PulseHero = ({
         </p>
       )}
 
+      {/* Intraday Pace Bar (live view only) */}
+      {isLiveView && intradayPace && intradayPace.hasEnoughData && (
+        <IntradayPaceBar pace={intradayPace} />
+      )}
+
       {/* Stat tiles grid - 3x2 */}
       <div className="grid grid-cols-3 gap-2">
         {([
