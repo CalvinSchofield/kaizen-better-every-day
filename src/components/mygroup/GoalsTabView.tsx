@@ -44,6 +44,7 @@ interface RepGoalInfo {
   year: string;
   stage?: string;
   profilePhotoUrl?: string | null;
+  efpModeEnabled: boolean;
   // Goals
   preseasonGoal: number;
   mustDoGoal: number;
