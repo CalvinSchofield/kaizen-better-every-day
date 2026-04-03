@@ -496,15 +496,6 @@ export const RepDrillDownDrawer = ({
         </div>
         
         {/* Sub-drawers */}
-        {userId && (
-          <ActivityCalendarDrawer
-            open={showCalendar}
-            onOpenChange={setShowCalendar}
-            userId={userId}
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-          />
-        )}
         
         <ActivityRingLegend open={showLegend} onOpenChange={setShowLegend} />
         
