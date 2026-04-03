@@ -719,7 +719,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
               activeTier === 'couldDo' ? rep.couldDoGoal :
               rep.willDoGoal
             );
-            const progressPercent = activeGoal > 0 ? Math.min(100, (rep.currentFpPlus / activeGoal) * 100) : 0;
+            const metricLabel = rep.efpModeEnabled ? 'EFP' : 'FP+';
+            const progressPercent = activeGoal > 0 ? Math.min(100, (rep.currentProgress / activeGoal) * 100) : 0;
 
             return (
               <motion.div
