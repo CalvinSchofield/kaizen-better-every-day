@@ -26,7 +26,7 @@ interface FpDetailDrawerProps {
  */
 export const FpDetailDrawer = ({
   open, onOpenChange, userIds, dateRange,
-  totalFP, totalPRMR, sparklineData, sparklineAvg,
+  totalFP, totalPRMR, sparklineData, sparklineAvg, sparklineAvgLabel,
 }: FpDetailDrawerProps) => {
   // Instead of nesting drawers, we render tabs inline
   // We reuse the internal content of DealAnalytics and KpiDetail
