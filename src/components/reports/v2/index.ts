@@ -21,6 +21,7 @@ export { RepArchetypes } from './RepArchetypes';
 export { AutoInsights } from './AutoInsights';
 export { ProductionTrendChart } from './ProductionTrendChart';
 export { HourlyActivityChart } from './HourlyActivityChart';
+export { IntradayPaceBar } from './IntradayPaceBar';
 
 // Sales dashboard components
 export { HeroDrillDownDrawer } from './HeroDrillDownDrawer';
