@@ -1,32 +1,30 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { 
-  Drawer, 
-  DrawerContent, 
-  DrawerHeader, 
-  DrawerTitle,
+  Drawer, DrawerContent, DrawerHeader, DrawerTitle,
 } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Footprints, Target, MessageSquare, Circle, AlignJustify } from "lucide-react";
+import { Calendar, Circle, AlignJustify, ExternalLink, MessageSquare } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
 import { UnifiedGoalProgress } from "@/components/goals/UnifiedGoalProgress";
-import type { GoalPaceData, TimeframeData, PaceSeverity } from "@/hooks/useGoalPaceCalculator";
 import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUser";
-import { EffortCoachingCallouts } from "./EffortCoachingCallouts";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { useRepDayActivity } from "@/hooks/useRepDayActivity";
 import { useRepActivityCalendar } from "@/hooks/useRepActivityCalendar";
-import { calculateEfp } from "@/utils/efp";
-import { PurposeDisplayCard } from "@/components/goals/PurposeDisplayCard";
+import { useRepComparison } from "@/hooks/useRepComparison";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
+import { RepPeriodKpis } from "./RepPeriodKpis";
+import { RepTimingChart } from "./RepTimingChart";
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { Sale } from "@/hooks/useDailyEntry";
 import { 
   ActivityRingHero, 
   FinalizedStatsGrid, 
   WeekActivityStrip,
-  CoachingCallouts,
   ActivityCalendarDrawer,
   ActivityRingLegend,
   LegendTriggerButton,
@@ -34,7 +32,8 @@ import {
   SalesLogDrawer,
   HorizontalActivityTimeline,
 } from "@/components/activity-ring";
-import { format, isSameDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, getDay } from "date-fns";
+import { format, isSameDay, parseISO, getDay } from "date-fns";
+import { calculateEfp } from "@/utils/efp";
 
 interface RepDrillDownData {
   userId: string;
@@ -42,8 +41,8 @@ interface RepDrillDownData {
   year?: string;
   teamName?: string;
   phone?: string;
+  photoUrl?: string;
   
-  // Today/Period stats
   doors: number;
   dms: number;
   pitches: number;
@@ -53,15 +52,9 @@ interface RepDrillDownData {
   fp: number;
   prmr: number;
   hoursWorked: number;
-  
-  // Effort analysis
   effort: EffortResult;
-  
-  // Timeline data (optional)
   workStartTime?: string;
   workEndTime?: string;
-  
-  // Coaching recommendation
   coachingFocus?: string;
 }
 
@@ -70,10 +63,10 @@ interface RepDrillDownDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSendSms?: (phone: string, message: string) => void;
-  /** Date range start - used to find most recent activity day */
   dateRangeStart?: Date;
-  /** Date range end - used to find most recent activity day */
   dateRangeEnd?: Date;
+  /** Date preset from reports page (today, week, month, etc.) */
+  datePreset?: string;
 }
 
 export const RepDrillDownDrawer = ({
@@ -83,6 +76,7 @@ export const RepDrillDownDrawer = ({
   onSendSms,
   dateRangeStart,
   dateRangeEnd,
+  datePreset = 'today',
 }: RepDrillDownDrawerProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
@@ -93,253 +87,155 @@ export const RepDrillDownDrawer = ({
   const [showSalesLog, setShowSalesLog] = useState(false);
   const [viewMode, setViewMode] = useState<'ring' | 'timeline'>('ring');
   
-  // Get userId for hooks - must be at top level
   const userId = isOpen && rep ? rep.userId : undefined;
   
-  // Unified goal pace calculator for this rep
   const downlineGoalPace = useGoalPaceCalculatorForUser(userId);
-  
-  // Fetch extended data (timeline + goals)
   const { data: extendedData, isLoading: isLoadingExtended } = useRepDrillDownData(userId);
-  
-  // Fetch calendar data for week strip
   const { data: calendarData } = useRepActivityCalendar(userId);
-  
-  // Fetch selected day activity
   const { data: dayActivity, isFetching: isDayActivityFetching } = useRepDayActivity(userId, selectedDate);
   
-  // Auto-select best date when drawer opens or date range changes
+  // Comparison data for the period
+  const dateRange = useMemo(() => ({
+    start: dateRangeStart ? format(dateRangeStart, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+    end: dateRangeEnd ? format(dateRangeEnd, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+  }), [dateRangeStart, dateRangeEnd]);
+
+  const {
+    currentTotals,
+    comparisonTotals,
+    sparklineHistory,
+    comparisonLabel,
+    isLoading: comparisonLoading,
+  } = useRepComparison({
+    userId,
+    dateRange,
+    preset: datePreset,
+  });
+
+  // Timing data comes from the comparison hook's raw entries
+  // We'll use a separate small query for timing since DaySummary doesn't have work times
+  const timingQuery = useQuery({
+    queryKey: ['rep-timing', userId, dateRange.start, dateRange.end],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from('daily_entries')
+        .select('entry_date, work_start_time, work_end_time, break_periods')
+        .eq('user_id', userId)
+        .gte('entry_date', dateRange.start)
+        .lte('entry_date', dateRange.end)
+        .not('work_start_time', 'is', null);
+      if (error) throw error;
+      return (data || []).map(e => {
+        let hoursWorked = 0;
+        if (e.work_start_time && e.work_end_time) {
+          let mins = (new Date(e.work_end_time).getTime() - new Date(e.work_start_time).getTime()) / 60000;
+          if (e.break_periods && Array.isArray(e.break_periods)) {
+            (e.break_periods as any[]).forEach((bp: any) => {
+              const bMins = (new Date(bp.end).getTime() - new Date(bp.start).getTime()) / 60000;
+              if (bMins > 0) mins -= bMins;
+            });
+          }
+          hoursWorked = Math.max(0, mins) / 60;
+        }
+        return {
+          date: e.entry_date,
+          startTime: e.work_start_time,
+          endTime: e.work_end_time,
+          hoursWorked,
+        };
+      });
+    },
+    enabled: !!userId,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const timingDays = timingQuery.data || [];
+
+  // Period label
+  const periodLabel = useMemo(() => {
+    const labels: Record<string, string> = {
+      today: 'Today', yesterday: 'Yesterday', week: 'This Week', lastWeek: 'Last Week',
+      month: 'This Month', lastMonth: 'Last Month', preseason: 'Preseason', ytd: 'YTD',
+    };
+    return labels[datePreset] || 'Selected Period';
+  }, [datePreset]);
+  
+  // Auto-select best date
   useEffect(() => {
-    if (!isOpen) {
-      setHasAutoSelected(false);
-      return;
-    }
-    
-    // Only auto-select once per drawer open
+    if (!isOpen) { setHasAutoSelected(false); return; }
     if (hasAutoSelected) return;
     
     const rangeEnd = dateRangeEnd || new Date();
     const rangeStart = dateRangeStart || rangeEnd;
     
-    // If we have calendar data, find the most recent day with activity in range
     if (calendarData?.summaries && calendarData.summaries.length > 0) {
       const rangeStartStr = format(rangeStart, 'yyyy-MM-dd');
       const rangeEndStr = format(rangeEnd, 'yyyy-MM-dd');
-      
-      // Filter to days within range that have work, then pick most recent
       const daysInRange = calendarData.summaries
         .filter(s => s.hasWork && s.date >= rangeStartStr && s.date <= rangeEndStr)
-        .sort((a, b) => b.date.localeCompare(a.date)); // Most recent first
+        .sort((a, b) => b.date.localeCompare(a.date));
       
       if (daysInRange.length > 0) {
-        // Use parseISO to avoid timezone issues
-        const bestDate = parseISO(daysInRange[0].date);
-        setSelectedDate(bestDate);
+        setSelectedDate(parseISO(daysInRange[0].date));
         setHasAutoSelected(true);
         return;
       }
     }
-    
-    // Fallback: use end of range
     setSelectedDate(rangeEnd);
     setHasAutoSelected(true);
   }, [isOpen, calendarData, dateRangeStart?.getTime(), dateRangeEnd?.getTime(), hasAutoSelected]);
 
-  // Use day activity if available, otherwise fall back to rep data for today
   const isToday = isSameDay(selectedDate, new Date());
   const displayData = isToday 
     ? {
-        doors: rep?.doors ?? 0,
-        dms: rep?.dms ?? 0,
-        pitches: rep?.pitches ?? 0,
-        transitions: rep?.transitions ?? 0,
-        presentations: rep?.presentations ?? 0,
-        closes: rep?.closes ?? 0,
-        fp: rep?.fp ?? 0,
-        prmr: rep?.prmr ?? 0,
+        doors: rep?.doors ?? 0, dms: rep?.dms ?? 0, pitches: rep?.pitches ?? 0,
+        transitions: rep?.transitions ?? 0, presentations: rep?.presentations ?? 0,
+        closes: rep?.closes ?? 0, fp: rep?.fp ?? 0, prmr: rep?.prmr ?? 0,
         hoursWorked: rep?.hoursWorked ?? 0,
-        workStartTime: rep?.workStartTime,
-        workEndTime: rep?.workEndTime,
+        workStartTime: rep?.workStartTime, workEndTime: rep?.workEndTime,
       }
     : {
-        doors: dayActivity?.doors || 0,
-        dms: dayActivity?.dms || 0,
-        pitches: dayActivity?.pitches || 0,
-        transitions: dayActivity?.transitions || 0,
-        presentations: dayActivity?.presentations || 0,
-        closes: dayActivity?.closes || 0,
-        fp: dayActivity?.fp || 0,
-        prmr: dayActivity?.prmr || 0,
+        doors: dayActivity?.doors || 0, dms: dayActivity?.dms || 0, pitches: dayActivity?.pitches || 0,
+        transitions: dayActivity?.transitions || 0, presentations: dayActivity?.presentations || 0,
+        closes: dayActivity?.closes || 0, fp: dayActivity?.fp || 0, prmr: dayActivity?.prmr || 0,
         hoursWorked: dayActivity?.hoursWorked || 0,
-        workStartTime: dayActivity?.workStartTime,
-        workEndTime: dayActivity?.workEndTime,
+        workStartTime: dayActivity?.workStartTime, workEndTime: dayActivity?.workEndTime,
       };
 
-  // Calculate comprehensive goal data for the GoalProgressSection
   const goalData = useMemo(() => {
     const efpModeEnabled = extendedData?.efpModeEnabled ?? false;
     const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
-
+    const todayMetric = efpModeEnabled ? calculateEfp(displayData.prmr) : displayData.fp;
     const isPreseason = extendedData?.isPreseason ?? true;
     const focusTier = extendedData?.goals?.focusTier;
-
     const seasonGoal = isPreseason 
       ? extendedData?.goals?.preseasonGoal || 0
-      : focusTier === 'couldDo' 
-        ? extendedData?.goals?.couldGoal || 0
-        : focusTier === 'willDo' 
-          ? extendedData?.goals?.willGoal || 0
+      : focusTier === 'couldDo' ? extendedData?.goals?.couldGoal || 0
+        : focusTier === 'willDo' ? extendedData?.goals?.willGoal || 0
           : extendedData?.goals?.mustGoal || 0;
-
-    // Get pace info for current tier
-    const paceInfo = isPreseason
-      ? extendedData?.goalPace?.preseason
-      : focusTier === 'couldDo'
-        ? extendedData?.goalPace?.couldDo
-        : focusTier === 'willDo'
-          ? extendedData?.goalPace?.willDo
+    const paceInfo = isPreseason ? extendedData?.goalPace?.preseason
+      : focusTier === 'couldDo' ? extendedData?.goalPace?.couldDo
+        : focusTier === 'willDo' ? extendedData?.goalPace?.willDo
           : extendedData?.goalPace?.mustDo;
-
-    // Daily goal should always be based on the active tier / preseason goal
     const seasonTotalDays = paceInfo?.totalPlannedDays || 53;
     const dailyGoalRaw = seasonGoal > 0 && seasonTotalDays > 0 ? (seasonGoal / seasonTotalDays) : 0;
     const dailyGoal = dailyGoalRaw > 0 ? dailyGoalRaw : 2;
-
-    // Convert day/week/month/season progress into EFP when enabled
-    const todayMetric = efpModeEnabled ? calculateEfp(displayData.prmr) : displayData.fp;
-
-    const seasonMetric = isPreseason 
-      ? (efpModeEnabled ? (extendedData?.preseasonEFP || 0) : (extendedData?.preseasonFP || 0))
-      : (efpModeEnabled ? (extendedData?.totalSeasonEFP || 0) : (extendedData?.totalSeasonFP || 0));
-
-    // Get planned days from extendedData for week/month calculations
-    const plannedDates = extendedData?.plannedDates || [];
-    const today = new Date();
-    const todayStr = format(today, 'yyyy-MM-dd');
-
-    // Week calculations based on planned days
-    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
-    const weekStartStr = format(weekStart, 'yyyy-MM-dd');
-    const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
-
-    // Planned days in the week (excluding Sundays automatically via planned_work_days)
-    const weekPlannedDays = plannedDates.filter(d => d >= weekStartStr && d <= weekEndStr).length;
-    // Elapsed planned days (up to today)
-    const weekElapsedPlannedDays = plannedDates.filter(d => d >= weekStartStr && d <= todayStr && d <= weekEndStr).length;
-
-    const weekTotals = (calendarData?.summaries || [])
-      .filter(s => {
-        const d = parseISO(s.date);
-        return isWithinInterval(d, { start: weekStart, end: weekEnd });
-      })
-      .reduce(
-        (acc, s) => {
-          acc.fp += s.fp || 0;
-          acc.prmr += s.prmr || 0;
-          return acc;
-        },
-        { fp: 0, prmr: 0 }
-      );
-
-    const weekFP = efpModeEnabled ? calculateEfp(weekTotals.prmr) : weekTotals.fp;
-
-    // Week goal/expected based on planned days
-    const weekGoal = dailyGoal * (weekPlannedDays || 6); // Fallback to 6 if no planned days
-    const weekExpected = dailyGoal * (weekElapsedPlannedDays || Math.min(getDay(today) || 7, 6));
-
-    // Month calculations based on planned days
-    const monthStart = startOfMonth(selectedDate);
-    const monthEnd = endOfMonth(selectedDate);
-    const monthStartStr = format(monthStart, 'yyyy-MM-dd');
-    const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
-
-    const monthPlannedDays = plannedDates.filter(d => d >= monthStartStr && d <= monthEndStr).length;
-    const monthElapsedPlannedDays = plannedDates.filter(d => d >= monthStartStr && d <= todayStr && d <= monthEndStr).length;
-
-    const monthTotals = (calendarData?.summaries || [])
-      .filter(s => {
-        const d = parseISO(s.date);
-        return isWithinInterval(d, { start: monthStart, end: monthEnd });
-      })
-      .reduce(
-        (acc, s) => {
-          acc.fp += s.fp || 0;
-          acc.prmr += s.prmr || 0;
-          return acc;
-        },
-        { fp: 0, prmr: 0 }
-      );
-
-    const monthFP = efpModeEnabled ? calculateEfp(monthTotals.prmr) : monthTotals.fp;
-
-    // Month goal/expected based on planned days
-    const daysInMonth = monthEnd.getDate();
-    const fallbackPlannedDays = Math.round(daysInMonth * 0.6); // ~60% of days as fallback
-    const monthGoal = dailyGoal * (monthPlannedDays || fallbackPlannedDays);
-    const monthExpected = dailyGoal * (monthElapsedPlannedDays || Math.round(today.getDate() * 0.6));
-
-    // Season calculations
-    const seasonDaysElapsed = paceInfo?.daysElapsed || 1;
-    const seasonExpected = paceInfo?.expectedAtThisPoint || 0;
-
-    // Available tiers for summer
-    const availableTiers = !isPreseason ? [
-      extendedData?.goals?.mustGoal && { label: 'Must Do', goal: extendedData.goals.mustGoal, key: 'mustDo' },
-      extendedData?.goals?.willGoal && { label: 'Will Do', goal: extendedData.goals.willGoal, key: 'willDo' },
-      extendedData?.goals?.couldGoal && { label: 'Could Do', goal: extendedData.goals.couldGoal, key: 'couldDo' },
-    ].filter(Boolean) as { label: string; goal: number; key: string }[] : undefined;
-
-    // Calculate live metric if rep is actively working (unfinalized entry)
-    const isRepWorking = isToday && dayActivity && !dayActivity.isFinalized && dayActivity.workStartTime;
-    const liveFP = isRepWorking ? todayMetric : 0;
-
-    return {
-      metricLabel,
-      dailyGoal,
-      todayFP: todayMetric,
-      liveFP,
-      weekFP,
-      weekExpected,
-      weekGoal,
-      weekPlannedDays,
-      weekElapsedPlannedDays,
-      monthFP,
-      monthExpected,
-      monthGoal,
-      monthPlannedDays,
-      monthElapsedPlannedDays,
-      seasonFP: seasonMetric,
-      seasonExpected,
-      seasonGoal,
-      seasonDaysElapsed,
-      seasonTotalDays,
-      isPreseason,
-      focusTier,
-      availableTiers,
-      // For ring goal display - always use daily progress %
-      ringGoalProgress: dailyGoal > 0 ? (todayMetric / dailyGoal) * 100 : 0,
-    };
-  }, [calendarData?.summaries, extendedData, displayData.fp, displayData.prmr, selectedDate, isToday, dayActivity]);
+    const ringGoalProgress = dailyGoal > 0 ? (todayMetric / dailyGoal) * 100 : 0;
+    return { metricLabel, todayMetric, dailyGoal, ringGoalProgress };
+  }, [extendedData, displayData.fp, displayData.prmr]);
 
   if (!rep) return null;
 
   const getFirstName = (name: string) => {
-    // Strip emojis and get first word
     const stripped = name.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
     return stripped.split(' ')[0] || stripped;
   };
 
-  // Ring always shows daily goal progress
-  
-  // Calculate work start/end for segment drawer — use "now" for live entries without work_end_time
   const workStart = dayActivity?.workStartTime ? parseISO(dayActivity.workStartTime) : null;
   const workEnd = dayActivity?.workEndTime ? parseISO(dayActivity.workEndTime) : (workStart ? new Date() : null);
-  const totalWorkMinutes = workStart && workEnd 
-    ? (workEnd.getTime() - workStart.getTime()) / (1000 * 60) 
-    : 0;
-  
-  // Handle segment click
+  const totalWorkMinutes = workStart && workEnd ? (workEnd.getTime() - workStart.getTime()) / (1000 * 60) : 0;
+
   const handleSegmentClick = (segment: RingSegment, matchedSale?: Sale) => {
     setSelectedSegment(segment);
     setSelectedSegmentSale(matchedSale || null);
@@ -347,65 +243,119 @@ export const RepDrillDownDrawer = ({
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      {/* z-[60] to stack above WorkingRepsDrawer/GoalPaceDrawer (z-50) */}
       <DrawerContent className="max-h-[92vh] z-[60]">
+        {/* Header */}
         <DrawerHeader className="border-b pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <DrawerTitle className="text-xl">{rep.name}</DrawerTitle>
-              {rep.year && (
-                <Badge variant="outline">{rep.year}</Badge>
-              )}
+              <ProfileAvatar
+                userId={rep.userId}
+                name={rep.name}
+                photoUrl={rep.photoUrl}
+                className="h-10 w-10"
+                fallbackClassName="text-sm"
+                onBeforeNavigate={onClose}
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <DrawerTitle className="text-lg">{rep.name}</DrawerTitle>
+                  {rep.year && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{rep.year}</Badge>}
+                </div>
+                {rep.teamName && (
+                  <p className="text-xs text-muted-foreground">{rep.teamName}</p>
+                )}
+              </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setShowCalendar(true)}
-            >
-              <Calendar className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {rep.phone && onSendSms && (
+                <Button variant="ghost" size="icon" className="h-8 w-8"
+                  onClick={() => {
+                    const msg = `Hey ${getFirstName(rep.name)}, checking in - how's it going out there?`;
+                    onSendSms(rep.phone!, msg);
+                  }}
+                >
+                  <MessageSquare className="h-4 w-4" />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" className="h-8 w-8"
+                onClick={() => setShowCalendar(true)}
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          {rep.teamName && (
-            <p className="text-sm text-muted-foreground">{rep.teamName}</p>
-          )}
         </DrawerHeader>
 
         <div className="overflow-y-auto">
-          {/* Week Activity Strip - full width */}
-          <div className="px-4 py-3 border-b bg-muted/20">
-            <WeekActivityStrip
-              daySummaries={calendarData?.summaries || []}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              dailyGoal={goalData.dailyGoal}
+          {/* Period Overview KPIs */}
+          <div className="p-4 border-b bg-muted/10">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{periodLabel}</h3>
+            </div>
+            <RepPeriodKpis
+              current={currentTotals}
+              comparison={comparisonTotals}
+              sparklineHistory={sparklineHistory}
+              comparisonLabel={comparisonLabel}
+              repName={rep.name}
+              periodLabel={periodLabel}
+              isLoading={comparisonLoading}
             />
           </div>
-          
-          {/* Date Header */}
+
+          {/* Timing Visualization */}
+          {timingDays.length > 0 && (
+            <div className="p-4 border-b">
+              <RepTimingChart days={timingDays} />
+            </div>
+          )}
+
+          {/* Goal Progress */}
+          {downlineGoalPace.hasGoals && (
+            <div className="p-4 border-b">
+              <UnifiedGoalProgress
+                data={downlineGoalPace}
+                mode="compact"
+                compactTimeframes={['D', 'Y']}
+                showPaceContext
+              />
+            </div>
+          )}
+
+          {/* Day View Section */}
+          <div className="border-b bg-muted/20">
+            {/* Week Activity Strip */}
+            <div className="px-4 py-3">
+              <WeekActivityStrip
+                daySummaries={calendarData?.summaries || []}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                dailyGoal={goalData.dailyGoal}
+              />
+            </div>
+          </div>
+
+          {/* Date header for non-today */}
           {!isToday && (
             <div className="px-4 py-2 text-center">
-              <span className="text-sm font-medium text-muted-foreground">
+              <span className="text-xs font-medium text-muted-foreground">
                 {format(selectedDate, 'EEEE, MMMM d, yyyy')}
               </span>
             </div>
           )}
 
           <div className="p-4 space-y-4">
-            {/* Activity Visualization with View Toggle */}
+            {/* Activity Visualization */}
             {(displayData.doors > 0 || displayData.hoursWorked > 0) ? (
               <div className="relative" key={format(selectedDate, 'yyyy-MM-dd')}>
-                {/* View toggle + Legend trigger */}
+                {/* View toggle + Legend */}
                 <div className="absolute top-0 right-0 z-10 flex items-center gap-1">
-                  {/* View mode toggle */}
                   <div className="flex items-center bg-muted/50 rounded-full p-0.5">
                     <button
                       onClick={() => setViewMode('ring')}
                       className={cn(
                         "p-1.5 rounded-full transition-all",
-                        viewMode === 'ring' 
-                          ? "bg-primary text-primary-foreground" 
-                          : "text-muted-foreground hover:text-foreground"
+                        viewMode === 'ring' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       )}
                       aria-label="Ring view"
                     >
@@ -415,35 +365,24 @@ export const RepDrillDownDrawer = ({
                       onClick={() => setViewMode('timeline')}
                       className={cn(
                         "p-1.5 rounded-full transition-all",
-                        viewMode === 'timeline' 
-                          ? "bg-primary text-primary-foreground" 
-                          : "text-muted-foreground hover:text-foreground"
+                        viewMode === 'timeline' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       )}
                       aria-label="Timeline view"
                     >
                       <AlignJustify className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  
-                  {/* Legend info button - show for both views */}
-                  <LegendTriggerButton 
-                    onClick={() => setShowLegend(true)} 
-                  />
+                  <LegendTriggerButton onClick={() => setShowLegend(true)} />
                 </div>
                 
-                {/* Ring View */}
                 {viewMode === 'ring' && (
                   <div className="flex justify-center">
                     <ActivityRingHero
                       entry={{
-                        doors_knocked: displayData.doors,
-                        decision_makers: displayData.dms,
-                        pitches: displayData.pitches,
-                        transitions: displayData.transitions,
-                        presentations: displayData.presentations,
-                        closes: displayData.closes,
-                        fp_plus: displayData.fp,
-                        prmr: displayData.prmr,
+                        doors_knocked: displayData.doors, decision_makers: displayData.dms,
+                        pitches: displayData.pitches, transitions: displayData.transitions,
+                        presentations: displayData.presentations, closes: displayData.closes,
+                        fp_plus: displayData.fp, prmr: displayData.prmr,
                         is_finalized: !isToday || (dayActivity?.isFinalized ?? false),
                         work_start_time: dayActivity?.workStartTime || displayData.workStartTime || null,
                         work_end_time: dayActivity?.workEndTime || displayData.workEndTime || null,
@@ -453,7 +392,7 @@ export const RepDrillDownDrawer = ({
                       }}
                       salesLog={dayActivity?.salesLog as any}
                       metricLabel={goalData.metricLabel}
-                      metricValue={goalData.todayFP}
+                      metricValue={goalData.todayMetric}
                       goalProgress={goalData.ringGoalProgress}
                       showGoalRing={goalData.ringGoalProgress > 0}
                       showGapPercent={true}
@@ -464,18 +403,13 @@ export const RepDrillDownDrawer = ({
                   </div>
                 )}
                 
-                {/* Horizontal Timeline View */}
                 {viewMode === 'timeline' && (
                   <HorizontalActivityTimeline
                     entry={{
-                      doors_knocked: displayData.doors,
-                      decision_makers: displayData.dms,
-                      pitches: displayData.pitches,
-                      transitions: displayData.transitions,
-                      presentations: displayData.presentations,
-                      closes: displayData.closes,
-                      fp_plus: displayData.fp,
-                      prmr: displayData.prmr,
+                      doors_knocked: displayData.doors, decision_makers: displayData.dms,
+                      pitches: displayData.pitches, transitions: displayData.transitions,
+                      presentations: displayData.presentations, closes: displayData.closes,
+                      fp_plus: displayData.fp, prmr: displayData.prmr,
                       is_finalized: !isToday || (dayActivity?.isFinalized ?? false),
                       work_start_time: dayActivity?.workStartTime || displayData.workStartTime || null,
                       work_end_time: dayActivity?.workEndTime || displayData.workEndTime || null,
@@ -485,7 +419,7 @@ export const RepDrillDownDrawer = ({
                     }}
                     salesLog={dayActivity?.salesLog as any}
                     metricLabel={goalData.metricLabel}
-                    metricValue={goalData.todayFP}
+                    metricValue={goalData.todayMetric}
                     goalProgress={goalData.ringGoalProgress}
                     onSegmentClick={handleSegmentClick}
                   />
@@ -504,102 +438,20 @@ export const RepDrillDownDrawer = ({
             {/* Stats Grid */}
             <FinalizedStatsGrid
               entry={{
-                doors_knocked: displayData.doors,
-                decision_makers: displayData.dms,
-                pitches: displayData.pitches,
-                transitions: displayData.transitions,
-                presentations: displayData.presentations,
-                closes: displayData.closes,
-                fp_plus: displayData.fp,
-                prmr: displayData.prmr,
+                doors_knocked: displayData.doors, decision_makers: displayData.dms,
+                pitches: displayData.pitches, transitions: displayData.transitions,
+                presentations: displayData.presentations, closes: displayData.closes,
+                fp_plus: displayData.fp, prmr: displayData.prmr,
               }}
               salesLog={dayActivity?.salesLog as any}
               onClosesClick={() => setShowSalesLog(true)}
               onFPClick={() => setShowSalesLog(true)}
               onPRMRClick={() => setShowSalesLog(true)}
             />
-            
-            {/* Effort Coaching Callouts - Show for days with work */}
-            {/* Note: gapMinutes is NOT passed here - the ring calculates accurate gaps */}
-            {/* The excessive gap calculation from useRepDayActivity counts ALL gaps > 20min */}
-            {/* which double-counts doorstep/presentation time. Use ring segments instead. */}
-            {displayData.hoursWorked > 0 && (
-              <EffortCoachingCallouts
-                workStartTime={dayActivity?.workStartTime || displayData.workStartTime}
-                workEndTime={dayActivity?.workEndTime || displayData.workEndTime}
-                totalBreakMinutes={dayActivity?.breakMinutes}
-                dayOfWeek={getDay(selectedDate)}
-                timezone={extendedData?.timezone}
-              />
-            )}
-            
-            {/* Funnel Coaching Callouts - Only for today or recent days */}
-            {isToday && displayData.doors > 0 && (
-              <CoachingCallouts
-                doors={displayData.doors}
-                pitches={displayData.pitches}
-                transitions={displayData.transitions}
-                presentations={displayData.presentations}
-                closes={displayData.closes}
-                hoursWorked={displayData.hoursWorked}
-                workStartTime={displayData.workStartTime}
-                workEndTime={displayData.workEndTime}
-                gapMinutes={dayActivity?.gapMinutes}
-                isRookie={rep.year === 'rookie'}
-                timezone={extendedData?.timezone}
-              />
-            )}
-
-            <Separator />
-
-            {/* Goal Progress Section with D/W/M/Y toggle */}
-            {downlineGoalPace.hasGoals ? (
-              <UnifiedGoalProgress
-                data={downlineGoalPace}
-                mode="full"
-                showTierSelector={!downlineGoalPace.isPreseason}
-                showPaceContext
-                showTimeframeToggle
-                selectedDate={selectedDate}
-              />
-            ) : !isLoadingExtended && !downlineGoalPace.isLoading && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-                <Target className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">No goals configured</span>
-              </div>
-            )}
-
-            <Separator />
-
-            {/* Their Purpose / Why */}
-            {extendedData?.purposeStatement && (
-              <>
-                <PurposeDisplayCard
-                  purposeStatement={extendedData.purposeStatement}
-                  purposeUpdatedAt={extendedData.purposeUpdatedAt}
-                />
-                <Separator />
-              </>
-            )}
-
-            {/* SMS Action */}
-            {rep.phone && onSendSms && (
-              <Button 
-                variant="outline" 
-                className="w-full gap-2"
-                onClick={() => {
-                  const message = generateSmsMessage(rep);
-                  onSendSms(rep.phone!, message);
-                }}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Send Text to {getFirstName(rep.name)}
-              </Button>
-            )}
           </div>
         </div>
         
-        {/* Activity Calendar Drawer */}
+        {/* Sub-drawers */}
         {userId && (
           <ActivityCalendarDrawer
             open={showCalendar}
@@ -610,13 +462,8 @@ export const RepDrillDownDrawer = ({
           />
         )}
         
-        {/* Legend Drawer */}
-        <ActivityRingLegend
-          open={showLegend}
-          onOpenChange={setShowLegend}
-        />
+        <ActivityRingLegend open={showLegend} onOpenChange={setShowLegend} />
         
-        {/* Segment Detail Drawer */}
         <SegmentDetailDrawer
           open={!!selectedSegment}
           onOpenChange={(open) => !open && setSelectedSegment(null)}
@@ -628,7 +475,6 @@ export const RepDrillDownDrawer = ({
           repTimezone={extendedData?.timezone || undefined}
         />
         
-        {/* Sales Log Drawer */}
         <SalesLogDrawer
           open={showSalesLog}
           onOpenChange={setShowSalesLog}
@@ -638,23 +484,4 @@ export const RepDrillDownDrawer = ({
       </DrawerContent>
     </Drawer>
   );
-};
-
-// Generate contextual SMS message
-const generateSmsMessage = (rep: RepDrillDownData): string => {
-  const firstName = rep.name.split(' ')[0];
-  
-  if (rep.effort.category === 'outstanding' && rep.fp > 0) {
-    return `Hey ${firstName}! Great work today - ${rep.fp.toFixed(1)} FP+! Keep crushing it! 🔥`;
-  }
-  
-  if (rep.effort.flags.some(f => f.type === 'late_start')) {
-    return `Hey ${firstName}, noticed you got a late start today. Everything ok? Let's get after it tomorrow! 💪`;
-  }
-  
-  if (rep.effort.flags.some(f => f.type === 'low_doors')) {
-    return `Hey ${firstName}, let's pick up the door volume! You've got this. What do you need from me?`;
-  }
-  
-  return `Hey ${firstName}, checking in - how's it going out there? Anything I can help with?`;
 };
