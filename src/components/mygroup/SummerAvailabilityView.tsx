@@ -713,9 +713,12 @@ export const SummerAvailabilityView = () => {
                         className="flex items-center justify-between bg-muted/30 border border-border/50 rounded-xl px-3 py-2.5"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="h-8 w-8 rounded-full bg-destructive/10 flex items-center justify-center text-xs font-bold text-destructive shrink-0">
-                            {firstName[0]}
-                          </div>
+                          <Avatar className="h-8 w-8 shrink-0">
+                            {person.profilePhotoUrl && <AvatarImage src={person.profilePhotoUrl} />}
+                            <AvatarFallback className="text-[10px] font-bold bg-destructive/10 text-destructive">
+                              {getInitials(person.name)}
+                            </AvatarFallback>
+                          </Avatar>
                           <div className="min-w-0">
                             <p className="text-xs font-medium text-foreground truncate">
                               {firstName}

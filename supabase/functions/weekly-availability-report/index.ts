@@ -19,7 +19,6 @@ serve(async (req) => {
     // Calculate next week's Mon-Sat dates
     const now = new Date();
     const dayOfWeek = now.getUTCDay(); // 0=Sun
-    // Days until next Monday: if Sunday (0), next Mon is 1 day away
     const daysUntilNextMon = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
     const nextMonday = new Date(now);
     nextMonday.setUTCDate(now.getUTCDate() + daysUntilNextMon);
@@ -33,106 +32,27 @@ serve(async (req) => {
 
     const weekLabel = `${formatShortDate(nextWeekDates[0])} – ${formatShortDate(nextWeekDates[5])}`;
 
-    // Get all offices with their ADs
-    const { data: officeStaff } = await client
-      .from('office_staff')
-      .select('user_id, office_id, role')
-      .eq('role', 'area_director');
-
-    if (!officeStaff || officeStaff.length === 0) {
-      return new Response(JSON.stringify({ message: 'No area directors found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Get unique office IDs
-    const officeIds = [...new Set(officeStaff.map(s => s.office_id))];
-
-    // Get MGMT groups assigned to these offices
-    const { data: mgmtGroups } = await client
-      .from('mgmt_groups')
-      .select('id, office_id')
-      .in('office_id', officeIds);
-
-    if (!mgmtGroups || mgmtGroups.length === 0) {
-      return new Response(JSON.stringify({ message: 'No mgmt groups in offices' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Get teams under those mgmt groups
-    const mgmtGroupIds = mgmtGroups.map(g => g.id);
-    const { data: teams } = await client
-      .from('teams')
-      .select('id, mgmt_group_id')
-      .in('mgmt_group_id', mgmtGroupIds);
-
-    const teamIds = teams?.map(t => t.id) || [];
-
-    // Get reps assigned to those teams
-    const { data: reps } = await client
-      .from('reps')
-      .select('user_id, name')
-      .in('user_id', (
-        await client
-          .from('reps')
-          .select('user_id')
-          .or(teamIds.length > 0 ? teamIds.map(id => `user_id.in.(select user_id from reps)`).join(',') : 'user_id.is.null')
-      ).data?.map((r: any) => r.user_id) || []);
-
-    // Simpler approach: get all reps, then filter by team membership
-    // Get team memberships
-    const { data: allTeamReps } = await client
-      .from('reps')
-      .select('user_id, name');
-
-    // We need a different approach - query reps via teams table relationship
-    // Actually, reps don't have team_id. The team assignment is via the org hierarchy.
-    // Let's use the teams.lead_user_id and recruiter downline approach instead.
-    // 
-    // Simpler: get all season_configs with excluded days that overlap next week,
-    // then group by office via the mgmt_group chain.
-
-    // Get all season configs
+    // Get all season configs with excluded days
     const { data: configs } = await client
       .from('season_config')
       .select('user_id, personal_summer_start, personal_summer_end, excluded_summer_days');
 
     if (!configs) {
-      return new Response(JSON.stringify({ message: 'No configs found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ message: 'No configs found' });
     }
 
     // Get all rep names
     const { data: allReps } = await client
       .from('reps')
       .select('user_id, name');
-
     const repNameMap = new Map((allReps || []).map(r => [r.user_id, r.name]));
 
-    // Find reps off next week
+    // Find reps with EXPLICIT excluded days next week (not out-of-range)
     const repsOffNextWeek: { userId: string; name: string; offDays: string[] }[] = [];
 
     for (const config of configs) {
-      const offDays: string[] = [];
-      const start = config.personal_summer_start;
-      const end = config.personal_summer_end;
       const excluded = config.excluded_summer_days || [];
-
-      for (const dateStr of nextWeekDates) {
-        // Off if outside their summer range
-        if (start && end) {
-          if (dateStr < start || dateStr > end) {
-            offDays.push(dateStr);
-            continue;
-          }
-        }
-        // Off if in excluded days
-        if (excluded.includes(dateStr)) {
-          offDays.push(dateStr);
-        }
-      }
+      const offDays = nextWeekDates.filter(dateStr => excluded.includes(dateStr));
 
       if (offDays.length > 0) {
         const name = repNameMap.get(config.user_id) || 'Unknown';
@@ -140,91 +60,120 @@ serve(async (req) => {
       }
     }
 
-    if (repsOffNextWeek.length === 0) {
-      // Still notify ADs that everyone is working
-      for (const ad of officeStaff) {
-        await sendNotification(supabaseUrl, supabaseServiceKey, ad.user_id,
-          'Weekly Availability ☀️',
-          `Great news! Everyone is scheduled to work next week (${weekLabel}).`,
-        );
-      }
+    // --- Gather recipients: Area Directors + MGMT Group Leaders ---
 
-      return new Response(JSON.stringify({ message: 'No one off, ADs notified' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // 1. Area Directors - get all office ADs
+    const { data: officeStaff } = await client
+      .from('office_staff')
+      .select('user_id, office_id, role')
+      .eq('role', 'area_director');
 
-    // For each AD, send a summary of their office's reps who are off
-    // Group by office
-    const adsByOffice = new Map<string, string[]>();
-    for (const staff of officeStaff) {
-      const list = adsByOffice.get(staff.office_id) || [];
-      list.push(staff.user_id);
-      adsByOffice.set(staff.office_id, list);
-    }
+    // 2. MGMT Group Leaders
+    const { data: mgmtGroups } = await client
+      .from('mgmt_groups')
+      .select('id, lead_user_id, office_id');
 
-    // Build office -> mgmt_group_ids map
-    const officeMgmtMap = new Map<string, string[]>();
-    for (const mg of mgmtGroups) {
-      if (!mg.office_id) continue;
-      const list = officeMgmtMap.get(mg.office_id) || [];
-      list.push(mg.id);
-      officeMgmtMap.set(mg.office_id, list);
-    }
+    // 3. Teams under mgmt groups (for scoping)
+    const mgmtGroupIds = (mgmtGroups || []).filter(g => g.lead_user_id).map(g => g.id);
+    const { data: teams } = await client
+      .from('teams')
+      .select('id, mgmt_group_id, lead_user_id');
 
-    // Build mgmt_group -> team_ids map  
-    const mgmtTeamMap = new Map<string, string[]>();
+    // 4. Get recruiter chains to resolve which reps belong to which mgmt groups
+    const { data: recruits } = await client
+      .from('recruits')
+      .select('recruiter_user_id, team_id');
+
+    // Build team -> mgmt_group mapping
+    const teamToMgmt = new Map<string, string>();
     for (const t of (teams || [])) {
-      const list = mgmtTeamMap.get(t.mgmt_group_id) || [];
-      list.push(t.id);
-      mgmtTeamMap.set(t.mgmt_group_id, list);
+      if (t.mgmt_group_id) teamToMgmt.set(t.id, t.mgmt_group_id);
     }
 
-    // For simplicity, send all ADs a summary of ALL reps off next week
-    // (scoping per-office would require resolving team membership which is complex)
-    const summaryLines = repsOffNextWeek
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 15) // Cap at 15 to keep notification readable
-      .map(r => {
-        const dayLabels = r.offDays.map(d => formatDayOfWeek(d)).join(', ');
-        return `• ${r.name.split(' ')[0]}: ${dayLabels}`;
-      });
+    // Build mgmt_group -> rep user_ids mapping (via team leads + recruits on those teams)
+    const mgmtGroupReps = new Map<string, Set<string>>();
+    // Add team leads
+    for (const t of (teams || [])) {
+      if (t.mgmt_group_id && t.lead_user_id) {
+        if (!mgmtGroupReps.has(t.mgmt_group_id)) mgmtGroupReps.set(t.mgmt_group_id, new Set());
+        mgmtGroupReps.get(t.mgmt_group_id)!.add(t.lead_user_id);
+      }
+    }
+    // Add recruits assigned to teams
+    for (const r of (recruits || [])) {
+      if (r.team_id && teamToMgmt.has(r.team_id) && r.recruiter_user_id) {
+        const mgId = teamToMgmt.get(r.team_id)!;
+        if (!mgmtGroupReps.has(mgId)) mgmtGroupReps.set(mgId, new Set());
+        mgmtGroupReps.get(mgId)!.add(r.recruiter_user_id);
+      }
+    }
 
-    const totalOff = repsOffNextWeek.length;
-    const body = totalOff <= 15
-      ? `${totalOff} rep${totalOff > 1 ? 's' : ''} taking time off next week (${weekLabel}):\n${summaryLines.join('\n')}`
-      : `${totalOff} reps taking time off next week (${weekLabel}):\n${summaryLines.join('\n')}\n...and ${totalOff - 15} more`;
+    const results: { recipientId: string; role: string; status: string; error?: string }[] = [];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const offUserIdSet = new Set(repsOffNextWeek.map(r => r.userId));
 
-    const uniqueAdIds = [...new Set(officeStaff.map(s => s.user_id))];
-    const results = [];
-
+    // --- Send to Area Directors (all reps in their office) ---
+    const uniqueAdIds = [...new Set((officeStaff || []).map(s => s.user_id))];
     for (const adUserId of uniqueAdIds) {
+      // ADs get the full report (all reps off)
+      const body = buildReportBody(repsOffNextWeek, weekLabel);
       try {
         await sendNotification(supabaseUrl, supabaseServiceKey, adUserId,
-          `Weekly Availability Report ☀️`,
-          body,
-        );
-        results.push({ adUserId, status: 'sent' });
+          `Weekly Availability Report ☀️`, body);
+        results.push({ recipientId: adUserId, role: 'area_director', status: 'sent' });
       } catch (err) {
-        results.push({ adUserId, status: 'failed', error: String(err) });
+        results.push({ recipientId: adUserId, role: 'area_director', status: 'failed', error: String(err) });
+      }
+      await logNotification(client, adUserId, todayStr, weekLabel, repsOffNextWeek.length);
+    }
+
+    // --- Send to MGMT Group Leaders (scoped to their downline) ---
+    for (const mg of (mgmtGroups || [])) {
+      if (!mg.lead_user_id) continue;
+      // Skip if this leader is already an AD (already received full report)
+      if (uniqueAdIds.includes(mg.lead_user_id)) continue;
+
+      const downlineUserIds = mgmtGroupReps.get(mg.id);
+      if (!downlineUserIds || downlineUserIds.size === 0) continue;
+
+      // Filter off reps to just this leader's downline
+      const scopedOff = repsOffNextWeek.filter(r => downlineUserIds.has(r.userId));
+
+      if (scopedOff.length === 0) {
+        // Send "all good" message
+        try {
+          await sendNotification(supabaseUrl, supabaseServiceKey, mg.lead_user_id,
+            'Weekly Availability ☀️',
+            `Great news! Everyone in your group is scheduled to work next week (${weekLabel}).`);
+          results.push({ recipientId: mg.lead_user_id, role: 'mgmt_group_lead', status: 'sent' });
+        } catch (err) {
+          results.push({ recipientId: mg.lead_user_id, role: 'mgmt_group_lead', status: 'failed', error: String(err) });
+        }
+      } else {
+        const body = buildReportBody(scopedOff, weekLabel);
+        try {
+          await sendNotification(supabaseUrl, supabaseServiceKey, mg.lead_user_id,
+            `Weekly Availability Report ☀️`, body);
+          results.push({ recipientId: mg.lead_user_id, role: 'mgmt_group_lead', status: 'sent' });
+        } catch (err) {
+          results.push({ recipientId: mg.lead_user_id, role: 'mgmt_group_lead', status: 'failed', error: String(err) });
+        }
+      }
+      await logNotification(client, mg.lead_user_id, todayStr, weekLabel, scopedOff.length);
+    }
+
+    // If no one is off, still notify ADs
+    if (repsOffNextWeek.length === 0) {
+      for (const adUserId of uniqueAdIds) {
+        try {
+          await sendNotification(supabaseUrl, supabaseServiceKey, adUserId,
+            'Weekly Availability ☀️',
+            `Great news! Everyone is scheduled to work next week (${weekLabel}).`);
+        } catch (_) { /* ignore */ }
       }
     }
 
-    // Log it
-    const todayStr = new Date().toISOString().split('T')[0];
-    for (const adId of uniqueAdIds) {
-      await client.from('notification_logs').insert({
-        user_id: adId,
-        notification_type: 'weekly_availability_report',
-        entry_date: todayStr,
-        metadata: { weekLabel, totalOff, repsOffCount: repsOffNextWeek.length },
-      });
-    }
-
-    return new Response(JSON.stringify({ success: true, results, totalOff }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return jsonResponse({ success: true, results, totalOff: repsOffNextWeek.length });
   } catch (error) {
     console.error('Error:', error);
     return new Response(
@@ -233,6 +182,36 @@ serve(async (req) => {
     );
   }
 });
+
+function jsonResponse(data: unknown) {
+  return new Response(JSON.stringify(data), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function buildReportBody(repsOff: { name: string; offDays: string[] }[], weekLabel: string): string {
+  const sorted = [...repsOff].sort((a, b) => a.name.localeCompare(b.name));
+  const lines = sorted
+    .slice(0, 15)
+    .map(r => {
+      const dayLabels = r.offDays.map(d => formatDayOfWeek(d)).join(', ');
+      return `• ${r.name.split(' ')[0]}: ${dayLabels}`;
+    });
+
+  const total = repsOff.length;
+  return total <= 15
+    ? `${total} rep${total > 1 ? 's' : ''} taking time off next week (${weekLabel}):\n${lines.join('\n')}`
+    : `${total} reps taking time off next week (${weekLabel}):\n${lines.join('\n')}\n...and ${total - 15} more`;
+}
+
+async function logNotification(client: any, userId: string, todayStr: string, weekLabel: string, count: number) {
+  await client.from('notification_logs').insert({
+    user_id: userId,
+    notification_type: 'weekly_availability_report',
+    entry_date: todayStr,
+    metadata: { weekLabel, repsOffCount: count },
+  });
+}
 
 async function sendNotification(supabaseUrl: string, serviceKey: string, targetUserId: string, title: string, body: string) {
   const response = await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
