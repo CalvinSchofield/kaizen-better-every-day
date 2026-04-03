@@ -213,6 +213,7 @@ export const PulseHero = ({
   onAvgStartClick, onFpClick,
   activeRecords = [], onRecordBannerClick,
   comparisonTotals, comparisonLabel, sparklineHistory,
+  intradayPace,
 }: PulseHeroProps) => {
   if (isLoading) {
     return (
