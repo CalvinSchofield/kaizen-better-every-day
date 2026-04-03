@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Circle, AlignJustify, ExternalLink, MessageSquare } from "lucide-react";
+import { Circle, AlignJustify, ExternalLink, MessageSquare } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
@@ -25,7 +25,7 @@ import {
   ActivityRingHero, 
   FinalizedStatsGrid, 
   WeekActivityStrip,
-  ActivityCalendarDrawer,
+  
   ActivityRingLegend,
   LegendTriggerButton,
   SegmentDetailDrawer,
@@ -79,7 +79,7 @@ export const RepDrillDownDrawer = ({
   datePreset = 'today',
 }: RepDrillDownDrawerProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [showCalendar, setShowCalendar] = useState(false);
+  
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
   const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
@@ -303,9 +303,11 @@ export const RepDrillDownDrawer = ({
                   <DrawerTitle className="text-lg">{rep.name}</DrawerTitle>
                   {rep.year && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{rep.year}</Badge>}
                 </div>
-                {rep.teamName && (
-                  <p className="text-xs text-muted-foreground">{rep.teamName}</p>
-                )}
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  {rep.teamName && <span>{rep.teamName}</span>}
+                  {rep.teamName && <span className="opacity-40">·</span>}
+                  <span className="text-primary/80 font-medium">{periodLabel}</span>
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -319,11 +321,6 @@ export const RepDrillDownDrawer = ({
                   <MessageSquare className="h-4 w-4" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8"
-                onClick={() => setShowCalendar(true)}
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </DrawerHeader>
@@ -499,15 +496,6 @@ export const RepDrillDownDrawer = ({
         </div>
         
         {/* Sub-drawers */}
-        {userId && (
-          <ActivityCalendarDrawer
-            open={showCalendar}
-            onOpenChange={setShowCalendar}
-            userId={userId}
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-          />
-        )}
         
         <ActivityRingLegend open={showLegend} onOpenChange={setShowLegend} />
         
