@@ -179,6 +179,7 @@ export function useRepComparison({
         fp: filtered.reduce((s, e) => s + (Number(e.fp_plus) || 0), 0),
         prmr: filtered.reduce((s, e) => s + (Number(e.prmr) || 0), 0),
         hoursWorked,
+        daysWorked: filtered.length,
       };
     };
 
