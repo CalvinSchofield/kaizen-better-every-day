@@ -130,7 +130,7 @@ const Track = ({
   const [selectedHistoricalDate, setSelectedHistoricalDate] = useState(new Date());
   const [selectedSaleForDrawer, setSelectedSaleForDrawer] = useState<Sale | null>(null);
   const [scrollToSaleId, setScrollToSaleId] = useState<string | null>(null);
-  const [showStats, setShowStats] = useState(false);
+  
   const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
   const [selectedSegmentSale, setSelectedSegmentSale] = useState<Sale | null>(null);
   
