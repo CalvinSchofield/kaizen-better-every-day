@@ -138,42 +138,83 @@ const GroupHeader = ({ label, repCount, totalFP, workingCount, isLive, isExpande
 
 // ── recruiter sub-grouping helper ───────────────────────────────
 
+const MIN_RECRUITER_GROUP_SIZE = 3;
+
 type RecruiterBucket = { name: string; reps: OrgRepData[] };
 
+const cleanName = (n: string) => n.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+
+/**
+ * Groups reps by recruiter using **recursive downline**.
+ * If Javier recruited Izaiah, Izaiah recruited Honcho, Honcho recruited Nathaniel,
+ * all three appear in a "Javier" group (downline size = 3).
+ * Threshold: MIN_RECRUITER_GROUP_SIZE (3).
+ */
 const groupByRecruiter = (reps: OrgRepData[]): { groups: RecruiterBucket[]; solo: OrgRepData[] } => {
-  const recruiterMap = new Map<string, OrgRepData[]>();
+  // Build name → rep lookup (for reps in this set)
+  const repByCleanName = new Map<string, OrgRepData>();
+  reps.forEach(rep => repByCleanName.set(cleanName(rep.name), rep));
+
+  // Build direct recruiter → recruits map
+  const directRecruits = new Map<string, OrgRepData[]>();
   const noRecruiter: OrgRepData[] = [];
-  
+
   reps.forEach(rep => {
-    const rName = rep.recruiterName?.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+    const rName = rep.recruiterName ? cleanName(rep.recruiterName) : null;
     if (rName) {
-      if (!recruiterMap.has(rName)) recruiterMap.set(rName, []);
-      recruiterMap.get(rName)!.push(rep);
+      if (!directRecruits.has(rName)) directRecruits.set(rName, []);
+      directRecruits.get(rName)!.push(rep);
     } else {
       noRecruiter.push(rep);
     }
   });
-  
-  // Only create recruiter groups if there are 2+ reps under that recruiter
-  // Otherwise fold them into the solo list
-  const groups: RecruiterBucket[] = [];
-  const solo = [...noRecruiter];
-  
-  recruiterMap.forEach((members, name) => {
-    if (members.length >= 2) {
-      groups.push({ name, reps: members });
-    } else {
-      solo.push(...members);
+
+  // Recursive downline getter
+  const getRecursiveDownline = (recruiterName: string, visited: Set<string>): OrgRepData[] => {
+    if (visited.has(recruiterName)) return [];
+    visited.add(recruiterName);
+    const directs = directRecruits.get(recruiterName) || [];
+    const all = [...directs];
+    for (const rep of directs) {
+      all.push(...getRecursiveDownline(cleanName(rep.name), visited));
     }
-  });
-  
+    return all;
+  };
+
+  // Find all recruiters who have people in this set, compute recursive downline
+  const recruiterDownlines = [...directRecruits.keys()]
+    .map(name => ({ name, downline: getRecursiveDownline(name, new Set()) }))
+    .sort((a, b) => b.downline.length - a.downline.length);
+
+  const assignedToGroup = new Set<string>();
+  const groups: RecruiterBucket[] = [];
+
+  for (const { name, downline } of recruiterDownlines) {
+    // Skip if this recruiter is already absorbed into a bigger group
+    const recruiterRep = repByCleanName.get(name);
+    if (recruiterRep && assignedToGroup.has(recruiterRep.userId)) continue;
+
+    // Only count unassigned reps
+    const unassigned = downline.filter(r => !assignedToGroup.has(r.userId));
+    if (unassigned.length < MIN_RECRUITER_GROUP_SIZE) continue;
+
+    groups.push({ name, reps: unassigned });
+    unassigned.forEach(r => assignedToGroup.add(r.userId));
+  }
+
+  // Remaining reps are solo
+  const solo = [
+    ...noRecruiter,
+    ...reps.filter(r => !assignedToGroup.has(r.userId) && !noRecruiter.includes(r)),
+  ];
+
   // Sort groups by FP desc
   groups.sort((a, b) => {
     const aFP = a.reps.reduce((s, r) => s + r.fp, 0);
     const bFP = b.reps.reduce((s, r) => s + r.fp, 0);
     return bFP - aFP;
   });
-  
+
   return { groups, solo };
 };
 
