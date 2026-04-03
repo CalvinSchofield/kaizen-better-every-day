@@ -303,9 +303,11 @@ export const RepDrillDownDrawer = ({
                   <DrawerTitle className="text-lg">{rep.name}</DrawerTitle>
                   {rep.year && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{rep.year}</Badge>}
                 </div>
-                {rep.teamName && (
-                  <p className="text-xs text-muted-foreground">{rep.teamName}</p>
-                )}
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  {rep.teamName && <span>{rep.teamName}</span>}
+                  {rep.teamName && <span className="opacity-40">·</span>}
+                  <span className="text-primary/80 font-medium">{periodLabel}</span>
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -319,11 +321,6 @@ export const RepDrillDownDrawer = ({
                   <MessageSquare className="h-4 w-4" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8"
-                onClick={() => setShowCalendar(true)}
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </DrawerHeader>
