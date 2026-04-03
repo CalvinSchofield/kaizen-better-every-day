@@ -63,13 +63,25 @@ export const useDownlineGoalPace = (userId: string | null) => {
       const entries = entriesResult.data || [];
       const summerStart = seasonResult.data?.personal_summer_start || null;
 
-      // Calculate YTD FP from entries
+      // Determine preseason vs summer early so we can scope entries
+      const today = startOfDay(new Date());
+      const preseasonEndDate = parseLocalDate(PRESEASON_END);
+      const isGlobalPreseason = !isAfter(today, preseasonEndDate);
+      const hasPersonalSummerStarted = summerStart
+        ? !isAfter(parseLocalDate(summerStart), today)
+        : false;
+      const isPreseason = isGlobalPreseason && !hasPersonalSummerStarted;
+
+      // Scope entries to the active season so summer treats preseason as a "launch pad"
+      const activeSeasonStart = isPreseason ? SEASON_START : (summerStart || '2026-04-12');
+      const seasonEntries = entries.filter(e => e.entry_date >= activeSeasonStart);
+
+      // Calculate FP and knocking days from season-scoped entries only
       let ytdFP = 0;
       let knockingDays = 0;
-      for (const entry of entries) {
+      for (const entry of seasonEntries) {
         const salesLog = entry.sales_log as any[] | null;
         if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
-          // Use sales log for FP calculation
           const { calculateFromSalesLog } = await import('@/utils/salesLogCalculations');
           const calc = calculateFromSalesLog(salesLog);
           ytdFP += calc.fp;
@@ -104,14 +116,7 @@ export const useDownlineGoalPace = (userId: string | null) => {
         }
       }
 
-      // Determine preseason vs summer
-      const today = startOfDay(new Date());
-      const preseasonEndDate = parseLocalDate(PRESEASON_END);
-      const isGlobalPreseason = !isAfter(today, preseasonEndDate);
-      const hasPersonalSummerStarted = summerStart
-        ? !isAfter(parseLocalDate(summerStart), today)
-        : false;
-      const isPreseason = isGlobalPreseason && !hasPersonalSummerStarted;
+      // (preseason/summer already determined above for entry scoping)
 
       // Determine goal and label
       let goal = 0;
