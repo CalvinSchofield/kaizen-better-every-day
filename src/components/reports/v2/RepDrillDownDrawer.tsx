@@ -120,7 +120,7 @@ export const RepDrillDownDrawer = ({
       if (!userId) return [];
       const { data, error } = await supabase
         .from('daily_entries')
-        .select('entry_date, work_start_time, work_end_time, break_periods')
+        .select('entry_date, work_start_time, work_end_time, break_periods, timezone')
         .eq('user_id', userId)
         .gte('entry_date', dateRange.start)
         .lte('entry_date', dateRange.end)
@@ -143,6 +143,7 @@ export const RepDrillDownDrawer = ({
           startTime: e.work_start_time,
           endTime: e.work_end_time,
           hoursWorked,
+          timezone: e.timezone,
         };
       });
     },
