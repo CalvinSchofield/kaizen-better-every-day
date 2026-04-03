@@ -83,40 +83,40 @@ export const RepKpiDetailDrawer = ({
   // For FP+ we show deal breakdown, for effort metrics we show sparkline + funnel
   if (metricKey === 'fp') {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[88vh]">
-          <DrawerHeader className="pb-2">
-            <DrawerTitle className="flex items-center gap-2">
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="max-h-[88vh]">
+          <SheetHeader className="pb-2">
+            <SheetTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
               FP+ Details
-            </DrawerTitle>
-            <DrawerDescription>{repName} · {periodLabel}</DrawerDescription>
-          </DrawerHeader>
+            </SheetTitle>
+            <SheetDescription>{repName} · {periodLabel}</SheetDescription>
+          </SheetHeader>
           <DealBreakdownContent
             userId={userId}
             dateRange={dateRange}
             totalFP={current.fp}
             totalPRMR={current.prmr}
           />
-        </DrawerContent>
-      </Drawer>
+        </SheetContent>
+      </Sheet>
     );
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[88vh]">
-        <DrawerHeader className="pb-2">
-          <DrawerTitle>{METRIC_LABELS[metricKey]}</DrawerTitle>
-          <DrawerDescription>{repName} · {periodLabel}</DrawerDescription>
-        </DrawerHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="max-h-[88vh]">
+        <SheetHeader className="pb-2">
+          <SheetTitle>{METRIC_LABELS[metricKey]}</SheetTitle>
+          <SheetDescription>{repName} · {periodLabel}</SheetDescription>
+        </SheetHeader>
         <EffortMetricContent
           metricKey={metricKey}
           current={current}
           sparklineHistory={sparklineHistory}
         />
-      </DrawerContent>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   );
 };
 
