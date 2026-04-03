@@ -230,11 +230,10 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
         if (Array.isArray(sl) && sl.length > 0) {
           for (const sale of sl) {
             if (sale.install_status === 'never_installed' || sale.install_status === 'pending') continue;
-            if (sale.type === 'fp') trackedSince += 1;
-            else if (sale.type === 'upgrade') trackedSince += (Number(sale.prmr) || 0) / 85;
+            trackedSince += getSaleValue(sale);
           }
         } else if (entry.is_finalized) {
-          trackedSince += Number(entry.fp_plus) || 0;
+          trackedSince += efpModeEnabled ? (Number(entry.prmr) || 0) / 85 : (Number(entry.fp_plus) || 0);
         }
       }
       const reconciledProgress = officialFp + trackedSince;
@@ -242,7 +241,7 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
     }
 
     return { currentProgress: effectiveProgress, knockingDays: kd, todayFP: dayFP, todayLiveFP: dayLiveFP };
-  }, [allEntries, todayStr, officialForSeason, seasonStartStr]);
+  }, [allEntries, todayStr, officialForSeason, seasonStartStr, efpModeEnabled]);
 
   const isLoading = goalsLoading || entriesLoading || plannedLoading;
 
