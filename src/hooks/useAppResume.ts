@@ -60,6 +60,8 @@ export function useAppResume() {
           return;
         }
         console.log('[useAppResume] Session verified successfully');
+        // Re-persist tokens to native storage after successful refresh
+        persistTokensToNative();
       } catch (err) {
         console.error('[useAppResume] Auth recovery error:', err);
         return;
