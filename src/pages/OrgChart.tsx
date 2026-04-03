@@ -1,11 +1,11 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, GitBranch, RefreshCw } from "lucide-react";
+import { Users, GitBranch, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getCleanName } from "@/utils/nameUtils";
 import { VisualRecruiterTree, type TreeNode, type RoleColor } from "@/components/mygroup/org/VisualRecruiterTree";
@@ -18,6 +18,19 @@ import type { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { PageTour } from "@/components/PageTour";
 import { usePageTour } from "@/hooks/usePageTour";
 import { getOrgChartTourSteps } from "@/config/pageTours";
+import { useDragReassign, type DragNode } from "@/hooks/useDragReassign";
+import { getSessionSafe } from "@/utils/authSession";
+import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
