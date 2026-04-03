@@ -126,7 +126,7 @@ export const RepKpiDetailDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[88vh] overflow-y-auto">
+      <DrawerContent className="max-h-[88vh] overflow-y-auto z-[80]">
         <DrawerHeader className="pb-2">
           <DrawerTitle>{METRIC_LABELS[metricKey]}</DrawerTitle>
           <DrawerDescription>{repName} · {periodLabel}</DrawerDescription>
