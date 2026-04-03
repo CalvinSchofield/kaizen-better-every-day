@@ -21,6 +21,8 @@ export const MicroSparkline = ({
   height = 20,
   className,
   goldLine,
+  showGoldLabel,
+  formatGoldLabel,
   color,
 }: MicroSparklineProps) => {
   if (!data || data.length < 2) return null;
