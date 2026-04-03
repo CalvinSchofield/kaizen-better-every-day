@@ -116,14 +116,7 @@ export const useDownlineGoalPace = (userId: string | null) => {
         }
       }
 
-      // Determine preseason vs summer
-      const today = startOfDay(new Date());
-      const preseasonEndDate = parseLocalDate(PRESEASON_END);
-      const isGlobalPreseason = !isAfter(today, preseasonEndDate);
-      const hasPersonalSummerStarted = summerStart
-        ? !isAfter(parseLocalDate(summerStart), today)
-        : false;
-      const isPreseason = isGlobalPreseason && !hasPersonalSummerStarted;
+      // (preseason/summer already determined above for entry scoping)
 
       // Determine goal and label
       let goal = 0;
