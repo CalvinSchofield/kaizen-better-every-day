@@ -153,8 +153,11 @@ const MyGroup = () => {
   }, [accessLoading, recruitsLoading, suggestionsLoading]);
 
   // Show loading only if no data at all (placeholderData from cache skips this)
+  // RACE CONDITION FIX: If the user was previously a leader (cached), keep showing
+  // skeleton instead of flashing the non-leader view while teamAccess loads
   const hasAnyData = !!teamAccess || !!groupData;
-  const isLoading = !loadingTimedOut && !hasAnyData && (accessLoading || (isLeader ? recruitsLoading : suggestionsLoading));
+  const stillResolvingLeaderStatus = accessLoading && wasLeader && !teamAccess;
+  const isLoading = !loadingTimedOut && (!hasAnyData || stillResolvingLeaderStatus) && (accessLoading || (isLeader ? recruitsLoading : suggestionsLoading));
 
   // Fetch current user's rep data to get their team leader name
   const { data: currentUserRep } = useQuery({
