@@ -70,7 +70,7 @@ export const RecordRepBreakdownDrawer = ({
 
       const { data: reps } = await supabase
         .from('reps')
-        .select('user_id, name, photo_url')
+        .select('user_id, name, profile_photo_url')
         .in('user_id', activeUserIds);
 
       const repsMap = new Map((reps || []).map(r => [r.user_id, r]));
@@ -78,7 +78,7 @@ export const RecordRepBreakdownDrawer = ({
       const result: RepContribution[] = activeUserIds.map(id => ({
         userId: id,
         name: repsMap.get(id)?.name || 'Unknown',
-        photoUrl: repsMap.get(id)?.photo_url,
+        photoUrl: repsMap.get(id)?.profile_photo_url,
         value: totals.get(id) || 0,
       }));
 
