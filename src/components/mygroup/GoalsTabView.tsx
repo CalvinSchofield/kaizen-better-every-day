@@ -35,7 +35,7 @@ const PRESEASON_END = '2026-04-11';
 const DEFAULT_SUMMER_START = '2026-04-12';
 const DEFAULT_SUMMER_END = '2026-09-27';
 
-type PaceStatus = 'ahead' | 'on-track' | 'behind' | 'critical' | 'no-goals';
+type PaceStatus = 'goal-met' | 'ahead' | 'on-track' | 'behind' | 'critical' | 'not-started' | 'no-goals';
 
 interface RepGoalInfo {
   userId: string;
