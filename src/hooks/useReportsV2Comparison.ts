@@ -86,7 +86,10 @@ function getComparisonRange(
       const length = differenceInDays(rangeEnd, rangeStart) + 1;
       const compEnd = subDays(rangeStart, 1);
       const compStart = subDays(compEnd, length - 1);
-      return { start: format(compStart, 'yyyy-MM-dd'), end: format(compEnd, 'yyyy-MM-dd'), label: 'vs prior period' };
+      const fmtStart = format(compStart, 'MMM d');
+      const fmtEnd = format(compEnd, 'MMM d');
+      const label = fmtStart === fmtEnd ? `vs ${fmtStart}` : `vs ${fmtStart} – ${fmtEnd}`;
+      return { start: format(compStart, 'yyyy-MM-dd'), end: format(compEnd, 'yyyy-MM-dd'), label };
     }
     default:
       return null; // preseason, ytd — no comparison
