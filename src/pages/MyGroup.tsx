@@ -579,38 +579,14 @@ const MyGroup = () => {
   }, [smartFilter, allRecruits, teamAccess, filterSelectedTeamIds]);
 
   // Filter activities to match filtered recruits
+  const isFilterActive = isUnifiedFilterActive(smartFilter);
   const filteredActivities = useMemo(() => {
-    if (!selectedTeamFilter) return activities;
+    if (!isFilterActive) return activities;
     return activities.filter(a => filteredRecruits.some(r => r.id === a.recruit_id));
-  }, [selectedTeamFilter, activities, filteredRecruits]);
+  }, [isFilterActive, activities, filteredRecruits]);
 
-  // Get active filter name for display
-  const activeFilterName = useMemo(() => {
-    if (!selectedTeamFilter) return null;
-    if (selectedTeamFilter.startsWith('team:')) {
-      const teamId = selectedTeamFilter.replace('team:', '');
-      return teamAccess?.teams?.find(t => t.id === teamId)?.name || null;
-    } else if (selectedTeamFilter.startsWith('mgmt:')) {
-      const mgmtId = selectedTeamFilter.replace('mgmt:', '');
-      return teamAccess?.mgmtGroups?.find(g => g.id === mgmtId)?.name || null;
-    }
-    return null;
-  }, [selectedTeamFilter, teamAccess]);
-
-  // Calculate recruit counts per team for the filter sheet
-  const teamRecruitCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    
-    teamAccess?.teams?.forEach(team => {
-      counts[`team:${team.id}`] = allRecruits.filter(r => r.teamId === team.id).length;
-    });
-    
-    teamAccess?.mgmtGroups?.forEach(group => {
-      counts[`mgmt:${group.id}`] = allRecruits.filter(r => r.mgmtGroupId === group.id).length;
-    });
-    
-    return counts;
-  }, [allRecruits, teamAccess]);
+  // Get active filter summary for display
+  const activeFilterName = useMemo(() => getUnifiedFilterSummary(smartFilter), [smartFilter]);
 
   // Dismissed recruits for Today's Focus
   const { dismissedIds, dismissRecruit, undismissRecruit, isRecuitDismissed, isLoaded: dismissedLoaded } = useDismissedRecruits();
