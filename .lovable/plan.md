@@ -1,41 +1,76 @@
 
 
-## Redesign Rep Drill-Down Header
+## Clickable KPI Tiles in Rep Drill-Down
 
-### What Changes
+### Problem
+The KPI tiles (Doors, DMs, Pitches, Trans, Pres, FP+) in the individual rep drill-down are static. Leaders can't tap them to get deeper insight. Showing "who contributed" (like the team-level drawer) is pointless for a single rep.
 
-The current header has: avatar, name, year badge, team name, message button, and a calendar icon. The user finds the calendar icon unhelpful and wants the date context (period label like "Last Month") visible in the header so it persists while scrolling.
+### What Leaders Actually Need
 
-### Design — World-Class Mobile Pattern
+For **effort metrics** (Doors, DMs, Pitches, Trans, Pres), the most instructive view is:
+1. **Enlarged sparkline** with daily trend and average line — shows consistency vs spikiness
+2. **Conversion funnel context** — how this metric connects to outcomes (e.g., Doors: "29.3% → DM", "79.6% → Pitch from DM")
+3. **Daily average** and **best day** — quick benchmarks
 
-A **sticky, compact header** that answers "who am I looking at and what timeframe" at a glance:
+For **FP+**, show the **deal breakdown** — FP vs Upgrade split, avg PRMR per deal, time to sell, difficulty distribution. This reuses the existing `DealAnalyticsInline` from `FpDetailDrawer.tsx`, scoped to just this rep.
+
+### Layout
 
 ```text
-┌──────────────────────────────────────┐
-│ (avatar) Calvin Schofield  [Vet]  💬 │
-│          Team Name · Last Month      │
-└──────────────────────────────────────┘
+Effort metric tap (e.g. Doors):
+┌────────────────────────────────┐
+│ Doors                          │
+│ 167 doors · Last Month         │
+│ ──── sparkline (enlarged) ──── │
+│              ─── avg: 6.4/day  │
+│                                │
+│ Funnel                         │
+│ 29.3% → Decision Makers       │
+│ 79.6% → Pitches (from DMs)    │
+│                                │
+│ Best Day    23 doors           │
+│ Daily Avg   6.4 doors          │
+└────────────────────────────────┘
+
+FP+ tap:
+┌────────────────────────────────┐
+│ FP+ Details                    │
+│ (Deal breakdown - FP vs        │
+│  Upgrade, avg PRMR, time to    │
+│  sell, difficulty, day-of-week)│
+└────────────────────────────────┘
 ```
 
-Key decisions:
-- **Remove** the Calendar icon button entirely (the `ActivityCalendarDrawer` can still be accessed via the `WeekActivityStrip` below)
-- **Add period label** as a subtle badge/text next to team name so date context is always visible
-- **Keep** ProfileAvatar (clickable to profile) and MessageSquare button
-- **Keep** year badge (Vet/Rookie)
-- Team name and period label sit on the subtitle line, separated by a dot
+### Technical Plan
 
-### Files to Modify
+**New file: `src/components/reports/v2/RepKpiDetailDrawer.tsx`**
+- A drawer specifically for individual rep KPI drill-down (not team)
+- Props: `open`, `onOpenChange`, `metricKey` (doors/dms/pitches/transitions/presentations/fp), `current` (ComparisonTotals), `sparklineHistory` (SparklinePoint[]), `repName`, `periodLabel`, `userId`, `dateRange`
+- For effort metrics:
+  - Enlarged `MicroSparkline` with gold average line and label
+  - Compute conversion ratios from `current` totals (e.g., `dms/doors`, `pitches/dms`, `transitions/pitches`)
+  - Show "Daily Avg" (total / days in sparkline) and "Best Day" (max from sparkline data)
+- For FP+:
+  - Reuse `DealAnalyticsInline` content from `FpDetailDrawer.tsx` (extract it or call with `userIds=[userId]`)
+  - Shows FP vs Upgrade, avg PRMR, time to sell, difficulty, day-of-week chart
 
-| File | Change |
-|---|---|
-| `src/components/reports/v2/RepDrillDownDrawer.tsx` | Remove Calendar import and button. Add `periodLabel` to the header subtitle line next to team name. Remove `showCalendar` state and `ActivityCalendarDrawer` rendering. |
+**Modified: `src/components/reports/v2/RepPeriodKpis.tsx`**
+- Add `onKpiTap?: (metricKey: MetricKey) => void` prop
+- Make each KPI tile clickable when `onKpiTap` is provided (add `onClick`, cursor-pointer, active:scale feedback)
 
-### Technical Details
-- Remove `Calendar` from lucide imports
-- Remove `showCalendar` state (`useState(false)`)
-- Remove the Calendar `<Button>` from header (lines 322-327)
-- Remove `<ActivityCalendarDrawer>` block (lines 502-510)
-- Remove `useRepActivityCalendar` import if no longer needed (still used by `WeekActivityStrip` via `calendarData` — keep it)
-- Add period label to subtitle: `{rep.teamName && <span>{rep.teamName}</span>} · <span>{periodLabel}</span>`
-- Style the period label with a subtle accent color so it stands out as temporal context
+**Modified: `src/components/reports/v2/RepDrillDownDrawer.tsx`**
+- Add state: `activeKpiMetric` (MetricKey | null)
+- Pass `onKpiTap` to `RepPeriodKpis` that sets the active metric
+- Render `RepKpiDetailDrawer` with the rep's `userId`, `currentTotals`, `sparklineHistory`, and date range
+- For FP+ metric, pass `userIds=[rep.userId]` to reuse deal analytics query
+
+### Conversion Funnel Logic
+From `current` totals, compute:
+- Doors tile: `DM% = dms/doors`, `Pitch% = pitches/dms`
+- DMs tile: `from Doors = dms/doors`, `→ Pitch = pitches/dms`
+- Pitches tile: `from DMs = pitches/dms`, `→ Trans = transitions/pitches`
+- Transitions tile: `from Pitches = transitions/pitches`, `→ Pres = presentations/transitions`
+- Presentations tile: `from Trans = presentations/transitions`, `→ Close = fp/presentations`
+
+This gives leaders the "so what" — not just "167 doors" but "and 29% answered."
 
