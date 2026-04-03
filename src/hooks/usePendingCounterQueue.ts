@@ -19,6 +19,8 @@ const QUEUE_KEY_PREFIX = 'counter-queue-';
 const MAX_RETRIES = 10;
 const BASE_DELAY_MS = 1000;
 const RETRY_PAUSE_MS = 10000;
+const AUTH_CACHE_TTL_MS = 60_000; // Cache auth check for 60 seconds
+const INVALIDATION_DEBOUNCE_MS = 3000; // Debounce query invalidations
 
 function getQueueKey(userId: string): string {
   return `${QUEUE_KEY_PREFIX}${userId}`;
@@ -61,17 +63,46 @@ export function usePendingCounterQueue(userId: string | null) {
   const retryTimerRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
 
-  // Resolve authenticated user for RPC calls without relying on a network-only user check.
-  // This is more resilient on native webviews where getUser() can intermittently fail.
+  // Cached auth: avoid hitting getSession/refreshSession on every single event
+  const cachedAuthRef = useRef<{ userId: string; expiresAt: number } | null>(null);
+
+  // Debounced invalidation: batch leaderboard/report invalidations
+  const invalidationTimerRef = useRef<number | null>(null);
+
+  const scheduleInvalidation = useCallback(() => {
+    if (invalidationTimerRef.current) return; // Already scheduled
+    invalidationTimerRef.current = window.setTimeout(() => {
+      invalidationTimerRef.current = null;
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['team-live-data'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'], refetchType: 'all' });
+    }, INVALIDATION_DEBOUNCE_MS);
+  }, [queryClient]);
+
+  // Resolve authenticated user with a short TTL cache to avoid redundant auth checks
   const ensureAuthenticatedUserId = useCallback(async (): Promise<string | null> => {
+    // Return cached auth if still valid
+    const cached = cachedAuthRef.current;
+    if (cached && Date.now() < cached.expiresAt) {
+      if (!userId || cached.userId === userId) return cached.userId;
+    }
+
     const { data: sessionData } = await supabase.auth.getSession();
     const sessionUserId = sessionData.session?.user?.id ?? null;
-    if (sessionUserId && (!userId || sessionUserId === userId)) return sessionUserId;
+    if (sessionUserId && (!userId || sessionUserId === userId)) {
+      cachedAuthRef.current = { userId: sessionUserId, expiresAt: Date.now() + AUTH_CACHE_TTL_MS };
+      return sessionUserId;
+    }
 
     const { data: refreshData } = await supabase.auth.refreshSession();
     const refreshedUserId = refreshData.session?.user?.id ?? refreshData.user?.id ?? null;
-    if (refreshedUserId && (!userId || refreshedUserId === userId)) return refreshedUserId;
+    if (refreshedUserId && (!userId || refreshedUserId === userId)) {
+      cachedAuthRef.current = { userId: refreshedUserId, expiresAt: Date.now() + AUTH_CACHE_TTL_MS };
+      return refreshedUserId;
+    }
 
+    cachedAuthRef.current = null;
     return null;
   }, [userId]);
 
@@ -99,7 +130,7 @@ export function usePendingCounterQueue(userId: string | null) {
         const authenticatedUserId = await ensureAuthenticatedUserId();
         if (!authenticatedUserId) {
           console.warn('[CounterQueue] Auth expired or mismatched user, pausing queue');
-          break; // Stop processing, will resume on auth/session change
+          break;
         }
 
         try {
@@ -121,7 +152,6 @@ export function usePendingCounterQueue(userId: string | null) {
           ]) as { data: any; error: any };
 
           if (rpcResult.error) {
-            // If entry is finalized, discard the event
             if (rpcResult.error.message?.includes('finalized')) {
               console.warn('[CounterQueue] Entry finalized, discarding event:', event.id);
               queue.shift();
@@ -138,8 +168,11 @@ export function usePendingCounterQueue(userId: string | null) {
           retryCountRef.current = 0;
           if (mountedRef.current) setQueueLength(queue.length);
 
-          // Update React Query cache with server response
-          if (rpcResult.data) {
+          // Update React Query cache with server response ONLY when queue is
+          // empty. While more events are pending the local optimistic state is
+          // ahead of the server — overwriting it would visually "undo" taps the
+          // user already made and cause the 3-second lag / flicker.
+          if (queue.length === 0 && rpcResult.data) {
             const serverEntry = {
               ...(rpcResult.data as any),
               break_periods: ((rpcResult.data as any).break_periods as any) || [],
@@ -150,11 +183,8 @@ export function usePendingCounterQueue(userId: string | null) {
             queryClient.setQueryData(['daily-entry', event.entryDate], serverEntry);
           }
 
-          // Invalidate leaderboard/report queries (not daily-entry to avoid overwrite)
-          queryClient.invalidateQueries({ queryKey: ['activity-summary'], refetchType: 'all' });
-          queryClient.invalidateQueries({ queryKey: ['today-leaderboard'], refetchType: 'all' });
-          queryClient.invalidateQueries({ queryKey: ['team-live-data'], refetchType: 'all' });
-          queryClient.invalidateQueries({ queryKey: ['expanded-leaderboard'], refetchType: 'all' });
+          // Debounced invalidation — batch instead of per-event
+          scheduleInvalidation();
 
         } catch (err: any) {
           console.error('[CounterQueue] Failed to process event:', event.id, err?.message);
@@ -166,15 +196,13 @@ export function usePendingCounterQueue(userId: string | null) {
             message.includes('not authenticated') ||
             message.includes('401')
           ) {
-            await supabase.auth.refreshSession().catch(() => {
-              // Ignore refresh failures here and continue with normal backoff handling
-            });
+            cachedAuthRef.current = null; // Bust auth cache on auth errors
+            await supabase.auth.refreshSession().catch(() => {});
           }
 
           retryCountRef.current++;
 
           if (retryCountRef.current >= MAX_RETRIES) {
-            // Pause briefly, then auto-resume processing. This prevents permanent stuck queues.
             console.error('[CounterQueue] Max retries reached, pausing briefly');
             if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current);
             retryTimerRef.current = window.setTimeout(() => {
@@ -194,7 +222,6 @@ export function usePendingCounterQueue(userId: string | null) {
             }, delay);
           });
 
-          // Re-read queue in case it was modified
           queue = loadQueue(userId);
         }
       }
@@ -205,15 +232,12 @@ export function usePendingCounterQueue(userId: string | null) {
         refreshQueueLength();
       }
     }
-  }, [userId, queryClient, refreshQueueLength, ensureAuthenticatedUserId]);
+  }, [userId, queryClient, refreshQueueLength, ensureAuthenticatedUserId, scheduleInvalidation]);
 
   // Push a new event to the queue and start processing
   const pushEvent = useCallback((event: CounterEvent) => {
     if (!userId) return;
 
-    // If queue was paused from prior failures, reset and retry on the next user action.
-    // IMPORTANT: don't clear timer while actively processing, because that timer may
-    // be an in-flight backoff wait; clearing it can leave the processor stuck forever.
     retryCountRef.current = 0;
     if (!processingRef.current && retryTimerRef.current) {
       window.clearTimeout(retryTimerRef.current);
@@ -247,7 +271,7 @@ export function usePendingCounterQueue(userId: string | null) {
     window.addEventListener('focus', handleResume);
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // Safety net: if anything pauses unexpectedly, keep trying while queue has items.
+    // Safety net
     const intervalId = window.setInterval(() => {
       if (loadQueue(userId).length > 0) void processQueue();
     }, 10000);
@@ -256,13 +280,13 @@ export function usePendingCounterQueue(userId: string | null) {
     const queue = loadQueue(userId);
     if (queue.length > 0) {
       setQueueLength(queue.length);
-      // Small delay to let auth hydrate
       setTimeout(() => void processQueue(), 1500);
     }
 
     return () => {
       mountedRef.current = false;
       if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current);
+      if (invalidationTimerRef.current) window.clearTimeout(invalidationTimerRef.current);
       window.removeEventListener('online', handleResume);
       window.removeEventListener('focus', handleResume);
       document.removeEventListener('visibilitychange', handleVisibility);
