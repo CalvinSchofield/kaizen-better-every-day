@@ -100,16 +100,8 @@ const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0
       <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
         {label}
       </span>
-      {/* Sparkline + delta row */}
+      {/* Delta row */}
       <div className="flex items-center gap-1.5 mt-0.5">
-        {sparklineData && sparklineData.length >= 2 && (
-          <MicroSparkline
-            data={sparklineData}
-            width={44}
-            height={16}
-            goldLine={sparklineAvg}
-          />
-        )}
         {delta !== undefined && delta !== null && (
           <div className={cn(
             "flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-semibold",
