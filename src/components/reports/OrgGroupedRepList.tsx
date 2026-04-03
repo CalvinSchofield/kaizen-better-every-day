@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, Search, Users, Star, AlertTriangle } from "l
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/utils/nameUtils";
 import { AccessLevel, hasMinAccess } from "@/utils/roleHierarchy";
+import { buildRecruiterTree, type RecruiterTreeNode } from "./recruiterGrouping";
 
 export interface OrgRepData {
   userId: string;
@@ -135,94 +136,6 @@ const GroupHeader = ({ label, repCount, totalFP, workingCount, isLive, isExpande
     )}
   </div>
 );
-
-// ── recruiter sub-grouping helper ───────────────────────────────
-
-const MIN_RECRUITER_GROUP_SIZE = 2;
-
-type RecruiterBucket = { name: string; reps: OrgRepData[] };
-
-const cleanName = (n: string) => n.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
-
-/**
- * Groups reps by recruiter using **recursive downline**.
- * Sub-recruiters form their own groups (processed smallest-first so they
- * aren't swallowed by the root recruiter). The recruiter themselves is
- * included inside their group.
- */
-const groupByRecruiter = (reps: OrgRepData[]): { groups: RecruiterBucket[]; solo: OrgRepData[] } => {
-  const repByCleanName = new Map<string, OrgRepData>();
-  reps.forEach(rep => repByCleanName.set(cleanName(rep.name), rep));
-
-  // Build direct recruiter → recruits map
-  const directRecruits = new Map<string, OrgRepData[]>();
-  const noRecruiter: OrgRepData[] = [];
-
-  reps.forEach(rep => {
-    const rName = rep.recruiterName ? cleanName(rep.recruiterName) : null;
-    if (rName) {
-      if (!directRecruits.has(rName)) directRecruits.set(rName, []);
-      directRecruits.get(rName)!.push(rep);
-    } else {
-      noRecruiter.push(rep);
-    }
-  });
-
-  // Recursive downline getter (excludes the recruiter themselves)
-  const getRecursiveDownline = (recruiterName: string, visited: Set<string>): OrgRepData[] => {
-    if (visited.has(recruiterName)) return [];
-    visited.add(recruiterName);
-    const directs = directRecruits.get(recruiterName) || [];
-    const all = [...directs];
-    for (const rep of directs) {
-      all.push(...getRecursiveDownline(cleanName(rep.name), visited));
-    }
-    return all;
-  };
-
-  // Find all recruiters who are IN this rep set, compute recursive downline
-  const recruiterDownlines = [...directRecruits.keys()]
-    .filter(name => repByCleanName.has(name))
-    .map(name => ({ name, downline: getRecursiveDownline(name, new Set()) }))
-    // Sort ASCENDING so sub-recruiters form groups before the root absorbs everyone
-    .sort((a, b) => a.downline.length - b.downline.length);
-
-  const assignedToGroup = new Set<string>();
-  const groups: RecruiterBucket[] = [];
-  const totalReps = reps.length;
-
-  for (const { name, downline } of recruiterDownlines) {
-    const recruiterRep = repByCleanName.get(name)!;
-    if (assignedToGroup.has(recruiterRep.userId)) continue;
-
-    // Only count unassigned downline
-    const unassigned = downline.filter(r => !assignedToGroup.has(r.userId));
-    
-    // Skip if this recruiter's remaining group would be the entire team (they're the root)
-    // A group that covers >75% of all reps is just the team itself — not useful
-    const groupSize = unassigned.length + 1; // +1 for the recruiter themselves
-    if (groupSize > totalReps * 0.75) continue;
-    
-    if (unassigned.length < MIN_RECRUITER_GROUP_SIZE) continue;
-
-    // Include the recruiter themselves in the group
-    const groupReps = [recruiterRep, ...unassigned];
-    groups.push({ name, reps: groupReps });
-    groupReps.forEach(r => assignedToGroup.add(r.userId));
-  }
-
-  // Remaining reps are solo
-  const solo = reps.filter(r => !assignedToGroup.has(r.userId));
-
-  // Sort groups by FP desc
-  groups.sort((a, b) => {
-    const aFP = a.reps.reduce((s, r) => s + r.fp, 0);
-    const bFP = b.reps.reduce((s, r) => s + r.fp, 0);
-    return bFP - aFP;
-  });
-
-  return { groups, solo };
-};
 
 // ── main component ──────────────────────────────────────────────
 
@@ -362,8 +275,43 @@ export const OrgGroupedRepList = ({
   }
 
   // ── Helper to render recruiter sub-groups within a team/group ──
+  const renderRecruiterNode = (
+    node: RecruiterTreeNode<OrgRepData>,
+    nodeKey: string,
+    depth: 1 | 2,
+  ) => {
+    const isExpanded = searchQuery.trim() ? true : effectiveExpanded.has(nodeKey);
+
+    return (
+      <Collapsible key={nodeKey} open={isExpanded} onOpenChange={() => !searchQuery.trim() && toggle(nodeKey)}>
+        <CollapsibleTrigger className="w-full">
+          <GroupHeader
+            label={`${node.recruiter.name} Group`}
+            repCount={node.memberCount}
+            totalFP={node.totalFP}
+            workingCount={node.workingCount}
+            isLive={isLive}
+            isExpanded={isExpanded}
+            depth={depth}
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="space-y-1.5 mt-1.5 ml-4">
+            <RepRow rep={node.recruiter} onClick={() => onRepClick?.(node.recruiter.userId)} />
+            {node.childGroups.map((childNode) =>
+              renderRecruiterNode(childNode, `${nodeKey}:r:${childNode.recruiter.userId}`, 2),
+            )}
+            {sortReps(node.leafReps).map((rep) => (
+              <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
+
   const renderRecruiterGroupedReps = (teamReps: OrgRepData[], parentKey: string, mlClass: string) => {
-    const { groups, solo } = groupByRecruiter(teamReps);
+    const { groups, solo } = buildRecruiterTree(teamReps);
     
     // If no meaningful recruiter groups, just render flat
     if (groups.length === 0) {
@@ -376,25 +324,7 @@ export const OrgGroupedRepList = ({
     
     return (
       <div className={cn("space-y-1.5 mt-1.5", mlClass)}>
-        {groups.map(rGroup => {
-          const rKey = `${parentKey}:r:${rGroup.name}`;
-          const rExp = effectiveExpanded.has(rKey);
-          const rFP = rGroup.reps.reduce((s, r) => s + r.fp, 0);
-          const rWC = rGroup.reps.filter(r => r.isWorking).length;
-          
-          return (
-            <Collapsible key={rKey} open={rExp} onOpenChange={() => toggle(rKey)}>
-              <CollapsibleTrigger className="w-full">
-                <GroupHeader label={rGroup.name} repCount={rGroup.reps.length} totalFP={rFP} workingCount={rWC} isLive={isLive} isExpanded={rExp} depth={2} />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="space-y-1.5 mt-1.5 ml-4">
-                  {sortReps(rGroup.reps).map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          );
-        })}
+        {groups.map((group) => renderRecruiterNode(group, `${parentKey}:r:${group.recruiter.userId}`, 2))}
         {/* Solo reps (no recruiter group or single-member groups) */}
         {sortReps(solo).map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
       </div>
@@ -403,7 +333,7 @@ export const OrgGroupedRepList = ({
 
   // ─── Team Lead: recruiting groups ───
   if (!showTeamGrouping || !tree) {
-    const { groups, solo } = groupByRecruiter(filteredReps);
+    const { groups, solo } = buildRecruiterTree(filteredReps);
     
     // If no meaningful recruiter groups, show flat list
     if (groups.length === 0) {
@@ -438,25 +368,7 @@ export const OrgGroupedRepList = ({
         </div>
         <div className="text-xs text-muted-foreground px-1">{filteredReps.length} reps</div>
         <div className="space-y-2">
-          {groups.map(rGroup => {
-            const rKey = `recruiter:${rGroup.name}`;
-            const rExp = effectiveExpanded.has(rKey);
-            const rFP = rGroup.reps.reduce((s, r) => s + r.fp, 0);
-            const rWC = rGroup.reps.filter(r => r.isWorking).length;
-            
-            return (
-              <Collapsible key={rKey} open={rExp} onOpenChange={() => toggle(rKey)}>
-                <CollapsibleTrigger className="w-full">
-                  <GroupHeader label={rGroup.name} repCount={rGroup.reps.length} totalFP={rFP} workingCount={rWC} isLive={isLive} isExpanded={rExp} depth={1} />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="space-y-1.5 mt-1.5 ml-4">
-                    {sortReps(rGroup.reps).map(rep => <RepRow key={rep.userId} rep={rep} onClick={() => onRepClick?.(rep.userId)} />)}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          })}
+          {groups.map((group) => renderRecruiterNode(group, `recruiter:${group.recruiter.userId}`, 1))}
           {solo.length > 0 && (
             <Collapsible open={effectiveExpanded.has('recruiter:__solo__')} onOpenChange={() => toggle('recruiter:__solo__')}>
               <CollapsibleTrigger className="w-full">
