@@ -971,6 +971,29 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                             </div>
                           )}
 
+                          {/* Goal tiers */}
+                          <div className="flex rounded-lg border overflow-hidden">
+                            {[
+                              { tier: 'mustDo', label: 'Must Do', value: rep.mustDoGoal },
+                              { tier: 'willDo', label: 'Will Do', value: rep.willDoGoal },
+                              { tier: 'couldDo', label: 'Could Do', value: rep.couldDoGoal },
+                            ].map(({ tier, label, value }) => (
+                              <div
+                                key={tier}
+                                className={cn(
+                                  "flex-1 text-center py-1.5 border-r last:border-r-0",
+                                  activeTier === tier && !rep.isInPreseason && "bg-primary/10"
+                                )}
+                              >
+                                <div className="text-[10px] text-muted-foreground">{label}</div>
+                                <div className={cn(
+                                  "text-sm font-semibold tabular-nums",
+                                  activeTier === tier && !rep.isInPreseason && "text-primary"
+                                )}>{value}</div>
+                              </div>
+                            ))}
+                          </div>
+
                           {/* Summer dates */}
                           {rep.personalSummerStart && (
                             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
