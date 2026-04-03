@@ -1058,6 +1058,24 @@ const OrgChart = () => {
                 onGroupByOfficeChange={setGroupByOffice}
                 showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
                 onOfficeNodeClick={handleOfficeNodeClick}
+                dragEnabled={canDrag}
+                isDragging={isDragging}
+                draggedNode={draggedNode}
+                dragPosition={dragPosition}
+                dropTargetId={dropTargetId}
+                subtreeIds={subtreeIds}
+                draggableNodeIds={draggableNodeIds}
+                validDropTargetIds={validDropTargetIds}
+                onDragTouchStart={dragTouchStart}
+                onDragTouchMove={dragTouchMove}
+                onDragTouchEnd={dragTouchEnd}
+                onDragMouseDown={dragMouseDown}
+                onDragMouseMove={dragMouseMove}
+                onDragMouseUp={dragMouseUp}
+                onCancelDrag={cancelDrag}
+                dragWrapperRef={dragWrapperRef}
+                wasLongPress={wasLongPress}
+                onTransformChange={handleTransformChange}
               />
             )}
           </div>
