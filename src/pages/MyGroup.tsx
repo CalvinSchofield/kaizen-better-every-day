@@ -1397,9 +1397,9 @@ const MyGroup = () => {
         onOpenChange={setWelcomeDrawerOpen}
         onGetStarted={() => {
           setWelcomeDrawerOpen(false);
-          // Open org structure after welcome closes
+          // Open board view after welcome closes
           setTimeout(() => {
-            setQuickViewInitialTab('org');
+            setQuickViewInitialTab('board');
             setQuickViewOpen(true);
           }, 400);
         }}
