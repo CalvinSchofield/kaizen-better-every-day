@@ -670,8 +670,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           <Progress value={aggregate.progressPercent} className="h-2.5" />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{aggregate.progressPercent.toFixed(0)}% of {tierLabel}</span>
-            {aggregate.periodFp > 0 && effectivePreset !== 'ytd' && (
-              <span className="text-foreground font-medium">+{aggregate.periodFp.toFixed(1)} FP+ {getPeriodLabel()}</span>
+            {aggregate.periodProgress > 0 && effectivePreset !== 'ytd' && (
+              <span className="text-foreground font-medium">+{aggregate.periodProgress.toFixed(1)} {getPeriodLabel()}</span>
             )}
           </div>
         </div>
