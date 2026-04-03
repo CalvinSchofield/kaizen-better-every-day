@@ -150,6 +150,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
   // Date presets
   const { availablePresets, autoSelectedPreset, isFetching: presetsFetching } = useAvailableTeamReportsPresets(filteredUserIds);
   const effectivePreset = datePreset ?? 'ytd';
+  const isPeriodFiltered = effectivePreset !== 'ytd' && effectivePreset !== 'preseason';
 
   // Calculate date range from preset
   const dateRange = useMemo(() => {
