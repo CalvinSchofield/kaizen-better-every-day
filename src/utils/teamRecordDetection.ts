@@ -240,6 +240,11 @@ export function computeAllTimeGroupRecords(entries: EntryLike[]): AllTimeGroupRe
       monthly: monthly.periodCount,
       dayOfWeek: dayOfWeekCounts,
     },
+    secondBest: {
+      daily: daily.secondBest,
+      weekly: weekly.secondBest,
+      monthly: monthly.secondBest,
+    },
   };
 }
 
