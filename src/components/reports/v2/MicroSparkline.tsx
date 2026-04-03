@@ -51,16 +51,31 @@ export const MicroSparkline = ({
     >
       {/* Gold benchmark line */}
       {goldY !== null && (
-        <line
-          x1={padding}
-          y1={goldY}
-          x2={width - padding}
-          y2={goldY}
-          stroke="hsl(var(--primary))"
-          strokeWidth={0.5}
-          strokeDasharray="2 2"
-          opacity={0.3}
-        />
+        <>
+          <line
+            x1={padding}
+            y1={goldY}
+            x2={width - padding}
+            y2={goldY}
+            stroke="hsl(var(--primary))"
+            strokeWidth={0.5}
+            strokeDasharray="2 2"
+            opacity={0.3}
+          />
+          {showGoldLabel && goldLine !== undefined && (
+            <text
+              x={width - padding}
+              y={goldY - 3}
+              textAnchor="end"
+              fill="hsl(var(--primary))"
+              opacity={0.5}
+              fontSize={Math.min(10, height * 0.18)}
+              fontWeight={600}
+            >
+              avg {formatGoldLabel ? formatGoldLabel(goldLine) : Math.round(goldLine).toLocaleString()}
+            </text>
+          )}
+        </>
       )}
       {/* Sparkline */}
       <polyline
