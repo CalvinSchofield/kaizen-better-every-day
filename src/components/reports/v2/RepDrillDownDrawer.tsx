@@ -358,7 +358,9 @@ export const RepDrillDownDrawer = ({
             <div className="p-4 border-b">
               <RepGoalSnapshot
                 goalPaceData={downlineGoalPace}
-                periodFp={currentTotals?.fp || 0}
+                periodFp={downlineGoalPace.metricLabel === 'EFP' 
+                  ? (currentTotals?.prmr || 0) / 85 
+                  : (currentTotals?.fp || 0)}
                 periodLabel={periodLabel}
                 dateRangeStart={dateRangeStart}
                 dateRangeEnd={dateRangeEnd}
