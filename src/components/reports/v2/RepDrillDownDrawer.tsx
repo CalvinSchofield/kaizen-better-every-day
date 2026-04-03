@@ -154,6 +154,46 @@ export const RepDrillDownDrawer = ({
 
   const timingDays = timingQuery.data || [];
 
+  // Compute avg start/end times in rep's local timezone
+  const avgTimes = useMemo(() => {
+    const valid = timingDays.filter(d => d.startTime && d.endTime);
+    if (valid.length === 0) return { avgStart: null, avgEnd: null };
+    
+    const toLocalHours = (iso: string, tz?: string | null): number => {
+      if (tz) {
+        try {
+          const d = new Date(iso);
+          const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false,
+          }).formatToParts(d);
+          const h = Number(parts.find(p => p.type === 'hour')?.value ?? 0);
+          const m = Number(parts.find(p => p.type === 'minute')?.value ?? 0);
+          return h + m / 60;
+        } catch { /* fallback */ }
+      }
+      const d = new Date(iso);
+      return d.getHours() + d.getMinutes() / 60;
+    };
+
+    let sumStart = 0, sumEnd = 0;
+    valid.forEach(d => {
+      sumStart += toLocalHours(d.startTime!, d.timezone);
+      sumEnd += toLocalHours(d.endTime!, d.timezone);
+    });
+    const avgS = sumStart / valid.length;
+    const avgE = sumEnd / valid.length;
+
+    const fmt = (hrs: number) => {
+      const h = Math.floor(hrs);
+      const m = Math.round((hrs - h) * 60);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      return m > 0 ? `${h12}:${m.toString().padStart(2, '0')} ${ampm}` : `${h12} ${ampm}`;
+    };
+
+    return { avgStart: fmt(avgS), avgEnd: fmt(avgE) };
+  }, [timingDays]);
+
   // Period label
   const periodLabel = useMemo(() => {
     const labels: Record<string, string> = {
