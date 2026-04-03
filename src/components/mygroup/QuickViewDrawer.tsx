@@ -91,7 +91,7 @@ export const QuickViewDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90dvh]">
+      <DrawerContent className="h-[90dvh]">
         <DrawerHeader className="border-b">
           <div className="flex items-center justify-between">
             <DrawerTitle className="flex items-center gap-2">
