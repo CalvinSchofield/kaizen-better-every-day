@@ -95,7 +95,8 @@ const getDateRange = (period: 'week' | 'month' | 'season' | 'ytd') => {
 export const useTeamAggregatedRankings = ({ 
   userIds, 
   excludeUserIds = [], 
-  period 
+  period,
+  accessibleReps: passedAccessibleReps,
 }: UseTeamAggregatedRankingsProps) => {
   return useQuery({
     queryKey: ["team-aggregated-rankings", userIds.sort().join(','), excludeUserIds.sort().join(','), period],

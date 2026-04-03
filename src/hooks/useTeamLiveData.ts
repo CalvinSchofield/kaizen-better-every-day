@@ -91,7 +91,7 @@ const calculateBreakMinutes = (breakPeriods: any): number => {
 };
 
 
-export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDataParams) => {
+export const useTeamLiveData = ({ userIds, excludeUserIds = [], accessibleReps: passedAccessibleReps }: UseTeamLiveDataParams) => {
   return useQuery({
     queryKey: ['team-live-data', userIds, excludeUserIds],
     queryFn: async () => {

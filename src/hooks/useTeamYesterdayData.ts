@@ -92,7 +92,7 @@ const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number } =>
   return { fp, prmr };
 };
 
-export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYesterdayDataParams) => {
+export const useTeamYesterdayData = ({ userIds, excludeUserIds = [], accessibleReps: passedAccessibleReps }: UseTeamYesterdayDataParams) => {
   return useQuery({
     queryKey: ['team-yesterday-data', userIds, excludeUserIds],
     queryFn: async () => {
