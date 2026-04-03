@@ -56,7 +56,7 @@ const formatValue = (key: KpiMetricKey, value: number): string => {
 
 export const KpiDetailDrawer = ({
   open, onOpenChange, metricKey, metricLabel, totalValue,
-  sparklineData, sparklineAvg, userIds, dateRange, onClose,
+  sparklineData, sparklineAvg, sparklineAvgLabel, userIds, dateRange, onClose,
 }: KpiDetailDrawerProps) => {
   const column = metricKey ? METRIC_TO_COLUMN[metricKey] : null;
 
