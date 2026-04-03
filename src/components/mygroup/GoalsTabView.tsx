@@ -849,11 +849,11 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                           </div>
 
                           {/* Period performance (if not YTD) */}
-                          {effectivePreset !== 'ytd' && (rep.periodFpPlus > 0 || rep.periodDoors > 0) && (
+          {effectivePreset !== 'ytd' && (rep.periodProgress > 0 || rep.periodDoors > 0) && (
                             <div className="bg-muted/30 rounded-lg px-3 py-2">
                               <div className="text-[10px] text-muted-foreground mb-1">{getPeriodLabel()}</div>
                               <div className="flex gap-4 text-xs">
-                                <span><span className="font-medium">{rep.periodFpPlus.toFixed(1)}</span> FP+</span>
+                                <span><span className="font-medium">{rep.periodProgress.toFixed(1)}</span> {metricLabel}</span>
                                 <span><span className="font-medium">{rep.periodDoors}</span> doors</span>
                                 <span><span className="font-medium">{rep.periodKnockingDays}</span> days</span>
                               </div>
