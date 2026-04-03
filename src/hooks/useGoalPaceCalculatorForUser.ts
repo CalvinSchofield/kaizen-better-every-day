@@ -188,8 +188,8 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
 
       if (Array.isArray(salesLog) && salesLog.length > 0) {
         for (const sale of salesLog) {
-          if (sale.install_status === 'never_installed') continue;
-          if (sale.install_status === 'pending') continue;
+          const status = typeof sale?.install_status === 'string' ? sale.install_status.toLowerCase().trim() : '';
+          if (status === 'never_installed' || status === 'pending' || status === 'cancelled' || status === 'canceled') continue;
           entryFP += getSaleValue(sale);
         }
       } else {
