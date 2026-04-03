@@ -524,22 +524,22 @@ export const RepDrillDownDrawer = ({
           repTimezone={extendedData?.timezone || undefined}
         />
 
+        <RepKpiDetailDrawer
+          open={!!activeKpiMetric}
+          onOpenChange={(open) => !open && setActiveKpiMetric(null)}
+          metricKey={activeKpiMetric}
+          current={currentTotals}
+          comparison={comparisonTotals}
+          sparklineHistory={sparklineHistory}
+          repName={rep.name}
+          periodLabel={periodLabel}
+          comparisonLabel={comparisonLabel}
+          userId={rep.userId}
+          dateRange={dateRange}
+        />
+
       </DrawerContent>
     </Drawer>
-
-    <RepKpiDetailDrawer
-      open={!!activeKpiMetric}
-      onOpenChange={(open) => !open && setActiveKpiMetric(null)}
-      metricKey={activeKpiMetric}
-      current={currentTotals}
-      comparison={comparisonTotals}
-      sparklineHistory={sparklineHistory}
-      repName={rep.name}
-      periodLabel={periodLabel}
-      comparisonLabel={comparisonLabel}
-      userId={rep.userId}
-      dateRange={dateRange}
-    />
     </>
   );
 };
