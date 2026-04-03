@@ -35,7 +35,7 @@ const PRESEASON_END = '2026-04-11';
 const DEFAULT_SUMMER_START = '2026-04-12';
 const DEFAULT_SUMMER_END = '2026-09-27';
 
-type PaceStatus = 'ahead' | 'on-track' | 'behind' | 'critical' | 'no-goals';
+type PaceStatus = 'goal-met' | 'ahead' | 'on-track' | 'behind' | 'critical' | 'not-started' | 'no-goals';
 
 interface RepGoalInfo {
   userId: string;
@@ -83,10 +83,12 @@ interface RepGoalInfo {
 }
 
 const STATUS_CONFIG: Record<PaceStatus, { label: string; icon: typeof TrendingUp; color: string; bg: string; border: string }> = {
+  'goal-met': { label: 'Goal Met', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-l-emerald-500' },
   ahead: { label: 'Ahead', icon: TrendingUp, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-l-emerald-500' },
   'on-track': { label: 'On Track', icon: CheckCircle2, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10', border: 'border-l-blue-500' },
   behind: { label: 'Behind', icon: TrendingDown, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10', border: 'border-l-amber-500' },
   critical: { label: 'At Risk', icon: AlertTriangle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/10', border: 'border-l-red-500' },
+  'not-started': { label: 'Not Started', icon: Minus, color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-l-muted-foreground/30' },
   'no-goals': { label: 'No Goals', icon: Minus, color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-l-muted-foreground/30' },
 };
 
@@ -148,6 +150,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
   // Date presets
   const { availablePresets, autoSelectedPreset, isFetching: presetsFetching } = useAvailableTeamReportsPresets(filteredUserIds);
   const effectivePreset = datePreset ?? 'ytd';
+  const isPeriodFiltered = effectivePreset !== 'ytd' && effectivePreset !== 'preseason';
 
   // Calculate date range from preset
   const dateRange = useMemo(() => {
@@ -368,7 +371,28 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
 
         const hasGoals = goals?.setup_complete && activeGoal > 0;
 
-        if (paceResult) {
+        if (hasGoals && currentProgress >= activeGoal) {
+          // Goal already met — don't show as behind
+          paceStatus = 'goal-met';
+          pacePercentage = 100;
+          if (paceResult) {
+            expectedAtThisPoint = paceResult.expectedAtThisPoint;
+            variance = paceResult.paceVariance;
+            futurePlannedDays = paceResult.futurePlannedDays;
+            daysRemaining = paceResult.futurePlannedDays;
+          }
+        } else if (hasGoals && knockingDays === 0) {
+          // Rep hasn't knocked a single qualifying day — we can't determine pace
+          paceStatus = 'not-started';
+          pacePercentage = 0;
+          const todayStr = format(today, 'yyyy-MM-dd');
+          const totalFuturePlanned = plannedDays.filter(d => d.planned_date > todayStr).length;
+          futurePlannedDays = totalFuturePlanned;
+          daysRemaining = totalFuturePlanned;
+          if (daysRemaining > 0 && activeGoal > 0) {
+            dailyTarget = Math.max(0, activeGoal - currentProgress) / daysRemaining;
+          }
+        } else if (paceResult) {
           expectedAtThisPoint = paceResult.expectedAtThisPoint;
           variance = paceResult.paceVariance;
           dailyTarget = paceResult.remainingDailyNeeded;
@@ -390,12 +414,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           const totalFuturePlanned = plannedDays.filter(d => d.planned_date > todayStr).length;
           futurePlannedDays = totalFuturePlanned;
           daysRemaining = totalFuturePlanned;
-          if (knockingDays === 0 && currentProgress === 0) {
-            paceStatus = totalFuturePlanned > 0 ? 'on-track' : 'behind';
-          } else {
-            pacePercentage = activeGoal > 0 ? (currentProgress / activeGoal) * 100 : 0;
-            paceStatus = 'behind';
-          }
+          pacePercentage = activeGoal > 0 ? (currentProgress / activeGoal) * 100 : 0;
+          paceStatus = 'behind';
           if (daysRemaining > 0 && activeGoal > 0) {
             dailyTarget = Math.max(0, activeGoal - currentProgress) / daysRemaining;
           }
@@ -459,7 +479,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
       else wg.push(r);
     });
 
-    const statusOrder: Record<PaceStatus, number> = { critical: 0, behind: 1, 'on-track': 2, ahead: 3, 'no-goals': 4 };
+    const statusOrder: Record<PaceStatus, number> = { critical: 0, behind: 1, 'not-started': 2, 'on-track': 3, ahead: 4, 'goal-met': 5, 'no-goals': 6 };
     wg.sort((a, b) => {
       const sd = statusOrder[a.paceStatus] - statusOrder[b.paceStatus];
       if (sd !== 0) return sd;
@@ -482,9 +502,11 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
   const stats = useMemo(() => ({
     total: withGoals.length,
     ahead: withGoals.filter(r => r.paceStatus === 'ahead').length,
+    goalMet: withGoals.filter(r => r.paceStatus === 'goal-met').length,
     onTrack: withGoals.filter(r => r.paceStatus === 'on-track').length,
     behind: withGoals.filter(r => r.paceStatus === 'behind').length,
     critical: withGoals.filter(r => r.paceStatus === 'critical').length,
+    notStarted: withGoals.filter(r => r.paceStatus === 'not-started').length,
   }), [withGoals]);
 
   // Aggregate stats for selected tier
@@ -668,21 +690,27 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         <div className="space-y-1.5">
           <Progress value={aggregate.progressPercent} className="h-2.5" />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{aggregate.progressPercent.toFixed(0)}% of {tierLabel}</span>
-            {aggregate.periodProgress > 0 && effectivePreset !== 'ytd' && (
-              <span className="text-foreground font-medium">+{aggregate.periodProgress.toFixed(1)} {getPeriodLabel()}</span>
-            )}
+            <span>{aggregate.progressPercent.toFixed(0)}% of {isGlobalPreseason ? 'Preseason' : tierLabel}</span>
           </div>
         </div>
 
+        {/* Period production line (when not viewing full season) */}
+        {isPeriodFiltered && (
+          <div className="bg-muted/30 rounded-lg px-3 py-2 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">{getPeriodLabel()}</span>
+            <span className="text-sm font-semibold tabular-nums">+{aggregate.periodProgress.toFixed(1)} FP+</span>
+          </div>
+        )}
+
         {/* Status breakdown chips */}
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid grid-cols-6 gap-1">
           {[
-            { key: 'all' as const, count: stats.total, label: 'All', activeClass: 'ring-1 ring-border bg-background' },
-            { key: 'ahead' as const, count: stats.ahead, label: 'Ahead', activeClass: 'ring-1 ring-emerald-300 bg-emerald-500/10' },
-            { key: 'on-track' as const, count: stats.onTrack, label: 'On Track', activeClass: 'ring-1 ring-blue-300 bg-blue-500/10' },
-            { key: 'behind' as const, count: stats.behind, label: 'Behind', activeClass: 'ring-1 ring-amber-300 bg-amber-500/10' },
-            { key: 'critical' as const, count: stats.critical, label: 'At Risk', activeClass: 'ring-1 ring-red-300 bg-red-500/10' },
+            { key: 'all' as const, count: stats.total, label: 'All', activeClass: 'ring-1 ring-border bg-background', textColor: '' },
+            { key: 'goal-met' as const, count: stats.goalMet, label: 'Goal Met', activeClass: 'ring-1 ring-emerald-300 bg-emerald-500/10', textColor: 'text-emerald-600 dark:text-emerald-400' },
+            { key: 'ahead' as const, count: stats.ahead, label: 'Ahead', activeClass: 'ring-1 ring-emerald-300 bg-emerald-500/10', textColor: 'text-emerald-600 dark:text-emerald-400' },
+            { key: 'on-track' as const, count: stats.onTrack, label: 'On Track', activeClass: 'ring-1 ring-blue-300 bg-blue-500/10', textColor: 'text-blue-600 dark:text-blue-400' },
+            { key: 'behind' as const, count: stats.behind, label: 'Behind', activeClass: 'ring-1 ring-amber-300 bg-amber-500/10', textColor: 'text-amber-600 dark:text-amber-400' },
+            { key: 'critical' as const, count: stats.critical, label: 'At Risk', activeClass: 'ring-1 ring-red-300 bg-red-500/10', textColor: 'text-red-600 dark:text-red-400' },
           ].map(chip => (
             <button
               key={chip.key}
@@ -694,10 +722,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
             >
               <div className={cn(
                 "text-sm font-bold tabular-nums",
-                chip.key === 'ahead' && 'text-emerald-600 dark:text-emerald-400',
-                chip.key === 'on-track' && 'text-blue-600 dark:text-blue-400',
-                chip.key === 'behind' && 'text-amber-600 dark:text-amber-400',
-                chip.key === 'critical' && 'text-red-600 dark:text-red-400',
+                chip.textColor,
               )}>{chip.count}</div>
               <div className="text-[9px] text-muted-foreground leading-tight">{chip.label}</div>
             </button>
@@ -771,16 +796,21 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                           <div
                             className={cn(
                               "h-full rounded-full transition-all",
-                              rep.paceStatus === 'ahead' && 'bg-emerald-500',
+                              (rep.paceStatus === 'ahead' || rep.paceStatus === 'goal-met') && 'bg-emerald-500',
                               rep.paceStatus === 'on-track' && 'bg-blue-500',
                               rep.paceStatus === 'behind' && 'bg-amber-500',
                               rep.paceStatus === 'critical' && 'bg-red-500',
+                              rep.paceStatus === 'not-started' && 'bg-muted-foreground/40',
                             )}
                             style={{ width: `${progressPercent}%` }}
                           />
                         </div>
-                        <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-right">
-                          {progressPercent.toFixed(0)}%
+                        <span className="text-[10px] text-muted-foreground tabular-nums text-right">
+                          {isPeriodFiltered ? (
+                            <span className="font-medium text-foreground">+{rep.periodProgress.toFixed(1)}</span>
+                          ) : (
+                            `${progressPercent.toFixed(0)}%`
+                          )}
                         </span>
                       </div>
                     </div>
