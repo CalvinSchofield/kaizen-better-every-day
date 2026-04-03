@@ -7,7 +7,7 @@ import {
 import { Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ActiveRecord, GRANULARITY_LABELS, minutesToTimeStr } from "@/utils/teamRecordDetection";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
 
 interface RecordRepBreakdownDrawerProps {
   open: boolean;
