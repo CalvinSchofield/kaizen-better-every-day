@@ -225,6 +225,40 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 /**
+ * Generate a contextual label for a record e.g. "Best Tuesday this Quarter"
+ */
+function generateContextualLabel(
+  metricLabel: string,
+  granularity: 'daily' | 'weekly' | 'monthly',
+  isRecord: boolean,
+  onPace: boolean,
+  currentDate?: Date,
+  dayOfWeekLabel?: string,
+): string {
+  if (dayOfWeekLabel) return dayOfWeekLabel;
+
+  const now = currentDate || new Date();
+  const month = now.getMonth();
+  // Q1=Jan-Mar, Q2=Apr-Jun, etc.
+  const quarterLabel = month < 3 ? 'Q1' : month < 6 ? 'Q2' : month < 9 ? 'Q3' : 'Q4';
+
+  const granLabel = GRANULARITY_LABELS[granularity] || granularity;
+
+  if (isRecord) {
+    if (granularity === 'daily') {
+      return `Best ${DAY_NAMES[now.getDay()]} ${metricLabel} (${quarterLabel})`;
+    }
+    if (granularity === 'weekly') {
+      return `Best ${granLabel} ${metricLabel} this season`;
+    }
+    return `Best ${granLabel} ${metricLabel} this season`;
+  }
+
+  // On pace
+  return `On pace for best ${granLabel} ${metricLabel}`;
+}
+
+/**
  * Compare current totals against all-time records for the given preset.
  * Returns active records (broken or on-pace).
  */
@@ -282,9 +316,10 @@ export function detectActiveRecords(
     const onPace = !isRecord && isLiveView && currentValue >= record.value * 0.8;
 
     if (isRecord || onPace) {
+      const metricLabel = METRIC_LABELS[key] || key;
       result.push({
         metricKey: key,
-        label: METRIC_LABELS[key] || key,
+        label: metricLabel,
         currentValue,
         recordValue: record.value,
         recordDate: record.date,
@@ -292,6 +327,7 @@ export function detectActiveRecords(
         isRecord,
         onPace: onPace && !isRecord,
         granularity,
+        contextualLabel: generateContextualLabel(metricLabel, granularity, isRecord, onPace && !isRecord, currentDate),
       });
     }
   }
@@ -314,6 +350,7 @@ export function detectActiveRecords(
         isRecord,
         onPace: onPace && !isRecord,
         granularity,
+        contextualLabel: generateContextualLabel('Avg Start', granularity, isRecord, onPace && !isRecord, currentDate),
       });
     }
   }
@@ -335,9 +372,11 @@ export function detectActiveRecords(
 
         const isRecord = currentValue >= record.value;
         if (isRecord) {
+          const metricLabel = METRIC_LABELS[key] || key;
+          const dowLabel = `Best ${DAY_NAMES[dow]} ${metricLabel}`;
           result.push({
             metricKey: key,
-            label: METRIC_LABELS[key] || key,
+            label: metricLabel,
             currentValue,
             recordValue: record.value,
             recordDate: record.date,
@@ -345,7 +384,8 @@ export function detectActiveRecords(
             isRecord: true,
             onPace: false,
             granularity: 'daily',
-            dayOfWeekLabel: `Best ${DAY_NAMES[dow]} ever`,
+            dayOfWeekLabel: dowLabel,
+            contextualLabel: dowLabel,
           });
         }
       }
