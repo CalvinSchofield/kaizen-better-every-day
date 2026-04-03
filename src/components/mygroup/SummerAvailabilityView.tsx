@@ -157,7 +157,7 @@ export const SummerAvailabilityView = () => {
         teamName: accessibleRep.teamName || undefined,
         mgmtGroupId: accessibleRep.mgmtGroupId || undefined,
         mgmtGroupName: accessibleRep.mgmtGroupName || undefined,
-        hasGoals: !!(goalData as any)?.summer_fp_goal,
+        hasGoals: !!(goalData as any)?.setup_complete,
       });
     });
 
