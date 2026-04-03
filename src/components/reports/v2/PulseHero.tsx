@@ -28,6 +28,7 @@ interface PulseHeroProps {
   onWorkingClick?: () => void;
   onAvgStartClick?: () => void;
   onFpClick?: () => void;
+  onKpiClick?: (metricKey: MetricKey) => void;
   activeRecords?: ActiveRecord[];
   onRecordBannerClick?: () => void;
   // Comparison data
