@@ -67,6 +67,9 @@ interface RepGoalInfo {
   periodFpPlus: number;
   periodDoors: number;
   periodKnockingDays: number;
+  periodPlannedDays: number;
+  periodExpected: number;
+  periodPaceStatus: PaceStatus;
   // Pace
   paceStatus: PaceStatus;
   pacePercentage: number;
