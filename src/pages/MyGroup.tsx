@@ -373,7 +373,7 @@ const MyGroup = () => {
       
       const { data } = await supabase
         .from('daily_entries')
-        .select('user_id, entry_date, fp_plus, work_start_time, work_end_time, doors_knocked, is_finalized')
+        .select('user_id, entry_date, fp_plus, work_start_time, work_end_time, doors_knocked, pitches, transitions, presentations, closes, is_finalized')
         .in('user_id', recruitUserIds)
         .eq('is_finalized', true)
         .order('entry_date', { ascending: false });
