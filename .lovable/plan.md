@@ -1,51 +1,41 @@
 
 
-## Contextual Goal Progress in Rep Drill-Down
+## Redesign Rep Drill-Down Header
 
-### Problem
-The current Goal Progress shows "Today: 0 / 0 FP+" which is meaningless when viewing "Last Month" data. The timeframes (D/Y) are hardcoded and ignore the date context passed from Reports V2.
+### What Changes
 
-### World-Class Approach
-Replace the generic `UnifiedGoalProgress` compact bar with a **period-aware goal snapshot** that answers two questions:
-1. **"How did they do in this period vs pace?"** — Production during the selected range vs what goal pace demanded for those days
-2. **"Where do they stand overall?"** — Season-to-date progress bar for general context
+The current header has: avatar, name, year badge, team name, message button, and a calendar icon. The user finds the calendar icon unhelpful and wants the date context (period label like "Last Month") visible in the header so it persists while scrolling.
 
-Layout:
+### Design — World-Class Mobile Pattern
+
+A **sticky, compact header** that answers "who am I looking at and what timeframe" at a glance:
+
 ```text
-┌─────────────────────────────────┐
-│ ◎ Goal Progress      ◉ Preseason│
-│                                 │
-│ Last Month        8.2 / 9.4 FP+ │
-│ ━━━━━━━━━━━━━━━━━━░░░  87%     │
-│                                 │
-│ Season           62.7 / 75 FP+  │
-│ ━━━━━━━━━━━━━━━━━━━━━░░░░  84% │
-│                         ↘ -14.9 │
-└─────────────────────────────────┘
+┌──────────────────────────────────────┐
+│ (avatar) Calvin Schofield  [Vet]  💬 │
+│          Team Name · Last Month      │
+└──────────────────────────────────────┘
 ```
 
-The **period row** calculates: `dailyNeeded × plannedDaysInRange` = expected pace for that specific window. Compared against actual production in that range (already available from `useRepComparison` current totals).
+Key decisions:
+- **Remove** the Calendar icon button entirely (the `ActivityCalendarDrawer` can still be accessed via the `WeekActivityStrip` below)
+- **Add period label** as a subtle badge/text next to team name so date context is always visible
+- **Keep** ProfileAvatar (clickable to profile) and MessageSquare button
+- **Keep** year badge (Vet/Rookie)
+- Team name and period label sit on the subtitle line, separated by a dot
 
-The **season row** stays as-is from `useGoalPaceCalculatorForUser` — full season progress with pace indicator.
+### Files to Modify
 
-### Technical Plan
+| File | Change |
+|---|---|
+| `src/components/reports/v2/RepDrillDownDrawer.tsx` | Remove Calendar import and button. Add `periodLabel` to the header subtitle line next to team name. Remove `showCalendar` state and `ActivityCalendarDrawer` rendering. |
 
-**File: `src/components/reports/v2/RepDrillDownDrawer.tsx`**
-- Remove the `UnifiedGoalProgress` compact block (lines 360-368)
-- Replace with a new `RepGoalSnapshot` component
-- Pass: `downlineGoalPace`, `currentTotals.fp` (period FP+), `periodLabel`, `dateRangeStart`, `dateRangeEnd`
-
-**File: `src/components/reports/v2/RepGoalSnapshot.tsx`** (new)
-- Accepts `goalPaceData` (from `useGoalPaceCalculatorForUser`), `periodFp`, `periodLabel`, `dateRangeStart`, `dateRangeEnd`
-- **Period pace calculation**: Uses `goalPaceData.dailyNeeded` × number of planned work days that fall within the date range (from `goalPaceData.season` data) to compute expected production for that window
-- If planned days data isn't granular enough, falls back to `dailyNeeded × calendarDaysInRange` as approximation
-- Renders two progress bars: period row + season row
-- Season row shows the pace severity badge (on pace / behind) from `goalPaceData.severity`
-- Uses the same tier badge (Preseason/Must/Will/Could) from `GOAL_TIER_CONFIG`
-- Matches the visual language of `UnifiedGoalProgress` (same colors, bar style) but with contextual labels
-
-### What stays the same
-- `useGoalPaceCalculatorForUser` — no changes, already provides all season-level data
-- `useRepComparison` — already provides `currentTotals.fp` for the period
-- Tier config and severity colors — reused from existing design tokens
+### Technical Details
+- Remove `Calendar` from lucide imports
+- Remove `showCalendar` state (`useState(false)`)
+- Remove the Calendar `<Button>` from header (lines 322-327)
+- Remove `<ActivityCalendarDrawer>` block (lines 502-510)
+- Remove `useRepActivityCalendar` import if no longer needed (still used by `WeekActivityStrip` via `calendarData` — keep it)
+- Add period label to subtitle: `{rep.teamName && <span>{rep.teamName}</span>} · <span>{periodLabel}</span>`
+- Style the period label with a subtle accent color so it stands out as temporal context
 
