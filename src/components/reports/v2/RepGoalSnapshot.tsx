@@ -44,14 +44,21 @@ export const RepGoalSnapshot = ({
   const tierKey = focusTier === 'preseason' ? 'preseason' : focusTier;
   const tierCfg = GOAL_TIER_CONFIG[tierKey as keyof typeof GOAL_TIER_CONFIG];
 
-  // Period pace: expected production for the selected date range
+  // Period pace: use original planned pace (goal / total planned days), not catch-up pace
+  // This gives a fair "what should they have produced in this window" expectation
+  const originalDailyPace = useMemo(() => {
+    const totalPlannedDays = season.plannedDaysTotal;
+    if (totalPlannedDays <= 0 || activeGoal <= 0) return 0;
+    return activeGoal / totalPlannedDays;
+  }, [activeGoal, season.plannedDaysTotal]);
+
   const periodExpected = useMemo(() => {
-    if (!dateRangeStart || !dateRangeEnd || dailyNeeded <= 0) return 0;
+    if (!dateRangeStart || !dateRangeEnd || originalDailyPace <= 0) return 0;
     const calDays = differenceInCalendarDays(dateRangeEnd, dateRangeStart) + 1;
     // Approximate planned days as ~6/7 of calendar days (typical knocking schedule)
     const estimatedWorkDays = Math.max(1, Math.round(calDays * (6 / 7)));
-    return dailyNeeded * estimatedWorkDays;
-  }, [dateRangeStart, dateRangeEnd, dailyNeeded]);
+    return originalDailyPace * estimatedWorkDays;
+  }, [dateRangeStart, dateRangeEnd, originalDailyPace]);
 
   const periodPercent = periodExpected > 0
     ? Math.min(100, (periodFp / periodExpected) * 100)
