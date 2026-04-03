@@ -641,8 +641,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
               {isGlobalPreseason ? 'Preseason' : 'Summer'} • {withGoals.length + noGoals.length} reps
             </p>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-bold tabular-nums">{aggregate.totalFp.toFixed(1)}</span>
-              <span className="text-sm text-muted-foreground">/ {aggregate.totalGoal} FP+</span>
+              <span className="text-2xl font-bold tabular-nums">{aggregate.totalProgress.toFixed(1)}</span>
+              <span className="text-sm text-muted-foreground">/ {aggregate.totalGoal}</span>
             </div>
           </div>
           {!isGlobalPreseason && (
