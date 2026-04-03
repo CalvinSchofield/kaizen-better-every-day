@@ -190,11 +190,13 @@ const TeamReports = () => {
   const { data: liveData, isLoading: liveLoading } = useTeamLiveData({
     userIds: effectiveUserIds,
     excludeUserIds,
+    accessibleReps: accessData?.accessibleReps,
   });
 
   const { data: yesterdayData, isLoading: yesterdayLoading } = useTeamYesterdayData({
     userIds: effectiveUserIds,
     excludeUserIds,
+    accessibleReps: accessData?.accessibleReps,
   });
 
   // For today views, include unfinalized entries so leaders can see in-progress work
@@ -224,6 +226,7 @@ const TeamReports = () => {
     userIds: effectiveUserIds,
     excludeUserIds,
     period: aggregatedPeriod || 'week',
+    accessibleReps: accessData?.accessibleReps,
   });
 
   const isAggregatedView = datePreset === 'week' || datePreset === 'lastWeek' || datePreset === 'month' || datePreset === 'lastMonth' || datePreset === 'preseason' || datePreset === 'ytd';
