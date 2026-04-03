@@ -80,11 +80,12 @@ export const SummerAvailabilityView = () => {
     queryFn: async () => {
       const { user } = await getSessionSafe();
       if (!user) return null;
-      const [repResult, configResult] = await Promise.all([
+      const [repResult, configResult, goalsResult] = await Promise.all([
         supabase.from('reps').select('user_id, name, phone, year, stage').eq('user_id', user.id).single(),
         supabase.from('season_config').select('personal_summer_start, personal_summer_end, excluded_summer_days').eq('user_id', user.id).single(),
+        supabase.from('rep_goals').select('setup_complete').eq('user_id', user.id).maybeSingle(),
       ]);
-      return { rep: repResult.data, config: configResult.data };
+      return { rep: repResult.data, config: configResult.data, goals: goalsResult.data };
     },
   });
 
@@ -96,7 +97,7 @@ export const SummerAvailabilityView = () => {
       const [repsResult, configsResult, goalsResult] = await Promise.all([
         supabase.from('reps').select('user_id, name, phone, year, stage').in('user_id', teamAccess.accessibleUserIds),
         supabase.from('season_config').select('user_id, personal_summer_start, personal_summer_end, excluded_summer_days').in('user_id', teamAccess.accessibleUserIds),
-        supabase.from('season_config').select('user_id, summer_fp_goal').in('user_id', teamAccess.accessibleUserIds),
+        supabase.from('rep_goals').select('user_id, setup_complete').in('user_id', teamAccess.accessibleUserIds),
       ]);
       return {
         reps: repsResult.data || [],
@@ -118,7 +119,9 @@ export const SummerAvailabilityView = () => {
     if (currentUserData?.rep) {
       const stage = currentUserData.rep.stage;
       if (isStageIn(stage, SIGNED_PLUS_STAGES)) {
-        const goalData = goalsMap.get(currentUserData.rep.user_id);
+        const currentUserGoal = currentUserData.goals;
+        const teamGoalData = goalsMap.get(currentUserData.rep.user_id);
+        const hasGoals = !!(currentUserGoal?.setup_complete || (teamGoalData as any)?.setup_complete);
         list.push({
           userId: currentUserData.rep.user_id,
           name: currentUserData.rep.name,
@@ -129,7 +132,7 @@ export const SummerAvailabilityView = () => {
           isSelf: true,
           year: currentUserData.rep.year || undefined,
           stage: stage || undefined,
-          hasGoals: !!(goalData as any)?.summer_fp_goal,
+          hasGoals,
         });
       }
     }
@@ -157,7 +160,7 @@ export const SummerAvailabilityView = () => {
         teamName: accessibleRep.teamName || undefined,
         mgmtGroupId: accessibleRep.mgmtGroupId || undefined,
         mgmtGroupName: accessibleRep.mgmtGroupName || undefined,
-        hasGoals: !!(goalData as any)?.summer_fp_goal,
+        hasGoals: !!(goalData as any)?.setup_complete,
       });
     });
 
@@ -217,15 +220,18 @@ export const SummerAvailabilityView = () => {
     return { readyPeople: ready, needsSetupPeople: needs };
   }, [people]);
 
-  // Stats
-  const offTodayCount = useMemo(() => {
+  // Stats - Off this week (count reps who have at least one off/excluded day in the displayed week)
+  const offThisWeekCount = useMemo(() => {
+    const weekDateStrs = weekDays.map(d => format(d, 'yyyy-MM-dd'));
     return readyPeople.filter(p => {
-      const start = p.personalSummerStart!;
-      const end = p.personalSummerEnd!;
-      if (todayStr < start || todayStr > end) return true;
-      return p.excludedSummerDays.includes(todayStr);
+      return weekDateStrs.some(dayStr => {
+        const start = p.personalSummerStart!;
+        const end = p.personalSummerEnd!;
+        if (dayStr < start || dayStr > end) return true;
+        return p.excludedSummerDays.includes(dayStr);
+      });
     }).length;
-  }, [readyPeople, todayStr]);
+  }, [readyPeople, weekDays]);
 
   // Check if a rep is off on a given date
   const isRepOff = useCallback((person: PersonSummerInfo, dateStr: string): 'off' | 'excluded' | 'working' | 'not-started' | 'ended' => {
@@ -332,7 +338,7 @@ export const SummerAvailabilityView = () => {
           )}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground">
             <Palmtree className="h-3.5 w-3.5" />
-            {offTodayCount} Off Today
+            {offThisWeekCount} Off This Week
           </div>
         </div>
 
