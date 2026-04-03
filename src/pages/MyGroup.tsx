@@ -963,7 +963,7 @@ const MyGroup = () => {
   // Error state with no cached data - includes team access errors
   // CRITICAL: If team access failed but user WAS a leader, show recovery UI, not non-leader view
   const hasTeamAccessError = teamAccessError && !teamAccess;
-  const hasUnrecoverableError = (recruitsError && !groupData && isLeader) || hasTeamAccessError;
+  const hasUnrecoverableError = (recruitsError && !groupData && isFullLeader) || hasTeamAccessError;
   const showLeaderRecoveryUI = hasTeamAccessError && wasLeader;
 
   const handleRetry = async () => {
