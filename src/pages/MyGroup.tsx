@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { hasMinAccess, canFilterByTeam } from "@/utils/roleHierarchy";
+import { canFilterByTeam } from "@/utils/roleHierarchy";
 import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
@@ -37,7 +37,8 @@ import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard"
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { PendingApprovalsSection } from "@/components/mygroup/PendingApprovalsSection";
 import { PendingOrgRequests } from "@/components/mygroup/org/PendingOrgRequests";
-import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
+import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, getUnifiedFilterSummary } from "@/components/filters/UnifiedFilterDrawer";
+import { usePerformanceAlerts } from "@/hooks/usePerformanceAlerts";
 import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
 import { RecruitSearchDrawer } from "@/components/mygroup/RecruitSearchDrawer";
@@ -97,7 +98,7 @@ const MyGroup = () => {
   // UI State
   const navigateTo = useNavigate();
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
+  const [smartFilter, setSmartFilter] = useState<UnifiedFilterState>(DEFAULT_UNIFIED_FILTER);
   const [editingSuggestion, setEditingSuggestion] = useState<RecruitSuggestion | null>(null);
   const [deletingSuggestionId, setDeletingSuggestionId] = useState<string | null>(null);
   
@@ -208,7 +209,10 @@ const MyGroup = () => {
       // This applies regardless of whether they're team lead, MGMT lead, or Area Director
       const myTeam = teamAccess.teams?.find(t => t.name === currentUserRep.name);
       if (myTeam) {
-        setSelectedTeamFilter(`team:${myTeam.id}`);
+        setSmartFilter(prev => ({
+          ...prev,
+          selectedNodes: [{ type: 'team', id: myTeam.id, name: myTeam.name }],
+        }));
       }
       
       // Open the specified category drawer
@@ -369,7 +373,7 @@ const MyGroup = () => {
       
       const { data } = await supabase
         .from('daily_entries')
-        .select('user_id, entry_date, fp_plus, work_start_time, work_end_time, doors_knocked, is_finalized')
+        .select('user_id, entry_date, fp_plus, work_start_time, work_end_time, doors_knocked, pitches, transitions, presentations, closes, is_finalized')
         .in('user_id', recruitUserIds)
         .eq('is_finalized', true)
         .order('entry_date', { ascending: false });
@@ -380,7 +384,23 @@ const MyGroup = () => {
     staleTime: 1000 * 60 * 2,
   });
 
-  // Build SummerRepData for useSummerRecommendations
+  // Performance alerts from daily entries data
+  const performanceAlertReps = useMemo(() => {
+    if (!recruitsRepData) return [];
+    return recruitsRepData
+      .filter(r => r.user_id)
+      .map(r => ({
+        userId: r.user_id!,
+        name: allRecruits.find(rec => rec.id === r.id)?.name || '',
+        year: allRecruits.find(rec => rec.id === r.id)?.year,
+      }));
+  }, [recruitsRepData, allRecruits]);
+
+  const performanceAlerts = usePerformanceAlerts({
+    entries: summerEntriesData || [],
+    reps: performanceAlertReps,
+    enabled: isFullLeader && (summerEntriesData?.length || 0) > 0,
+  });
   const summerReps = useMemo<SummerRepData[]>(() => {
     if (!recruitsRepData || !recruitsGoalsData || !recruitsSummerConfigData) return [];
     
@@ -495,25 +515,42 @@ const MyGroup = () => {
 
 
   // Filter recruits by selected team if applicable
-  const filteredRecruits = useMemo(() => {
-    const applyTeamFilter = () => {
-      if (!selectedTeamFilter) return allRecruits;
-
-      if (selectedTeamFilter.startsWith('team:')) {
-        const teamId = selectedTeamFilter.replace('team:', '');
-        return allRecruits.filter(r => r.teamId === teamId);
-      } else if (selectedTeamFilter.startsWith('mgmt:')) {
-        const mgmtId = selectedTeamFilter.replace('mgmt:', '');
-        return allRecruits.filter(r => r.mgmtGroupId === mgmtId);
+  // Resolve filtered team/mgmt IDs from unified filter for recruit filtering
+  const filterSelectedTeamIds = useMemo(() => {
+    if (smartFilter.selectedNodes.length === 0) return null;
+    const teamIds = new Set<string>();
+    for (const node of smartFilter.selectedNodes) {
+      if (node.type === 'team') {
+        teamIds.add(node.id);
+      } else if (node.type === 'mgmt_group') {
+        const group = teamAccess?.mgmtGroups?.find(g => g.id === node.id);
+        if (group) group.teamIds.forEach(tid => teamIds.add(tid));
+      } else if (node.type === 'office' || node.type === 'sr_mgmt_group') {
+        // Children will also be in selectedNodes via cascading toggle
       }
-      return allRecruits;
-    };
+    }
+    return teamIds.size > 0 ? teamIds : null;
+  }, [smartFilter.selectedNodes, teamAccess?.mgmtGroups]);
 
-    const base = applyTeamFilter();
+  // Filter recruits by unified filter
+  const filteredRecruits = useMemo(() => {
+    let base = allRecruits;
+
+    // Apply team/mgmt node filter
+    if (filterSelectedTeamIds) {
+      base = base.filter(r => r.teamId && filterSelectedTeamIds.has(r.teamId));
+    }
+
+    // Apply year filter
+    if (smartFilter.yearFilters.length > 0) {
+      const allowedYears = new Set(smartFilter.yearFilters);
+      base = base.filter(r => r.year && allowedYears.has(r.year));
+    }
 
     // Levi-only: compute direct vs downline based on recruiter chain
     const leviTeamId = teamAccess?.teams?.find(t => t.name?.toLowerCase().startsWith('levi'))?.id;
-    if (!leviTeamId || selectedTeamFilter !== `team:${leviTeamId}`) return base;
+    const selectedOnlyLevi = filterSelectedTeamIds?.size === 1 && leviTeamId && filterSelectedTeamIds.has(leviTeamId);
+    if (!leviTeamId || !selectedOnlyLevi) return base;
 
     const normalize = (s: string | null | undefined) => {
       if (!s) return null;
@@ -521,8 +558,6 @@ const MyGroup = () => {
     };
 
     const rootKey = 'levi tingey';
-
-    // Build quick index of recruits by their (normalized) name
     const byName = new Map<string, string>();
     base.forEach(r => {
       const k = normalize(r.name);
@@ -532,18 +567,15 @@ const MyGroup = () => {
     const depthById = new Map<string, number>();
     const rootId = byName.get(rootKey);
     if (!rootId) return base;
-
     depthById.set(rootId, 0);
 
     let frontier = new Set<string>([rootKey]);
     let depth = 0;
-
     while (frontier.size > 0 && depth < 6) {
       const next = new Set<string>();
       for (const r of base) {
         const recruiterKey = normalize(r.recruiterName);
         if (!recruiterKey || !frontier.has(recruiterKey)) continue;
-
         if (!depthById.has(r.id)) {
           depthById.set(r.id, depth + 1);
           const childKey = normalize(r.name);
@@ -560,41 +592,17 @@ const MyGroup = () => {
         d === 1 ? 'direct' : d != null && d >= 2 ? 'downline' : null;
       return { ...r, recruiterDepth: d ?? null, recruiterLineage: lineage };
     });
-  }, [selectedTeamFilter, allRecruits, teamAccess]);
+  }, [smartFilter, allRecruits, teamAccess, filterSelectedTeamIds]);
 
   // Filter activities to match filtered recruits
+  const isFilterActive = isUnifiedFilterActive(smartFilter);
   const filteredActivities = useMemo(() => {
-    if (!selectedTeamFilter) return activities;
+    if (!isFilterActive) return activities;
     return activities.filter(a => filteredRecruits.some(r => r.id === a.recruit_id));
-  }, [selectedTeamFilter, activities, filteredRecruits]);
+  }, [isFilterActive, activities, filteredRecruits]);
 
-  // Get active filter name for display
-  const activeFilterName = useMemo(() => {
-    if (!selectedTeamFilter) return null;
-    if (selectedTeamFilter.startsWith('team:')) {
-      const teamId = selectedTeamFilter.replace('team:', '');
-      return teamAccess?.teams?.find(t => t.id === teamId)?.name || null;
-    } else if (selectedTeamFilter.startsWith('mgmt:')) {
-      const mgmtId = selectedTeamFilter.replace('mgmt:', '');
-      return teamAccess?.mgmtGroups?.find(g => g.id === mgmtId)?.name || null;
-    }
-    return null;
-  }, [selectedTeamFilter, teamAccess]);
-
-  // Calculate recruit counts per team for the filter sheet
-  const teamRecruitCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    
-    teamAccess?.teams?.forEach(team => {
-      counts[`team:${team.id}`] = allRecruits.filter(r => r.teamId === team.id).length;
-    });
-    
-    teamAccess?.mgmtGroups?.forEach(group => {
-      counts[`mgmt:${group.id}`] = allRecruits.filter(r => r.mgmtGroupId === group.id).length;
-    });
-    
-    return counts;
-  }, [allRecruits, teamAccess]);
+  // Get active filter summary for display
+  const activeFilterName = useMemo(() => getUnifiedFilterSummary(smartFilter), [smartFilter]);
 
   // Dismissed recruits for Today's Focus
   const { dismissedIds, dismissRecruit, undismissRecruit, isRecuitDismissed, isLoaded: dismissedLoaded } = useDismissedRecruits();
@@ -912,11 +920,11 @@ const MyGroup = () => {
       {activeFilterName && (
         <Badge 
           variant="secondary" 
-          className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80"
-          onClick={() => setSelectedTeamFilter(null)}
+          className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80 max-w-[120px]"
+          onClick={() => setSmartFilter(DEFAULT_UNIFIED_FILTER)}
         >
-          {activeFilterName}
-          <X className="h-3 w-3" />
+          <span className="truncate">{activeFilterName}</span>
+          <X className="h-3 w-3 shrink-0" />
         </Badge>
       )}
       {isFullLeader && (
@@ -931,7 +939,7 @@ const MyGroup = () => {
       {teamAccess?.accessLevel && canFilterByTeam(teamAccess.accessLevel) && 
        ((teamAccess.teams?.length || 0) + (teamAccess.mgmtGroups?.length || 0) > 1) && (
         <Button 
-          variant={selectedTeamFilter ? 'default' : 'ghost'} 
+          variant={isFilterActive ? 'default' : 'ghost'} 
           size="icon" 
           onClick={() => setFilterSheetOpen(true)}
         >
@@ -1030,15 +1038,26 @@ const MyGroup = () => {
                 />
               </div>
 
-              {/* Unread Activity Prompt */}
-              {showUnreadPrompt && (
+              {/* Unread Activity Prompt + Performance Alerts */}
+              {(showUnreadPrompt || performanceAlerts.length > 0) && (
                 <UnreadActivityPrompt
-                  unreadCount={unreadActivityCount}
+                  unreadCount={showUnreadPrompt ? unreadActivityCount : 0}
                   onTap={() => {
                     setQuickViewInitialTab('digest');
                     setQuickViewOpen(true);
                   }}
                   onDismiss={() => setDismissedAtUnreadCount(unreadActivityCount)}
+                  performanceAlerts={performanceAlerts}
+                  onAlertTap={(alert) => {
+                    // Find the recruit by userId and open their detail
+                    const repData = recruitsRepData?.find(r => r.user_id === alert.repUserId);
+                    if (repData) {
+                      const recruit = allRecruits.find(r => r.id === repData.id);
+                      if (recruit) {
+                        setSelectedRecruit(recruit);
+                      }
+                    }
+                  }}
                 />
               )}
 
@@ -1251,16 +1270,18 @@ const MyGroup = () => {
         onOpenChange={(open) => !open && setEditingSuggestion(null)}
         suggestion={editingSuggestion}
       />
-      <TeamFilterSheet 
-        open={filterSheetOpen} 
+      <UnifiedFilterDrawer
+        open={filterSheetOpen}
         onOpenChange={setFilterSheetOpen}
-        teams={teamAccess?.teams || []}
+        filterState={smartFilter}
+        onFilterApply={setSmartFilter}
+        mode="mygroup"
+        hierarchy={teamAccess?.hierarchy}
         mgmtGroups={teamAccess?.mgmtGroups || []}
-        selectedFilter={selectedTeamFilter}
-        onFilterChange={setSelectedTeamFilter}
+        teams={teamAccess?.teams || []}
+        accessibleReps={teamAccess?.accessibleReps || []}
         accessLevel={teamAccess?.accessLevel || 'none'}
-        recruitCounts={teamRecruitCounts}
-        totalRecruits={allRecruits.length}
+        repCount={filteredRecruits.length}
       />
       <NeedsAttentionDrawer
         open={attentionDrawerOpen}
