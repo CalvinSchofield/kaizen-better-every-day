@@ -129,7 +129,7 @@ export const SummerAvailabilityView = () => {
           isSelf: true,
           year: currentUserData.rep.year || undefined,
           stage: stage || undefined,
-          hasGoals: !!(goalData as any)?.summer_fp_goal,
+          hasGoals: !!(goalData as any)?.setup_complete,
         });
       }
     }
