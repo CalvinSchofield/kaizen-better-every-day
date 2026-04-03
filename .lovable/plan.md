@@ -1,36 +1,58 @@
 
 
-# Summer Availability Fixes + Weekly Report Expansion
+# Team Goals Tab Overhaul
 
-## Changes
+## Overview
 
-### 1. Sort reps: "in-range with activity" first, collapse out-of-range at bottom
-In `SummerAvailabilityView.tsx`, split `readyPeople` into two groups:
-- **Active this week**: Reps whose summer range overlaps the displayed week AND have at least one excluded (off) day or are working that week
-- **Out of range**: Reps whose entire week falls before their start date or after their end date
+Redesign the Goals tab to be a filterable, date-aware coaching dashboard with compact scannable rows, profile photos, tap-to-expand details, and a goal tier selector for the aggregate summary — matching the Reports V2 UX patterns.
 
-Show active reps first in the grid. Render out-of-range reps in a collapsible section below (similar to "Needs Setup"), defaulted to collapsed.
+## Key Features
 
-### 2. Show profile photos
-The `reps` table has `profile_photo_url`. Add it to the team data query (`select` includes `profile_photo_url`), pass it through `PersonSummerInfo`, and replace the letter-initial circle with an `Avatar`/`AvatarImage`/`AvatarFallback` component (already used elsewhere in the project).
+### 1. Unified Filter + Date Presets (Reports V2 style)
+- Add `UnifiedFilterDrawer` for hierarchy/year/watchlist filtering (same as Summer Availability tab)
+- Add the same date preset pill row from Reports V2: Live, Yesterday, This Week, Last Week, This Month, Last Month, Preseason, YTD + Custom
+- Reuse `useAvailableTeamReportsPresets` for smart preset availability
+- Reuse `CustomDateRangeDrawer` for custom date range selection
+- Date range filters entries to show "how did reps do on their goals **during that period**" — FP+ earned in range, doors knocked in range, etc.
 
-### 3. Fix "Off This Week" count -- only count actually excluded days, not out-of-range
-Currently `offThisWeekCount` counts reps where `dayStr < start || dayStr > end` as "off". Change this to only count reps who have at least one `excludedSummerDays` entry matching the displayed week. Out-of-range is not "off" -- it means they haven't started or already ended.
+### 2. Aggregate Team Summary with Goal Tier Selector
+- Top card shows: total filtered reps, sum of FP+ earned (in selected period), sum of goals across all filtered reps
+- **Goal tier toggle** (Must Do / Will Do / Could Do) — changes which goal column is summed for the aggregate and used for individual pace calculations
+- Progress bar showing team aggregate progress against selected tier
+- Status breakdown chips (Ahead / On Track / Behind / At Risk counts)
 
-### 4. Fix the weekly report's off-day logic the same way
-In `weekly-availability-report/index.ts`, the current logic counts reps as "off" if the date falls outside their summer range. Change to only report reps who have explicit `excluded_summer_days` entries for next week's dates.
+### 3. Compact Rep Rows with Profile Photos
+- Slim row design with status-colored left border accent (emerald/blue/amber/red)
+- Profile photo via `Avatar`/`AvatarFallback` (add `profile_photo_url` to query)
+- Inline: name, year badge, mini progress bar, status pill, key stats (daily pace, variance)
+- Sorted: At Risk → Behind → On Track → Ahead → No Goals
 
-### 5. Expand report recipients to include MGMT Group Leaders
-Currently the report only queries `office_staff` for `area_director` role. Add a second query to `mgmt_groups` to get all `lead_user_id` values. For each MGMT group leader, scope the report to reps in their MGMT group's teams (using the recruits/team membership chain). Send each leader a report scoped to their downline only.
+### 4. Tap-to-Expand Accordion Details
+- Tapping a row expands it inline (one at a time)
+- Expanded view shows:
+  - Goal tiers (Must/Will/Could) with active tier highlighted
+  - Variance from expected pace (+2.3 FP ahead / -4.1 behind)
+  - Period performance: FP+ earned in selected date range, doors knocked, knocking days
+  - Summer date range
+  - Action buttons: "View Profile" (onRepClick), "Edit Dates"
+  - For no-goals reps: "Nudge to Set Goals" button
 
-### 6. Fix cron schedule to 11 AM Pacific every Sunday
-11 AM California time = 18:00 UTC (during PDT) or 19:00 UTC (during PST). Since April-November is PDT, use `0 18 * * 0` for the cron expression. The cron job will be re-created/updated with this schedule.
+### 5. "No Goals" Section
+- Separated to bottom in collapsible section with count badge
+- Each rep shows photo + name + nudge button
 
-## Files to modify
+## Technical Approach
+
+- **Date filtering**: When a date preset or custom range is selected, filter `entriesData` to only include entries within that range before computing FP+, knocking days, and pace. The goal targets remain the full-season values — only progress is scoped to the period.
+- **Goal tier selector**: `useState<'mustDo' | 'willDo' | 'couldDo'>('willDo')` at the top level. Pass to aggregate sum calculation and individual `getActiveGoal` function. Overrides individual rep `focusTier` when viewing team-level.
+- **Reuse existing hooks**: `useAvailableTeamReportsPresets(filteredUserIds)` for smart preset pills, `CustomDateRangeDrawer` for custom range.
+- **Profile photos**: Add `profile_photo_url` to the reps query select. Use `Avatar`/`AvatarImage`/`AvatarFallback`.
+
+## Files to Modify
 
 | File | Change |
 |---|---|
-| `src/components/mygroup/SummerAvailabilityView.tsx` | Add `profile_photo_url` to query, use Avatar components, split grid into active/collapsed out-of-range, fix offThisWeekCount to excluded-only |
-| `supabase/functions/weekly-availability-report/index.ts` | Rewrite: add MGMT group leaders as recipients with scoped reports, fix off-day logic to excluded-only, clean up dead code |
-| Cron job (via SQL insert tool) | Schedule `0 18 * * 0` (11 AM PDT Sunday) |
+| `src/components/mygroup/GoalsTabView.tsx` | Full redesign: unified filter, date presets, goal tier selector, compact rows with photos, accordion expand, no-goals section |
+
+No database changes required. All components and hooks already exist.
 
