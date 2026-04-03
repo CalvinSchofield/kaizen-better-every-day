@@ -90,6 +90,10 @@ const MyGroup = () => {
   });
   const isCurrentUserRookie = currentUserYear === 'Rookie';
   
+  // Rookies who recruit get 'recruiter' accessLevel but should NOT see full leader view
+  // They get a limited view: suggestions + assigned tasks + read-only downline
+  const isRookieRecruiter = isCurrentUserRookie && isLeader;
+  const isFullLeader = isLeader && !isCurrentUserRookie;
   // UI State
   const navigateTo = useNavigate();
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
