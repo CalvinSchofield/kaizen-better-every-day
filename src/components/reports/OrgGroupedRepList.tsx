@@ -181,8 +181,9 @@ const groupByRecruiter = (reps: OrgRepData[]): { groups: RecruiterBucket[]; solo
     return all;
   };
 
-  // Find all recruiters who have people in this set, compute recursive downline
+  // Find all recruiters who are IN this rep set, compute recursive downline
   const recruiterDownlines = [...directRecruits.keys()]
+    .filter(name => repByCleanName.has(name)) // Only group under recruiters who are themselves in the data
     .map(name => ({ name, downline: getRecursiveDownline(name, new Set()) }))
     .sort((a, b) => b.downline.length - a.downline.length);
 
@@ -191,8 +192,8 @@ const groupByRecruiter = (reps: OrgRepData[]): { groups: RecruiterBucket[]; solo
 
   for (const { name, downline } of recruiterDownlines) {
     // Skip if this recruiter is already absorbed into a bigger group
-    const recruiterRep = repByCleanName.get(name);
-    if (recruiterRep && assignedToGroup.has(recruiterRep.userId)) continue;
+    const recruiterRep = repByCleanName.get(name)!;
+    if (assignedToGroup.has(recruiterRep.userId)) continue;
 
     // Only count unassigned reps
     const unassigned = downline.filter(r => !assignedToGroup.has(r.userId));
