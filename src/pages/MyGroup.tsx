@@ -37,7 +37,8 @@ import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard"
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { PendingApprovalsSection } from "@/components/mygroup/PendingApprovalsSection";
 import { PendingOrgRequests } from "@/components/mygroup/org/PendingOrgRequests";
-import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
+import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, getUnifiedFilterSummary } from "@/components/filters/UnifiedFilterDrawer";
+import { usePerformanceAlerts } from "@/hooks/usePerformanceAlerts";
 import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
 import { RecruitSearchDrawer } from "@/components/mygroup/RecruitSearchDrawer";
