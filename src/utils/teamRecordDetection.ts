@@ -16,6 +16,8 @@ export interface MetricRecords {
   closes: GroupRecord | null;
   avgStartMinutes: GroupRecord | null; // lowest = earliest
   activeHours: GroupRecord | null;
+  /** Second-best values per metric for "vs prev record" display */
+  secondBest?: Partial<Record<keyof Omit<MetricRecords, 'secondBest'>, GroupRecord>>;
 }
 
 export interface AllTimeGroupRecords {
