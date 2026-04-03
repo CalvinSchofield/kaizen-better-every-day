@@ -1,103 +1,86 @@
-
-
-# Reports Page — World-Class Sales Dashboard Upgrade
+# Dynamic Historical Context — Momentum KPI Cards
 
 ## What We're Building
-Transform the Reports page from an informational display into an actionable coaching dashboard. Three pillars: **smarter hero with drill-down**, **visual team comparison charts**, and **intelligent coaching alerts**.
 
----
+Transform the static KPI tiles in PulseHero and the Production Trend chart into momentum-aware coaching cards with: adaptive period-over-period deltas, embedded micro-sparklines, and contextual "best" badges.
 
-## 1. Smarter Hero Card with Drill-Down
+## Current State
 
-**Replace `ReportsHeroCard` with an enhanced version:**
+- **PulseHero** shows 6 stat tiles (Doors, DMs, Pitches, Pres, Closes, FP+) with delta % only on FP+ and only in Live view (vs 14-day baseline). 
+- **ProductionTrendChart** shows FP+ and Presentations as area charts for multi-day views — no comparison overlay.
+- **SalesFunnel** already has 14-day baseline conversion comparisons.
+- **useReportsV2Data** fetches a 14-day baseline but no "previous equivalent period" comparison data.
+- Date presets already exist: today, yesterday, week, lastWeek, month, lastMonth, preseason, ytd, custom.
 
-- **Tappable FP+ stat** → opens a breakdown drawer showing FP by MGMT Group / Team (bar chart) and a daily sparkline for the period
-- **Period-over-period delta** → show "↑12% vs last week" or "↓3% vs last month" with a mini sparkline behind the number (using existing `useTeamInsightsData` comparison logic)
-- **Tappable PRMR** → shows avg PRMR per sale, upgrade vs FP breakdown
-- **Live view**: Keep working count + ping dot, add "X on pace to beat last week" sentence
-- **Aggregated view**: Show per-rep average and total, with the comparison delta always visible
+## Plan
 
-**Files:** Modify `ReportsHeroCard.tsx`, create `HeroDrillDownDrawer.tsx`
+### 1. Add Comparison Period Data Hook
 
----
+Create `useReportsV2Comparison.ts` — a new hook that fetches the "previous equivalent period" entries:
 
-## 2. Team/Group Comparison Charts (Performance Tab)
 
-**Add three new visual sections to `ReportsPerformanceTab`:**
+| Active Preset     | Comparison Period                                                       |
+| ----------------- | ----------------------------------------------------------------------- |
+| today / yesterday | Same day of week last week/last day of week there was data for that day |
+| week              | Previous week                                                           |
+| lastWeek          | The week before that                                                    |
+| month             | Previous month                                                          |
+| lastMonth         | The month before that                                                   |
+| custom            | Same-length range immediately before                                    |
+| preseason / ytd   | No comparison (too broad)                                               |
 
-### a) Group Comparison Bar Chart
-- Horizontal bar chart comparing MGMT Groups (for Sr Manager+) or Teams (for MGMT Lead) on FP+
-- Each bar shows the group name, FP total, and rep count
-- Tappable bars drill into that group's breakdown
-- Sorted by FP desc, color-coded (primary for top, muted for rest)
-- Falls back to rep-level bars for Team Leads
 
-### b) Period-over-Period Trend
-- Side-by-side comparison cards: "This Week vs Last Week" or "This Month vs Last Month"
-- Key metrics (FP+, PRMR, Doors, Presentations) with trend arrows and percent change
-- A small area chart showing the daily production curve for current vs previous period overlaid
-- Uses existing `useTeamInsightsData` — just needs to fetch the comparison period
+This hook queries `daily_entries` for the comparison date range and returns aggregated totals + per-day breakdown for sparkline data. Reuses the same `userIds` as the main query.
 
-### c) Goal Pace Tracker (elevated)
-- Currently `GoalPaceSection` is a tiny tappable pill — elevate it into a proper card
-- Show a stacked horizontal bar: green (on pace), amber (at risk), red (behind), gray (no goals)
-- Below the bar: the 3 most urgent "at risk" or "behind" reps with their gap-to-goal
-- Tappable to open the existing `GoalPaceDrawer`
+### 2. Add Sparkline Data to Hook
 
-**Files:** Create `GroupComparisonChart.tsx`, `PeriodComparisonCard.tsx`, modify `ReportsPerformanceTab.tsx`
+Extend `useReportsV2Data` (or the new comparison hook) to return a `sparklineHistory` array — the last 7-10 data points at the selected granularity:
 
----
+- Day view → last 7 same-weekdays (e.g., last 7 Tuesdays)
+- Week view → last 6-8 weeks
+- Month view → last 6 months
 
-## 3. Actionable Coaching Alerts
+Each point: `{ label, doors, dms, pitches, presentations, closes, fp, prmr }`.
 
-**Upgrade `AlertsHighlights` and surface it prominently on the People tab:**
+### 3. Upgrade StatTile with Sparkline + Delta
 
-Currently this component exists but isn't wired into the main Reports page. We'll:
+Modify `PulseHero.tsx` `StatTile` component:
 
-- **Surface it at the top of the People tab** (above the org-grouped list) as dismissible coaching cards
-- **Add new alert types:**
-  - "Rep X has Y doors but 0 transitions — pitch training needed" (effort without skill)
-  - "Team Quinn is Z% ahead of Team Calvin" (competitive comparison)
-  - "Rep hasn't started yet today — averaged N FP+ last week" (late start, live view only)
-  - "Rep X hit a new personal best this period" (celebration)
-- **Each alert is tappable** → opens the RepDrillDownDrawer for that person
-- **Smart filtering**: Only show top 3 most actionable alerts to avoid noise
+- Accept `sparklineData?: number[]` and `comparisonDelta?: number` props.
+- Render a tiny inline `<Sparkline>` (a simple SVG path, no axes) below the value, ~20px tall.
+- Show delta badge for all metrics (not just FP+), sourced from comparison period.
+- **Color logic**: Raw effort metrics (Doors, DMs) use neutral delta colors. Ratio/skill metrics (conversion rates in Effort/Skill section) use green/red.
+- Add an optional faint "gold line" horizontal marker on the sparkline representing the team historical average for that metric.
 
-**Files:** Modify `AlertsHighlights.tsx`, wire into `ReportsPeopleTab.tsx`
+### 4. Contextual Record Badges
 
----
+Update `RecordBanner` and the record detection logic:
 
-## 4. Wire Everything Together in TeamReports.tsx
+- Instead of "Best Ever" or generic "Best Wednesday", make badges time-scoped: "Best Tuesday this Quarter", "Highest Pitch Rate in 6 Months".
+- Modify `teamRecordDetection.ts` to accept the current period context and generate a descriptive label.
+- Surface these as refined badge text on the StatTile's crown icon tooltip.
 
-- Compute comparison period data (previous week/month) and pass to hero + performance tab
-- Pass `groupedByTeam` and `groupedByMgmt` data (already computed in `useTeamInsightsData`) to the new comparison charts
-- Pass coaching alert data to People tab
-- Add `onRepClick` drill-down handler that opens `RepDrillDownDrawer` from any tappable element
+### 5. Wire Everything in ReportsV2Page
 
----
+- Pass comparison data and sparkline history from the new hook into `PulseHero`.
+- Pass comparison deltas into `EffortSkillDiagnosis` so the Effort/Skill score rings can show period-over-period change.
+- Add a faint "previous period" overlay line to `ProductionTrendChart` when comparison data is available.
 
-## Technical Details
+### Technical Details
 
-**Data sources — no new queries needed:**
-- `useTeamInsightsData` already returns `groupedByTeam`, `groupedByMgmt`, `repBreakdown`, `dailyTrendByTeam`, `dailyTrendByMgmt`
-- `useTeamAggregatedRankings` has per-rep stats with team/mgmt group IDs
-- `useTeamCumulativeFP` has daily cumulative data
-- Goal pace data available via existing `useGoalPaceCalculator` hooks
+**New file:** `src/hooks/useReportsV2Comparison.ts`
 
-**New comparison period query:**
-- Add a `comparisonDateRange` param to `TeamReports.tsx` that fetches the prior equivalent period
-- Use a second `useTeamInsightsData` call with the comparison range (conditionally enabled)
+- Single `useQuery` call fetching `daily_entries` for the computed comparison range
+- Returns: `{ comparisonTotals, sparklineHistory, isLoading }`
+- Comparison date math uses `date-fns` (already imported)
 
-**Files to create:**
-- `src/components/reports/v2/HeroDrillDownDrawer.tsx` — FP breakdown by group/team
-- `src/components/reports/v2/GroupComparisonChart.tsx` — Horizontal bar chart comparing groups
-- `src/components/reports/v2/PeriodComparisonCard.tsx` — This vs last period cards with overlay chart
+**Modified files:**
 
-**Files to modify:**
-- `src/components/reports/ReportsHeroCard.tsx` — Add sparkline, deltas, tappable stats
-- `src/components/reports/ReportsPerformanceTab.tsx` — Add comparison charts, elevate goal pace
-- `src/components/reports/ReportsPeopleTab.tsx` — Surface coaching alerts at top
-- `src/components/reports/v2/AlertsHighlights.tsx` — Add new alert types, smart filtering
-- `src/components/reports/v2/GoalPaceSection.tsx` — Upgrade from pill to visual card
-- `src/pages/TeamReports.tsx` — Wire comparison data, drill-down handlers
+- `src/components/reports/v2/PulseHero.tsx` — StatTile gets sparkline + delta; new `MicroSparkline` SVG component
+- `src/hooks/useReportsV2Data.ts` — export `sparklineHistory` alongside existing data (or consume from comparison hook)
+- `src/pages/ReportsV2.tsx` — instantiate comparison hook, pass data down
+- `src/components/reports/v2/ProductionTrendChart.tsx` — optional "previous period" dashed overlay
+- `src/components/reports/v2/EffortSkillDiagnosis.tsx` — accept and display period deltas on score rings
+- `src/utils/teamRecordDetection.ts` — contextual badge label generation
 
+**No new dependencies needed** — sparklines are simple inline SVGs (polyline), recharts only used for the larger trend chart.
