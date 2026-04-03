@@ -780,7 +780,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
       <div className="space-y-1.5">
         <AnimatePresence mode="popLayout">
           {displayReps.map(rep => {
-            const config = STATUS_CONFIG[rep.paceStatus];
+            const displayStatus = isPeriodFiltered ? rep.periodPaceStatus : rep.paceStatus;
+            const config = STATUS_CONFIG[displayStatus];
             const StatusIcon = config.icon;
             const isExpanded = expandedRepId === rep.userId;
             const cleanName = stripEmojis(rep.name) || rep.name;
