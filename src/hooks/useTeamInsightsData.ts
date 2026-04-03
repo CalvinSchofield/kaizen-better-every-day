@@ -186,6 +186,7 @@ interface TeamInsightsData {
     timezone?: string;
     teamId?: string | null;
     teamName: string;
+    mgmtGroupId?: string | null;
     mgmtGroupName: string;
     recruiterName?: string | null;
     doors: number;
