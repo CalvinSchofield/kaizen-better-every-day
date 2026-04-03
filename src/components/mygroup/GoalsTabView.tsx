@@ -525,8 +525,11 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
 
   const displayReps = useMemo(() => {
     if (statusFilter === 'all') return withGoals;
-    return withGoals.filter(r => r.paceStatus === statusFilter);
-  }, [withGoals, statusFilter]);
+    return withGoals.filter(r => {
+      const s = isPeriodFiltered ? r.periodPaceStatus : r.paceStatus;
+      return s === statusFilter;
+    });
+  }, [withGoals, statusFilter, isPeriodFiltered]);
 
   // Stats
   const stats = useMemo(() => ({
