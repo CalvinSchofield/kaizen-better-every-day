@@ -478,7 +478,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
       else wg.push(r);
     });
 
-    const statusOrder: Record<PaceStatus, number> = { critical: 0, behind: 1, 'on-track': 2, ahead: 3, 'no-goals': 4 };
+    const statusOrder: Record<PaceStatus, number> = { critical: 0, behind: 1, 'not-started': 2, 'on-track': 3, ahead: 4, 'goal-met': 5, 'no-goals': 6 };
     wg.sort((a, b) => {
       const sd = statusOrder[a.paceStatus] - statusOrder[b.paceStatus];
       if (sd !== 0) return sd;
@@ -501,9 +501,11 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
   const stats = useMemo(() => ({
     total: withGoals.length,
     ahead: withGoals.filter(r => r.paceStatus === 'ahead').length,
+    goalMet: withGoals.filter(r => r.paceStatus === 'goal-met').length,
     onTrack: withGoals.filter(r => r.paceStatus === 'on-track').length,
     behind: withGoals.filter(r => r.paceStatus === 'behind').length,
     critical: withGoals.filter(r => r.paceStatus === 'critical').length,
+    notStarted: withGoals.filter(r => r.paceStatus === 'not-started').length,
   }), [withGoals]);
 
   // Aggregate stats for selected tier
