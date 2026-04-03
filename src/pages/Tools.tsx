@@ -257,7 +257,7 @@ const Tools = () => {
           ) : (
             <p className="text-xs text-muted-foreground">Contact your team leader for help</p>
           )}
-        </motion.div>
+        </div>
       </div>
     </div>
   );
