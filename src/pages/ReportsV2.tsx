@@ -490,6 +490,8 @@ export const ReportsV2Page = () => {
       {/* Production Trend Chart (multi-day views) */}
       <ProductionTrendChart
         data={dailyTrend}
+        comparisonData={comparisonDailyData}
+        comparisonLabel={comparisonLabel}
         isLoading={isLoading}
       />
 
