@@ -1038,15 +1038,26 @@ const MyGroup = () => {
                 />
               </div>
 
-              {/* Unread Activity Prompt */}
-              {showUnreadPrompt && (
+              {/* Unread Activity Prompt + Performance Alerts */}
+              {(showUnreadPrompt || performanceAlerts.length > 0) && (
                 <UnreadActivityPrompt
-                  unreadCount={unreadActivityCount}
+                  unreadCount={showUnreadPrompt ? unreadActivityCount : 0}
                   onTap={() => {
                     setQuickViewInitialTab('digest');
                     setQuickViewOpen(true);
                   }}
                   onDismiss={() => setDismissedAtUnreadCount(unreadActivityCount)}
+                  performanceAlerts={performanceAlerts}
+                  onAlertTap={(alert) => {
+                    // Find the recruit by userId and open their detail
+                    const repData = recruitsRepData?.find(r => r.user_id === alert.repUserId);
+                    if (repData) {
+                      const recruit = allRecruits.find(r => r.id === repData.id);
+                      if (recruit) {
+                        setSelectedRecruit(recruit);
+                      }
+                    }
+                  }}
                 />
               )}
 
