@@ -188,7 +188,7 @@ const RepBreakdownInline = ({
             <span className="text-3xl font-bold text-foreground">{totalFP.toFixed(1)}</span>
             <span className="text-sm text-muted-foreground">FP+</span>
           </div>
-          <MicroSparkline data={sparklineData} width={300} height={60} goldLine={sparklineAvg} />
+          <MicroSparkline data={sparklineData} width={300} height={60} goldLine={sparklineAvg} showGoldLabel goldLabelText={sparklineAvgLabel} formatGoldLabel={(v) => v.toFixed(1)} />
         </div>
       )}
 
