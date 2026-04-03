@@ -304,7 +304,7 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
       tierLabel: isPreseason ? 'Preseason' : 'Will Do',
       focusTier: isPreseason ? 'preseason' as any : focusTier,
       isPreseason,
-      metricLabel: 'FP+',
+      metricLabel: efpModeEnabled ? 'EFP' : 'FP+',
       dailyNeeded: 0,
       weeklyNeeded: 0,
       preseasonDailyPace: 0,
