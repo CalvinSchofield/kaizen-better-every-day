@@ -27,6 +27,8 @@ import { GoalPaceSection } from "@/components/reports/v2/GoalPaceSection";
 import { GoalAttentionAlerts } from "@/components/reports/v2/GoalAttentionAlerts";
 import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
+import { KpiDetailDrawer, KpiMetricKey } from "@/components/reports/v2/KpiDetailDrawer";
+import { FpDetailDrawer } from "@/components/reports/v2/FpDetailDrawer";
 import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, resolveFilteredUserIds } from "@/components/filters/UnifiedFilterDrawer";
 import { LeaderAICoachComingSoon } from '@/components/reports/LeaderAICoachComingSoon';
 import { Sparkles } from "lucide-react";
@@ -57,6 +59,7 @@ export const ReportsV2Page = () => {
   const [showDealDrawer, setShowDealDrawer] = useState(false);
   const [showRecordDrawer, setShowRecordDrawer] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [kpiDrawerMetric, setKpiDrawerMetric] = useState<KpiMetricKey | null>(null);
   const { setCustomRightContent } = useHeader();
   
   // Get team access
@@ -450,6 +453,7 @@ export const ReportsV2Page = () => {
         onWorkingClick={() => setShowWorkingDrawer(true)}
         onAvgStartClick={() => setShowTimeDrawer(true)}
         onFpClick={() => setShowDealDrawer(true)}
+        onKpiClick={(key) => key === 'fp' ? setShowDealDrawer(true) : key !== 'closes' ? setKpiDrawerMetric(key as KpiMetricKey) : undefined}
         activeRecords={activeRecords}
         onRecordBannerClick={() => setShowRecordDrawer(true)}
         comparisonTotals={comparisonTotals}
@@ -597,13 +601,32 @@ export const ReportsV2Page = () => {
         onRepClick={handleRepClick}
       />
 
-      <DealAnalyticsDrawer
+      <FpDetailDrawer
         open={showDealDrawer}
         onOpenChange={setShowDealDrawer}
         userIds={filteredUserIds}
         dateRange={dateRange}
         totalFP={totalFP}
         totalPRMR={totalPRMR}
+        sparklineData={sparklineHistory?.map(p => p.fp)}
+        sparklineAvg={sparklineHistory && sparklineHistory.length > 0
+          ? sparklineHistory.reduce((s, p) => s + p.fp, 0) / sparklineHistory.length
+          : undefined}
+      />
+
+      <KpiDetailDrawer
+        open={!!kpiDrawerMetric}
+        onOpenChange={(o) => { if (!o) setKpiDrawerMetric(null); }}
+        metricKey={kpiDrawerMetric}
+        metricLabel={kpiDrawerMetric === 'doors' ? 'Doors' : kpiDrawerMetric === 'dms' ? 'Decision Makers' : kpiDrawerMetric === 'pitches' ? 'Pitches' : kpiDrawerMetric === 'transitions' ? 'Transitions' : kpiDrawerMetric === 'presentations' ? 'Presentations' : 'FP+'}
+        totalValue={kpiDrawerMetric === 'doors' ? funnelData.doors : kpiDrawerMetric === 'dms' ? funnelData.decisionMakers : kpiDrawerMetric === 'pitches' ? funnelData.pitches : kpiDrawerMetric === 'transitions' ? funnelData.transitions : kpiDrawerMetric === 'presentations' ? funnelData.presentations : totalFP}
+        sparklineData={kpiDrawerMetric && sparklineHistory ? sparklineHistory.map(p => (p as any)[kpiDrawerMetric] || 0) : undefined}
+        sparklineAvg={kpiDrawerMetric && sparklineHistory && sparklineHistory.length > 0
+          ? sparklineHistory.reduce((s, p) => s + ((p as any)[kpiDrawerMetric] || 0), 0) / sparklineHistory.length
+          : undefined}
+        userIds={filteredUserIds}
+        dateRange={dateRange}
+        onClose={() => setKpiDrawerMetric(null)}
       />
 
       <CustomDateRangeDrawer

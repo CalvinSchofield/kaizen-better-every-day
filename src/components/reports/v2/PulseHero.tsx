@@ -28,6 +28,7 @@ interface PulseHeroProps {
   onWorkingClick?: () => void;
   onAvgStartClick?: () => void;
   onFpClick?: () => void;
+  onKpiClick?: (metricKey: MetricKey) => void;
   activeRecords?: ActiveRecord[];
   onRecordBannerClick?: () => void;
   // Comparison data
@@ -212,7 +213,7 @@ export const PulseHero = ({
   doors, dms, pitches, transitions, presentations, closes, fp, prmr,
   avgStartTime, avgEndTime, activeHours,
   activeReps, workingCount, isLiveView,
-  teamBaseline, periodLabel, isLoading, onWorkingClick,
+  teamBaseline, periodLabel, isLoading, onWorkingClick, onKpiClick,
   onAvgStartClick, onFpClick,
   activeRecords = [], onRecordBannerClick,
   comparisonTotals, comparisonLabel, sparklineHistory,
@@ -309,13 +310,34 @@ export const PulseHero = ({
 
       {/* Stat tiles grid - 3x2 */}
       <div className="grid grid-cols-3 gap-2">
-        <StatTile label="Doors" value={doors} delta={calcDelta('doors')} sparklineData={getSparkline('doors')} sparklineAvg={getSparklineAvg('doors')} delay={0} {...getRecordProps('doors')} />
-        <StatTile label="DMs" value={dms} delta={calcDelta('dms')} sparklineData={getSparkline('dms')} sparklineAvg={getSparklineAvg('dms')} delay={1} {...getRecordProps('dms')} />
-        <StatTile label="Pitches" value={pitches} delta={calcDelta('pitches')} sparklineData={getSparkline('pitches')} sparklineAvg={getSparklineAvg('pitches')} delay={2} {...getRecordProps('pitches')} />
-        <StatTile label="Trans" value={transitions} delta={calcDelta('transitions')} sparklineData={getSparkline('transitions')} sparklineAvg={getSparklineAvg('transitions')} delay={3} {...getRecordProps('transitions')} />
-        <StatTile label="Pres" value={presentations} delta={calcDelta('presentations')} sparklineData={getSparkline('presentations')} sparklineAvg={getSparklineAvg('presentations')} delay={4} {...getRecordProps('presentations')} />
-        {onFpClick ? (
-          <button onClick={onFpClick} className="active:scale-[0.96] transition-transform">
+        {([
+          { key: 'doors' as MetricKey, label: 'Doors', value: doors, delay: 0 },
+          { key: 'dms' as MetricKey, label: 'DMs', value: dms, delay: 1 },
+          { key: 'pitches' as MetricKey, label: 'Pitches', value: pitches, delay: 2 },
+          { key: 'transitions' as MetricKey, label: 'Trans', value: transitions, delay: 3 },
+          { key: 'presentations' as MetricKey, label: 'Pres', value: presentations, delay: 4 },
+        ]).map(({ key, label, value, delay }) => {
+          const tile = (
+            <StatTile
+              key={key}
+              label={label}
+              value={value}
+              delta={calcDelta(key)}
+              sparklineData={getSparkline(key)}
+              sparklineAvg={getSparklineAvg(key)}
+              delay={delay}
+              {...getRecordProps(key)}
+            />
+          );
+          return onKpiClick ? (
+            <button key={key} onClick={() => onKpiClick(key)} className="active:scale-[0.96] transition-transform">
+              {tile}
+            </button>
+          ) : tile;
+        })}
+        {/* FP+ tile */}
+        {(onFpClick || onKpiClick) ? (
+          <button onClick={() => onFpClick ? onFpClick() : onKpiClick?.('fp')} className="active:scale-[0.96] transition-transform">
             <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={calcDelta('fp')} sparklineData={getSparkline('fp')} sparklineAvg={getSparklineAvg('fp')} delay={5} {...getRecordProps('fp')} />
           </button>
         ) : (
