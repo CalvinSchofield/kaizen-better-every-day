@@ -98,12 +98,6 @@ export const RecordRepBreakdownDrawer = ({
     return Math.round(value).toLocaleString();
   };
 
-  const getInitials = (name: string) => {
-    const parts = name.split(' ');
-    return parts.length >= 2
-      ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
-      : name.substring(0, 2).toUpperCase();
-  };
 
   const total = useMemo(() =>
     (contributions || []).reduce((s, c) => s + c.value, 0),
