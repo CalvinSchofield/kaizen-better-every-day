@@ -225,17 +225,33 @@ export const SummerAvailabilityView = () => {
     return { readyPeople: ready, needsSetupPeople: needs };
   }, [people]);
 
-  // Stats - Off this week (count reps who have at least one off/excluded day in the displayed week)
+  // Stats - Off this week: only count reps with explicit excluded days this week (not out-of-range)
   const offThisWeekCount = useMemo(() => {
     const weekDateStrs = weekDays.map(d => format(d, 'yyyy-MM-dd'));
     return readyPeople.filter(p => {
-      return weekDateStrs.some(dayStr => {
-        const start = p.personalSummerStart!;
-        const end = p.personalSummerEnd!;
-        if (dayStr < start || dayStr > end) return true;
-        return p.excludedSummerDays.includes(dayStr);
-      });
+      return weekDateStrs.some(dayStr => p.excludedSummerDays.includes(dayStr));
     }).length;
+  }, [readyPeople, weekDays]);
+
+  // Split ready people into active (in-range this week) and out-of-range
+  const { activePeople, outOfRangePeople } = useMemo(() => {
+    const weekDateStrs = weekDays.map(d => format(d, 'yyyy-MM-dd'));
+    const active: PersonSummerInfo[] = [];
+    const outOfRange: PersonSummerInfo[] = [];
+
+    readyPeople.forEach(p => {
+      const start = p.personalSummerStart!;
+      const end = p.personalSummerEnd!;
+      // A rep is "in range" if any day of the week overlaps their summer range
+      const anyDayInRange = weekDateStrs.some(d => d >= start && d <= end);
+      if (anyDayInRange) {
+        active.push(p);
+      } else {
+        outOfRange.push(p);
+      }
+    });
+
+    return { activePeople: active, outOfRangePeople: outOfRange };
   }, [readyPeople, weekDays]);
 
   // Check if a rep is off on a given date
