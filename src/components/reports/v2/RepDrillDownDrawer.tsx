@@ -354,7 +354,7 @@ export const RepDrillDownDrawer = ({
             {/* Expandable Timing Chart */}
             {showTimingChart && timingDays.length > 0 && (
               <div className="mt-2">
-                <RepTimingChart days={timingDays} />
+                <RepTimingChart days={timingDays} useEfp={downlineGoalPace.metricLabel === 'EFP'} />
               </div>
             )}
           </div>
