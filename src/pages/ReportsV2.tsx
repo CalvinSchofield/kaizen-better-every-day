@@ -170,6 +170,7 @@ export const ReportsV2Page = () => {
     userIds: filteredUserIds,
     dateRange,
     isLiveView: effectivePreset === 'today',
+    accessibleReps: teamAccess?.accessibleReps,
   });
 
   // Comparison period hook for momentum indicators
