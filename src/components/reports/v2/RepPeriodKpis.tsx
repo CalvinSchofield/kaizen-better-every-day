@@ -54,6 +54,7 @@ export const RepPeriodKpis = ({
   avgEndTime,
   onSummaryRowClick,
   summaryExpanded,
+  onKpiTap,
 }: RepPeriodKpisProps) => {
   if (isLoading) {
     return (
