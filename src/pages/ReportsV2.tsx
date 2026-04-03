@@ -451,6 +451,9 @@ export const ReportsV2Page = () => {
         onFpClick={() => setShowDealDrawer(true)}
         activeRecords={activeRecords}
         onRecordBannerClick={() => setShowRecordDrawer(true)}
+        comparisonTotals={comparisonTotals}
+        comparisonLabel={comparisonLabel}
+        sparklineHistory={sparklineHistory}
       />
 
       {/* Goal Pace Section */}
