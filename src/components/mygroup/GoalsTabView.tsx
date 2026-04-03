@@ -805,8 +805,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                           <div className="grid grid-cols-3 gap-2 pt-2.5">
                             <div className="text-center">
                               <div className="text-xs text-muted-foreground">Progress</div>
-                              <div className="text-sm font-semibold tabular-nums">{rep.currentFpPlus.toFixed(1)}</div>
-                              <div className="text-[10px] text-muted-foreground">/ {activeGoal} FP+</div>
+                              <div className="text-sm font-semibold tabular-nums">{rep.currentProgress.toFixed(1)}</div>
+                              <div className="text-[10px] text-muted-foreground">/ {activeGoal} {metricLabel}</div>
                             </div>
                             <div className="text-center">
                               <div className="text-xs text-muted-foreground">Variance</div>
@@ -816,7 +816,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                               )}>
                                 {rep.variance >= 0 ? '+' : ''}{rep.variance.toFixed(1)}
                               </div>
-                              <div className="text-[10px] text-muted-foreground">FP+</div>
+                              <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
                             </div>
                             <div className="text-center">
                               <div className="text-xs text-muted-foreground">Need/Day</div>
