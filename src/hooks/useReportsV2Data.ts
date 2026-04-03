@@ -673,7 +673,12 @@ export const useReportsV2Data = ({
       // Process aggregated insights data
       const data = insightsQuery.data;
       
-      const repsWithEffort: RepWithEffort[] = data.repBreakdown.map(rep => {
+      // Only include reps who had actual activity during the period
+      const activeRepBreakdown = data.repBreakdown.filter(rep =>
+        rep.doors > 0 || rep.pitches > 0 || rep.fp > 0 || rep.presentations > 0 || rep.closes > 0
+      );
+
+      const repsWithEffort: RepWithEffort[] = activeRepBreakdown.map(rep => {
         const effortData: RepEffortData = {
           userId: rep.userId,
           name: rep.name,
