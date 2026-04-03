@@ -53,7 +53,7 @@ export const FpDetailDrawer = ({
 
 const FpTabsDrawer = ({
   open, onOpenChange, userIds, dateRange,
-  totalFP, totalPRMR, sparklineData, sparklineAvg,
+  totalFP, totalPRMR, sparklineData, sparklineAvg, sparklineAvgLabel,
 }: FpDetailDrawerProps) => {
   const [showRepBreakdown, setShowRepBreakdown] = useState(false);
 
