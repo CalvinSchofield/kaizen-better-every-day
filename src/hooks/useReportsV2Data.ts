@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { format, subDays, getDay } from "date-fns";
+import { IntradayPaceResult, calculateIntradayPace, getDayType, generatePacePulseSentence } from "@/utils/intradayPaceCalculations";
 import { ActiveRecord, detectActiveRecords, AllTimeGroupRecords } from "@/utils/teamRecordDetection";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { useTeamLiveData } from "./useTeamLiveData";
