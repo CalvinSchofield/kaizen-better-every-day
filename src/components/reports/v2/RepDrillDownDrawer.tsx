@@ -286,6 +286,7 @@ export const RepDrillDownDrawer = ({
   };
 
   return (
+    <>
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="max-h-[92vh] z-[60]">
         {/* Header */}
