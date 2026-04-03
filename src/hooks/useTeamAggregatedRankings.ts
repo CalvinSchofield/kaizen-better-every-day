@@ -456,6 +456,9 @@ export const useTeamAggregatedRankings = ({
       userTotals.forEach((totals, userId) => {
         const repInfo = repsMap.get(userId);
         const teamInfo = repInfoMap.get(userId);
+        // Fallback: direct recruit org data
+        const repId = userIdToRepId.get(userId);
+        const recruitOrg = repId ? recruitOrgMap.get(repId) : null;
         if (!repInfo) return;
 
         const avgStartMinutes = totals.startTimeCount > 0 
@@ -468,10 +471,10 @@ export const useTeamAggregatedRankings = ({
         reps.push({
           userId,
           name: repInfo.name,
-          teamId: teamInfo?.teamId || null,
-          teamName: teamInfo?.teamName || repInfo.teamName,
-          mgmtGroupId: teamInfo?.mgmtGroupId || null,
-          mgmtGroupName: teamInfo?.mgmtGroupName || undefined,
+          teamId: teamInfo?.teamId || recruitOrg?.teamId || null,
+          teamName: teamInfo?.teamName || recruitOrg?.teamName || repInfo.teamName,
+          mgmtGroupId: teamInfo?.mgmtGroupId || recruitOrg?.mgmtGroupId || null,
+          mgmtGroupName: teamInfo?.mgmtGroupName || recruitOrg?.mgmtGroupName || undefined,
           recruiterName: teamInfo?.recruiterName || null,
           year: repInfo.year,
           phone: repInfo.phone,
