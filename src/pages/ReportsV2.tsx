@@ -613,6 +613,7 @@ export const ReportsV2Page = () => {
         sparklineAvg={sparklineHistory && sparklineHistory.length > 0
           ? sparklineHistory.reduce((s, p) => s + p.fp, 0) / sparklineHistory.length
           : undefined}
+        sparklineAvgLabel={getSparklineAvgLabel(effectivePreset || undefined)}
       />
 
       <KpiDetailDrawer
@@ -625,6 +626,7 @@ export const ReportsV2Page = () => {
         sparklineAvg={kpiDrawerMetric && sparklineHistory && sparklineHistory.length > 0
           ? sparklineHistory.reduce((s, p) => s + ((p as any)[kpiDrawerMetric] || 0), 0) / sparklineHistory.length
           : undefined}
+        sparklineAvgLabel={getSparklineAvgLabel(effectivePreset || undefined)}
         userIds={filteredUserIds}
         dateRange={dateRange}
         onClose={() => setKpiDrawerMetric(null)}
