@@ -924,7 +924,8 @@ const MyGroup = () => {
           <Search className="h-4 w-4" />
         </Button>
       )}
-      {teamAccess?.accessLevel && canFilterByTeam(teamAccess.accessLevel) && (
+      {teamAccess?.accessLevel && canFilterByTeam(teamAccess.accessLevel) && 
+       ((teamAccess.teams?.length || 0) + (teamAccess.mgmtGroups?.length || 0) > 1) && (
         <Button 
           variant={selectedTeamFilter ? 'default' : 'ghost'} 
           size="icon" 
