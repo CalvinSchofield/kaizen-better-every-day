@@ -18,6 +18,9 @@ export interface MetricRecords {
   activeHours: GroupRecord | null;
 }
 
+/** Tracks the second-best record per metric (the "previous record" before the current one) */
+export type SecondBestRecords = Partial<Record<keyof MetricRecords, GroupRecord>>;
+
 export interface AllTimeGroupRecords {
   daily: MetricRecords;
   weekly: MetricRecords;
@@ -29,6 +32,12 @@ export interface AllTimeGroupRecords {
     monthly: number;
     dayOfWeek: Record<number, number>;
   };
+  /** Second-best records per granularity for "vs prev record" display */
+  secondBest: {
+    daily: SecondBestRecords;
+    weekly: SecondBestRecords;
+    monthly: SecondBestRecords;
+  };
 }
 
 export interface ActiveRecord {
@@ -36,6 +45,9 @@ export interface ActiveRecord {
   label: string;
   currentValue: number;
   recordValue: number;
+  /** The previous record value (second-best all-time) — what was beaten */
+  previousRecordValue?: number;
+  previousRecordDate?: string;
   recordDate: string;
   recordReps: number;
   isRecord: boolean;
@@ -91,7 +103,7 @@ function emptyMetricRecords(): MetricRecords {
 function computeGroupedRecords(
   entries: EntryLike[],
   groupKeyFn: (date: string) => string
-): { records: MetricRecords; periodCount: number } {
+): { records: MetricRecords; secondBest: SecondBestRecords; periodCount: number } {
   const groups = new Map<string, EntryLike[]>();
   entries.forEach(e => {
     const key = groupKeyFn(e.entry_date);
@@ -100,6 +112,16 @@ function computeGroupedRecords(
   });
 
   const records = emptyMetricRecords();
+  const secondBest: SecondBestRecords = {};
+
+  // Collect all period totals so we can find top-2
+  const periodTotals: Array<{
+    key: string;
+    repsWorked: number;
+    fp: number; prmr: number; doors: number; dms: number;
+    pitches: number; presentations: number; closes: number;
+    activeHours: number; avgStartMinutes: number | null;
+  }> = [];
 
   groups.forEach((groupEntries, key) => {
     const repsWorked = new Set(groupEntries.map(e => e.user_id)).size;
@@ -146,31 +168,42 @@ function computeGroupedRecords(
       : null;
     const activeHours = totalMinutes / 60;
 
-    const updateMax = (field: keyof MetricRecords, value: number) => {
-      if (value <= 0) return;
-      if (!records[field] || value > records[field]!.value) {
-        (records as any)[field] = { value, date: key, repsWorked };
-      }
-    };
-
-    updateMax('fp', totalFp);
-    updateMax('prmr', totalPrmr);
-    updateMax('doors', totalDoors);
-    updateMax('dms', totalDms);
-    updateMax('pitches', totalPitches);
-    updateMax('presentations', totalPres);
-    updateMax('closes', totalCloses);
-    updateMax('activeHours', activeHours);
-
-    // For avgStart, lower = earlier = record
-    if (avgStart !== null && startMinutesList.length >= 2) {
-      if (!records.avgStartMinutes || avgStart < records.avgStartMinutes.value) {
-        records.avgStartMinutes = { value: avgStart, date: key, repsWorked };
-      }
-    }
+    periodTotals.push({
+      key, repsWorked, fp: totalFp, prmr: totalPrmr, doors: totalDoors,
+      dms: totalDms, pitches: totalPitches, presentations: totalPres,
+      closes: totalCloses, activeHours, avgStartMinutes: avgStart,
+    });
   });
 
-  return { records, periodCount: groups.size };
+  // Find top-1 and top-2 for each metric
+  const metricFields = ['fp', 'prmr', 'doors', 'dms', 'pitches', 'presentations', 'closes', 'activeHours'] as const;
+  
+  for (const field of metricFields) {
+    const sorted = [...periodTotals]
+      .filter(p => (p as any)[field] > 0)
+      .sort((a, b) => ((b as any)[field] as number) - ((a as any)[field] as number));
+    
+    if (sorted.length >= 1) {
+      (records as any)[field] = { value: (sorted[0] as any)[field], date: sorted[0].key, repsWorked: sorted[0].repsWorked };
+    }
+    if (sorted.length >= 2) {
+      (secondBest as any)[field] = { value: (sorted[1] as any)[field], date: sorted[1].key, repsWorked: sorted[1].repsWorked };
+    }
+  }
+
+  // avgStartMinutes — lower is better
+  const startSorted = [...periodTotals]
+    .filter(p => p.avgStartMinutes !== null)
+    .sort((a, b) => a.avgStartMinutes! - b.avgStartMinutes!);
+  
+  if (startSorted.length >= 1) {
+    records.avgStartMinutes = { value: startSorted[0].avgStartMinutes!, date: startSorted[0].key, repsWorked: startSorted[0].repsWorked };
+  }
+  if (startSorted.length >= 2) {
+    secondBest.avgStartMinutes = { value: startSorted[1].avgStartMinutes!, date: startSorted[1].key, repsWorked: startSorted[1].repsWorked };
+  }
+
+  return { records, secondBest, periodCount: groups.size };
 }
 
 export function computeAllTimeGroupRecords(entries: EntryLike[]): AllTimeGroupRecords {
@@ -209,6 +242,11 @@ export function computeAllTimeGroupRecords(entries: EntryLike[]): AllTimeGroupRe
       weekly: weekly.periodCount,
       monthly: monthly.periodCount,
       dayOfWeek: dayOfWeekCounts,
+    },
+    secondBest: {
+      daily: daily.secondBest,
+      weekly: weekly.secondBest,
+      monthly: monthly.secondBest,
     },
   };
 }
@@ -295,6 +333,7 @@ export function detectActiveRecords(
   }
 
   const records = allTimeRecords[granularity];
+  const sb = allTimeRecords.secondBest[granularity];
   const minPeriods = 3; // Suppress if < 3 comparable periods
   const periodCount = allTimeRecords.periodCounts[granularity];
   if (periodCount < minPeriods) return [];
@@ -317,11 +356,14 @@ export function detectActiveRecords(
 
     if (isRecord || onPace) {
       const metricLabel = METRIC_LABELS[key] || key;
+      const prev = sb?.[key];
       result.push({
         metricKey: key,
         label: metricLabel,
         currentValue,
         recordValue: record.value,
+        previousRecordValue: prev?.value,
+        previousRecordDate: prev?.date,
         recordDate: record.date,
         recordReps: record.repsWorked,
         isRecord,
@@ -337,14 +379,17 @@ export function detectActiveRecords(
     const currentStart = currentTotals.avgStartMinutes;
     const recordStart = records.avgStartMinutes.value;
     const isRecord = currentStart <= recordStart;
-    const onPace = !isRecord && isLiveView && currentStart <= recordStart * 1.05; // within 5%
+    const onPace = !isRecord && isLiveView && currentStart <= recordStart * 1.05;
 
     if (isRecord || onPace) {
+      const prev = sb?.avgStartMinutes;
       result.push({
         metricKey: 'avgStartMinutes',
         label: 'Earliest Start',
         currentValue: currentStart,
         recordValue: recordStart,
+        previousRecordValue: prev?.value,
+        previousRecordDate: prev?.date,
         recordDate: records.avgStartMinutes.date,
         recordReps: records.avgStartMinutes.repsWorked,
         isRecord,
