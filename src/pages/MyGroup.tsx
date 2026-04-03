@@ -904,11 +904,11 @@ const MyGroup = () => {
       {activeFilterName && (
         <Badge 
           variant="secondary" 
-          className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80"
-          onClick={() => setSelectedTeamFilter(null)}
+          className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80 max-w-[120px]"
+          onClick={() => setSmartFilter(DEFAULT_UNIFIED_FILTER)}
         >
-          {activeFilterName}
-          <X className="h-3 w-3" />
+          <span className="truncate">{activeFilterName}</span>
+          <X className="h-3 w-3 shrink-0" />
         </Badge>
       )}
       {isFullLeader && (
@@ -923,7 +923,7 @@ const MyGroup = () => {
       {teamAccess?.accessLevel && canFilterByTeam(teamAccess.accessLevel) && 
        ((teamAccess.teams?.length || 0) + (teamAccess.mgmtGroups?.length || 0) > 1) && (
         <Button 
-          variant={selectedTeamFilter ? 'default' : 'ghost'} 
+          variant={isFilterActive ? 'default' : 'ghost'} 
           size="icon" 
           onClick={() => setFilterSheetOpen(true)}
         >
