@@ -509,14 +509,16 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
 
     const statusOrder: Record<PaceStatus, number> = { critical: 0, behind: 1, 'not-started': 2, 'on-track': 3, ahead: 4, 'goal-met': 5, 'no-goals': 6 };
     wg.sort((a, b) => {
-      const sd = statusOrder[a.paceStatus] - statusOrder[b.paceStatus];
+      const aStatus = isPeriodFiltered ? a.periodPaceStatus : a.paceStatus;
+      const bStatus = isPeriodFiltered ? b.periodPaceStatus : b.paceStatus;
+      const sd = statusOrder[aStatus] - statusOrder[bStatus];
       if (sd !== 0) return sd;
       return a.pacePercentage - b.pacePercentage;
     });
     ng.sort((a, b) => a.name.localeCompare(b.name));
 
     return { withGoals: wg, noGoals: ng };
-  }, [repGoals]);
+  }, [repGoals, isPeriodFiltered]);
 
   // Status filter
   const [statusFilter, setStatusFilter] = useState<PaceStatus | 'all'>('all');
