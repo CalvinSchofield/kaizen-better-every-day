@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionSafe } from '@/utils/authSession';
 import { clearAllRepCaches } from './useRepData';
+import { persistTokensToNative, clearNativeTokens } from '@/utils/nativeTokenStorage';
 
 // Shared localStorage key (used by useRepData too)
 const USER_ID_STORAGE_KEY = 'kaizen-current-user-id';
