@@ -461,6 +461,7 @@ export const ReportsV2Page = () => {
         comparisonTotals={comparisonTotals}
         comparisonLabel={comparisonLabel}
         sparklineHistory={sparklineHistory}
+        intradayPace={intradayPace}
       />
 
       {/* Goal Pace Section */}
