@@ -2,9 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "./useCurrentUserId";
 import { getSessionSafe } from "@/utils/authSession";
+import { withTimeout } from "@/utils/withTimeout";
 
 const SETUP_CACHE_KEY_PREFIX = 'setup-status-cache:';
 const SETUP_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const SETUP_FETCH_TIMEOUT_MS = 6000;
 
 interface SetupStatus {
   hasOfficialTotals: boolean;
@@ -12,6 +14,7 @@ interface SetupStatus {
   /** True if leader explicitly opted out of knocking (exempt from gate) */
   isNonKnockingLeader: boolean;
   isReady: boolean;
+  error: Error | null;
   /** Legacy compat */
   needsSetup: boolean;
   clearSetup: () => void;
@@ -58,7 +61,7 @@ const setCachedSetup = (userId: string, data: CachedSetupData) => {
 export const useSetupStatus = (): SetupStatus => {
   const { userId } = useCurrentUserId();
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['setup-status', userId],
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
@@ -84,23 +87,40 @@ export const useSetupStatus = (): SetupStatus => {
       // Previously this returned cached data from queryFn, which meant stale
       // "needsSetup=true" values persisted for 30 minutes even after setup was complete,
       // locking users out of gated routes (Track, Reports, Leaderboard, etc.).
-      const [totalsRes, goalsRes, configRes] = await Promise.all([
-        supabase
-          .from('official_totals')
-          .select('id')
-          .eq('user_id', userId)
-          .limit(1),
-        supabase
-          .from('rep_goals')
-          .select('setup_complete')
-          .eq('user_id', userId)
-          .maybeSingle(),
-        supabase
-          .from('season_config')
-          .select('knocking_mode_enabled')
-          .eq('user_id', userId)
-          .maybeSingle(),
-      ]);
+      let totalsRes;
+      let goalsRes;
+      let configRes;
+
+      try {
+        [totalsRes, goalsRes, configRes] = await withTimeout(
+          Promise.all([
+            supabase
+              .from('official_totals')
+              .select('id')
+              .eq('user_id', userId)
+              .limit(1),
+            supabase
+              .from('rep_goals')
+              .select('setup_complete')
+              .eq('user_id', userId)
+              .maybeSingle(),
+            supabase
+              .from('season_config')
+              .select('knocking_mode_enabled')
+              .eq('user_id', userId)
+              .maybeSingle(),
+          ]),
+          SETUP_FETCH_TIMEOUT_MS,
+          'Setup status request timed out'
+        );
+      } catch (fetchError) {
+        if (cached) {
+          console.warn('[useSetupStatus] Setup check failed, using cached data:', fetchError);
+          return cached;
+        }
+
+        throw fetchError;
+      }
 
       if (totalsRes.error) throw totalsRes.error;
       if (goalsRes.error) throw goalsRes.error;
@@ -126,8 +146,9 @@ export const useSetupStatus = (): SetupStatus => {
     hasOfficialTotals,
     setupComplete,
     isNonKnockingLeader,
-    isReady: !isLoading && !!data,
-    needsSetup: needsProductionSetup,
+    isReady: !isLoading,
+    error: error instanceof Error ? error : error ? new Error(String(error)) : null,
+    needsSetup: !!data && needsProductionSetup,
     clearSetup: () => {
       localStorage.removeItem('kaizen-setup-complete');
       localStorage.removeItem('kaizen-setup-timestamp');
