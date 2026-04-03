@@ -115,6 +115,7 @@ export const useCurrentUserId = () => {
       clearUnexpectedSignOutRetry();
       clearAllRepCaches();
       clearStaleCaches();
+      clearNativeTokens(); // Wipe native storage on explicit sign-out
       setUserId(null);
       storeCachedUserId(null);
       setIsReady(true);
