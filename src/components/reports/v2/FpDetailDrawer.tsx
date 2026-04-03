@@ -125,13 +125,14 @@ interface RepContribution {
 }
 
 const RepBreakdownInline = ({
-  userIds, dateRange, totalFP, sparklineData, sparklineAvg, onClose,
+  userIds, dateRange, totalFP, sparklineData, sparklineAvg, sparklineAvgLabel, onClose,
 }: {
   userIds: string[];
   dateRange: { start: string; end: string };
   totalFP: number;
   sparklineData?: number[];
   sparklineAvg?: number;
+  sparklineAvgLabel?: string;
   onClose: () => void;
 }) => {
   const { data: contributions, isLoading } = useQuery({
