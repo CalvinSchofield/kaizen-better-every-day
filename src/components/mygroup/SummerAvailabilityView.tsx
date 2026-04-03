@@ -129,6 +129,7 @@ export const SummerAvailabilityView = () => {
           userId: currentUserData.rep.user_id,
           name: currentUserData.rep.name,
           phone: currentUserData.rep.phone || undefined,
+          profilePhotoUrl: currentUserData.rep.profile_photo_url,
           personalSummerStart: currentUserData.config?.personal_summer_start || null,
           personalSummerEnd: currentUserData.config?.personal_summer_end || null,
           excludedSummerDays: currentUserData.config?.excluded_summer_days || [],
