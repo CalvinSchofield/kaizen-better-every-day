@@ -14,14 +14,7 @@ import { useHeader } from '@/contexts/HeaderContext';
 
 import { Calendar as CalendarIcon, Lock, BarChart3, Sparkles } from 'lucide-react';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { CustomDateRangeDrawer } from '@/components/shared/CustomDateRangeDrawer';
 import { cn } from '@/lib/utils';
 import { InsightsChat } from '@/components/insights/InsightsChat';
 import { InsightsOverviewTab } from '@/components/insights/InsightsOverviewTab';
