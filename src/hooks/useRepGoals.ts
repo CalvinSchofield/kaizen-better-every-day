@@ -7,6 +7,7 @@ import { hapticSuccess, hapticWarning } from "@/utils/haptics";
 import { toast } from "sonner";
 import { syncGoalsSetupFlag, hasCompletedGoalsSetup } from "@/lib/goalsSetupCache";
 import { invalidateGoalRelatedQueries } from "@/utils/goalInvalidation";
+import { getSessionSafe } from "@/utils/authSession";
 
 export interface TrainingWeekHistory {
   week_start: string; // ISO date string (Sunday)
@@ -120,6 +121,13 @@ export const useRepGoals = () => {
     queryKey: ['rep-goals', userId],
     queryFn: async () => {
       if (!userId) return null;
+      const cachedGoals = getCachedGoals(userId);
+
+      const { session } = await getSessionSafe();
+      if (!session?.user || session.user.id !== userId) {
+        if (cachedGoals) return cachedGoals;
+        throw new Error('Auth session unavailable for goals fetch');
+      }
 
       const { data, error } = await supabase
         .from('rep_goals')
@@ -151,7 +159,7 @@ export const useRepGoals = () => {
     // This prevents the query from being stuck in "loading" state during hydration
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
-    refetchOnMount: false, // Don't refetch if we have cached data
+    refetchOnMount: 'always',
     initialData,
   });
 

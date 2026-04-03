@@ -8,6 +8,7 @@ const USER_ID_STORAGE_KEY = 'kaizen-current-user-id';
 const EXPECTED_SIGN_OUT_KEY = 'kaizen-expected-signout-at';
 const EXPECTED_SIGN_OUT_WINDOW_MS = 15000;
 const UNEXPECTED_SIGN_OUT_RETRY_MS = 2000;
+const UNEXPECTED_SIGN_OUT_FINAL_RETRY_MS = 5000;
 const UNEXPECTED_SIGN_OUT_SETTLE_MS = 800;
 
 /**
@@ -119,7 +120,7 @@ export const useCurrentUserId = () => {
       setAuthVerified(true);
     };
 
-    const verifyUnexpectedSignOut = async (fallbackUserId: string | null, attempt: 1 | 2 = 1) => {
+    const verifyUnexpectedSignOut = async (fallbackUserId: string | null, attempt: 1 | 2 | 3 = 1) => {
       if (attempt === 1) {
         await new Promise((resolve) => window.setTimeout(resolve, UNEXPECTED_SIGN_OUT_SETTLE_MS));
       }
@@ -138,7 +139,7 @@ export const useCurrentUserId = () => {
         return;
       }
 
-      if (fallbackUserId && attempt === 1) {
+      if (fallbackUserId && attempt < 3) {
         console.warn('[useCurrentUserId] Unexpected SIGNED_OUT not yet recovered; preserving cached identity and retrying verification');
         setUserId(fallbackUserId);
         storeCachedUserId(fallbackUserId);
@@ -146,9 +147,12 @@ export const useCurrentUserId = () => {
         setAuthVerified(true);
 
         clearUnexpectedSignOutRetry();
+        const retryDelay = attempt === 1
+          ? UNEXPECTED_SIGN_OUT_RETRY_MS
+          : UNEXPECTED_SIGN_OUT_FINAL_RETRY_MS;
         unexpectedSignOutRetryRef.current = window.setTimeout(() => {
-          void verifyUnexpectedSignOut(fallbackUserId, 2);
-        }, UNEXPECTED_SIGN_OUT_RETRY_MS);
+          void verifyUnexpectedSignOut(fallbackUserId, attempt === 1 ? 2 : 3);
+        }, retryDelay);
         return;
       }
 
