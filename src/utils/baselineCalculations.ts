@@ -102,7 +102,7 @@ export const calculateRepBaseline = (
       return dow >= 1 && dow <= 5;
     });
   }
-  const workDays = entries.filter(e => 
+  const workDays = filteredEntries.filter(e => 
     (e.doors_knocked || 0) > 0 && 
     e.work_start_time && 
     e.work_end_time
