@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { MicroSparkline } from "./MicroSparkline";
@@ -12,6 +12,10 @@ interface RepPeriodKpisProps {
   repName: string;
   periodLabel: string;
   isLoading?: boolean;
+  avgStartTime?: string | null;
+  avgEndTime?: string | null;
+  onSummaryRowClick?: () => void;
+  summaryExpanded?: boolean;
 }
 
 type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'fp';
@@ -45,6 +49,10 @@ export const RepPeriodKpis = ({
   repName,
   periodLabel,
   isLoading,
+  avgStartTime,
+  avgEndTime,
+  onSummaryRowClick,
+  summaryExpanded,
 }: RepPeriodKpisProps) => {
   if (isLoading) {
     return (
@@ -152,15 +160,38 @@ export const RepPeriodKpis = ({
         })}
       </div>
 
-      {/* PRMR + Hours row */}
-      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+      {/* PRMR + Timing summary row */}
+      <div
+        className={cn(
+          "flex items-center gap-3 text-xs text-muted-foreground rounded-xl px-3 py-2.5",
+          "bg-card border border-border/50",
+          onSummaryRowClick && "cursor-pointer active:scale-[0.98] transition-transform"
+        )}
+        onClick={onSummaryRowClick}
+      >
         <span className="font-semibold text-foreground">
           ${Math.round(current.prmr).toLocaleString()} <span className="font-normal text-muted-foreground">PRMR</span>
         </span>
-        <span className="text-border">•</span>
-        <span>
-          {current.hoursWorked.toFixed(1)}h worked
-        </span>
+        {avgStartTime && (
+          <>
+            <span className="text-border">·</span>
+            <span>{avgStartTime} <span className="text-muted-foreground/60">start</span></span>
+          </>
+        )}
+        {avgEndTime && (
+          <>
+            <span className="text-border">·</span>
+            <span>{avgEndTime} <span className="text-muted-foreground/60">end</span></span>
+          </>
+        )}
+        <span className="text-border">·</span>
+        <span>{current.hoursWorked.toFixed(1)}h <span className="text-muted-foreground/60">active</span></span>
+        {onSummaryRowClick && (
+          <ChevronRight className={cn(
+            "w-3.5 h-3.5 ml-auto transition-transform shrink-0",
+            summaryExpanded && "rotate-90"
+          )} />
+        )}
       </div>
     </motion.div>
   );
