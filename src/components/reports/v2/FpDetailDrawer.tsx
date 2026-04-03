@@ -59,17 +59,19 @@ const FpTabsDrawer = ({
     <>
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[88vh]">
-          <DrawerHeader className="pb-0">
+          <DrawerHeader className="pb-2">
             <DrawerTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
               FP+ Details
             </DrawerTitle>
           </DrawerHeader>
           <Tabs defaultValue="deals" className="w-full">
-            <TabsList className="w-full mx-4 mt-2" style={{ width: 'calc(100% - 2rem)' }}>
-              <TabsTrigger value="deals" className="flex-1">Deal Breakdown</TabsTrigger>
-              <TabsTrigger value="reps" className="flex-1">Rep Breakdown</TabsTrigger>
-            </TabsList>
+            <div className="px-4 pb-3">
+              <TabsList className="w-full">
+                <TabsTrigger value="deals" className="flex-1">Deal Breakdown</TabsTrigger>
+                <TabsTrigger value="reps" className="flex-1">Rep Breakdown</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="deals" className="mt-0">
               {/* Inline the DealAnalytics content */}
