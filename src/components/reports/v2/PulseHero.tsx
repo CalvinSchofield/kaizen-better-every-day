@@ -228,6 +228,9 @@ export const PulseHero = ({
     );
   }
 
+  // Check for zero-activity state
+  const hasZeroActivity = doors === 0 && dms === 0 && pitches === 0 && fp === 0 && presentations === 0;
+
   // Build record lookup
   const recordMap = new Map<string, ActiveRecord>();
   activeRecords.forEach(r => {
