@@ -216,15 +216,10 @@ const Tools = () => {
               );
             })}
           </div>
-        </motion.div>
+        </div>
 
         {/* Need Help? - Smart Upline Contact */}
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.2 }}
-          className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-primary/8 to-primary/3 p-4"
-        >
+        <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-primary/8 to-primary/3 p-4">
           <p className="text-sm font-semibold text-foreground mb-1">Need Help?</p>
           {uplineLoading ? (
             <p className="text-xs text-muted-foreground">Finding your upline...</p>
