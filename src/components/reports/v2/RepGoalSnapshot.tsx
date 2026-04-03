@@ -19,6 +19,7 @@ export const RepGoalSnapshot = ({
   goalPaceData,
   periodFp,
   periodLabel,
+  periodDaysWorked,
   dateRangeStart,
   dateRangeEnd,
 }: RepGoalSnapshotProps) => {
