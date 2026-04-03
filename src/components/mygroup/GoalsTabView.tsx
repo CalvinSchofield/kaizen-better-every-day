@@ -760,6 +760,11 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                         <Badge variant="outline" className="text-[9px] h-4 px-1 shrink-0">
                           {rep.year}
                         </Badge>
+                        {rep.efpModeEnabled && (
+                          <Badge variant="secondary" className="text-[8px] h-3.5 px-1 shrink-0 font-bold">
+                            EFP
+                          </Badge>
+                        )}
                       </div>
                       {/* Mini progress bar inline */}
                       <div className="flex items-center gap-2 mt-1">
