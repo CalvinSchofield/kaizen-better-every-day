@@ -199,10 +199,11 @@ Deno.serve(async (req) => {
       accessLevel = 'corporate';
     }
 
-    // If still 'none' but has recruits, they're a recruiter
+    // If still 'none' but has recruits AND is not a rookie, they're a recruiter
     if (accessLevel === 'none') {
       const hasRecruits = recruitsData.some(r => r.recruiter_user_id === user.id);
-      if (hasRecruits) accessLevel = 'recruiter';
+      const isRookie = repData.year === 'Rookie';
+      if (hasRecruits && !isRookie) accessLevel = 'recruiter';
     }
 
     console.log(`[fetch-team-access] User ${user.id} accessLevel=${accessLevel} (explicit=${highestExplicitRole}, teamLead=${isTeamLeadStructural}, mgmtLead=${isMgmtGroupLeadStructural}, AD=${isAreaDirector}, corp=${isCorporate})`);
