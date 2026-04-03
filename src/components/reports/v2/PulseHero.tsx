@@ -297,6 +297,58 @@ export const PulseHero = ({
     : fpDelta < -15 ? "text-destructive" 
     : "text-warning";
 
+  // Empty state for zero activity
+  if (hasZeroActivity && !isLoading) {
+    const isLive = isLiveView;
+    const emptyMessage = isLive
+      ? "No field activity yet today. Once reps start their day and begin knocking, live stats will appear here."
+      : activeReps === 0
+      ? "No reps recorded activity during this period. Try selecting a different date range, or check that reps are logging their daily entries."
+      : "No activity data found for the selected period.";
+    
+    const emptyIcon = isLive ? "⏳" : "📊";
+
+    return (
+      <div className="space-y-3">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-border/50 bg-card p-6 text-center"
+        >
+          <span className="text-3xl mb-3 block">{emptyIcon}</span>
+          <p className="text-sm font-medium text-foreground mb-1">
+            {isLive ? "Waiting for activity" : "No activity found"}
+          </p>
+          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+            {emptyMessage}
+          </p>
+          {isLive && (
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[11px] text-muted-foreground">Checking for updates</span>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Still show the working reps button in live view */}
+        {isLive && onWorkingClick && (
+          <button
+            onClick={onWorkingClick}
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 active:scale-[0.99] transition-all"
+          >
+            <div className="flex items-center gap-2 text-sm">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">{workingCount || 0}</span>
+              <span className="text-muted-foreground">working now</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       {/* Pulse sentence */}
