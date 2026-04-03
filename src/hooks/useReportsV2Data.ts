@@ -87,6 +87,16 @@ interface UseReportsV2DataParams {
   excludeUserIds?: string[];
   isLiveView?: boolean; // true for "Today" view
   customThresholds?: EffortThresholds; // Optional custom thresholds from leader settings
+  accessibleReps?: Array<{
+    userId: string | null;
+    teamId?: string | null;
+    teamName?: string | null;
+    mgmtGroupId?: string | null;
+    mgmtGroupName?: string | null;
+    recruiterName?: string | null;
+    phone?: string | null;
+    year?: string | null;
+  }>;
 }
 
 export interface RepWithEffort {
@@ -192,14 +202,21 @@ export const useReportsV2Data = ({
   excludeUserIds = [],
   isLiveView = false,
   customThresholds,
+  accessibleReps = [],
 }: UseReportsV2DataParams): ReportsV2Data => {
   // Use custom thresholds or defaults
   const effortThresholds = customThresholds || DEFAULT_EFFORT_THRESHOLDS;
+
+  const accessibleRepMap = useMemo(
+    () => new Map(accessibleReps.filter((rep) => rep.userId).map((rep) => [rep.userId as string, rep])),
+    [accessibleReps]
+  );
 
   // Fetch live data (for today view)
   const liveQuery = useTeamLiveData({
     userIds,
     excludeUserIds,
+    accessibleReps,
   });
   
   // Fetch aggregated data (for date range views)
@@ -321,6 +338,7 @@ export const useReportsV2Data = ({
       const { liveReps, workingCount } = liveQuery.data;
       
       const repsWithEffort: RepWithEffort[] = liveReps.map(rep => {
+        const orgRep = accessibleRepMap.get(rep.userId);
         // Calculate hours worked
         let hoursWorked = 0;
         if (rep.workStartTime) {
@@ -351,14 +369,14 @@ export const useReportsV2Data = ({
         return {
           userId: rep.userId,
           name: rep.name,
-          year: rep.year,
+          year: rep.year || orgRep?.year || undefined,
           timezone: rep.timezone,
-          teamId: rep.teamId,
-          teamName: rep.teamName,
-          mgmtGroupId: rep.mgmtGroupId,
-          mgmtGroupName: rep.mgmtGroupName,
-          recruiterName: rep.recruiterName,
-          phone: rep.phone,
+          teamId: orgRep?.teamId ?? rep.teamId,
+          teamName: orgRep?.teamName ?? rep.teamName,
+          mgmtGroupId: orgRep?.mgmtGroupId ?? rep.mgmtGroupId,
+          mgmtGroupName: orgRep?.mgmtGroupName ?? rep.mgmtGroupName,
+          recruiterName: orgRep?.recruiterName ?? rep.recruiterName,
+          phone: rep.phone || orgRep?.phone || undefined,
           doors: rep.todayStats.doors,
           dms: rep.todayStats.dms,
           pitches: rep.todayStats.pitches,
@@ -715,6 +733,7 @@ export const useReportsV2Data = ({
       );
 
       const repsWithEffort: RepWithEffort[] = activeRepBreakdown.map(rep => {
+        const orgRep = accessibleRepMap.get(rep.userId);
         const effortData: RepEffortData = {
           userId: rep.userId,
           name: rep.name,
@@ -728,13 +747,13 @@ export const useReportsV2Data = ({
         return {
           userId: rep.userId,
           name: rep.name,
-          year: rep.year,
+          year: rep.year || orgRep?.year || undefined,
           timezone: rep.timezone,
-          teamId: rep.teamId,
-          teamName: rep.teamName,
-          mgmtGroupId: rep.mgmtGroupId,
-          mgmtGroupName: rep.mgmtGroupName,
-          recruiterName: rep.recruiterName,
+          teamId: orgRep?.teamId ?? rep.teamId,
+          teamName: orgRep?.teamName ?? rep.teamName,
+          mgmtGroupId: orgRep?.mgmtGroupId ?? rep.mgmtGroupId,
+          mgmtGroupName: orgRep?.mgmtGroupName ?? rep.mgmtGroupName,
+          recruiterName: orgRep?.recruiterName ?? rep.recruiterName,
           doors: rep.doors,
           dms: rep.dms,
           pitches: rep.pitches,
