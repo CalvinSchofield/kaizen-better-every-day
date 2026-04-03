@@ -57,7 +57,6 @@ export interface ActiveRecord {
   /** Contextual description e.g. "Best Tuesday this Quarter" */
   contextualLabel?: string;
 }
-}
 
 interface EntryLike {
   entry_date: string;
