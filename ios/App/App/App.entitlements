@@ -7,6 +7,7 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:kaizen-better-every-day.lovable.app</string>
+		<string>webcredentials:kaizen-better-every-day.lovable.app</string>
 	</array>
 </dict>
 </plist>

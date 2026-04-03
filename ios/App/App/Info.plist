@@ -28,6 +28,8 @@
 	<string>To let leaders add action items to their calendar</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>To gather weather information for your location</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Kaizen uses Reminders to help you schedule follow-ups</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
