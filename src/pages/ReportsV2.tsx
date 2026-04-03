@@ -601,13 +601,32 @@ export const ReportsV2Page = () => {
         onRepClick={handleRepClick}
       />
 
-      <DealAnalyticsDrawer
+      <FpDetailDrawer
         open={showDealDrawer}
         onOpenChange={setShowDealDrawer}
         userIds={filteredUserIds}
         dateRange={dateRange}
         totalFP={totalFP}
         totalPRMR={totalPRMR}
+        sparklineData={sparklineHistory?.map(p => p.fp)}
+        sparklineAvg={sparklineHistory && sparklineHistory.length > 0
+          ? sparklineHistory.reduce((s, p) => s + p.fp, 0) / sparklineHistory.length
+          : undefined}
+      />
+
+      <KpiDetailDrawer
+        open={!!kpiDrawerMetric}
+        onOpenChange={(o) => { if (!o) setKpiDrawerMetric(null); }}
+        metricKey={kpiDrawerMetric}
+        metricLabel={kpiDrawerMetric === 'doors' ? 'Doors' : kpiDrawerMetric === 'dms' ? 'Decision Makers' : kpiDrawerMetric === 'pitches' ? 'Pitches' : kpiDrawerMetric === 'transitions' ? 'Transitions' : kpiDrawerMetric === 'presentations' ? 'Presentations' : 'FP+'}
+        totalValue={kpiDrawerMetric === 'doors' ? funnelData.doors : kpiDrawerMetric === 'dms' ? funnelData.decisionMakers : kpiDrawerMetric === 'pitches' ? funnelData.pitches : kpiDrawerMetric === 'transitions' ? funnelData.transitions : kpiDrawerMetric === 'presentations' ? funnelData.presentations : totalFP}
+        sparklineData={kpiDrawerMetric && sparklineHistory ? sparklineHistory.map(p => (p as any)[kpiDrawerMetric] || 0) : undefined}
+        sparklineAvg={kpiDrawerMetric && sparklineHistory && sparklineHistory.length > 0
+          ? sparklineHistory.reduce((s, p) => s + ((p as any)[kpiDrawerMetric] || 0), 0) / sparklineHistory.length
+          : undefined}
+        userIds={filteredUserIds}
+        dateRange={dateRange}
+        onClose={() => setKpiDrawerMetric(null)}
       />
 
       <CustomDateRangeDrawer
