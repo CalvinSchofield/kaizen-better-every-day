@@ -113,12 +113,38 @@ export const useTeamAggregatedRankings = ({
       const { start, end } = getDateRange(period);
 
       // Fetch reps data
-      const { data: repsData, error: repsError } = await supabase
-        .from("reps")
-        .select("user_id, name, year, team_leader, timezone, phone")
-        .in("user_id", effectiveUserIds);
+      const [{ data: repsData, error: repsError }, { data: recruitOrgData, error: recruitOrgError }] = await Promise.all([
+        supabase
+          .from("reps")
+          .select("user_id, name, year, team_leader, timezone, phone")
+          .in("user_id", effectiveUserIds),
+        // Direct org lookup from recruits table as primary source
+        supabase
+          .from("recruits")
+          .select("id, team_id, mgmt_group_id, teams:team_id(name), mgmt_groups:mgmt_group_id(name)")
+          .in("id", effectiveUserIds.length > 0 ? effectiveUserIds : ['__none__']),
+      ]);
 
       if (repsError) throw repsError;
+
+      // Build a map of rep.id (which equals recruit.id for matched reps) -> org info from recruits
+      // We need to map user_id -> recruit org data. The reps table id != user_id,
+      // so we need to go through the reps table to get the rep.id for each user_id
+      const { data: repIdMapping } = await supabase
+        .from("reps")
+        .select("id, user_id")
+        .in("user_id", effectiveUserIds);
+      
+      const userIdToRepId = new Map(repIdMapping?.map(r => [r.user_id, r.id]) || []);
+      const recruitOrgMap = new Map(recruitOrgData?.map((r: any) => [
+        r.id,
+        {
+          teamId: r.team_id || null,
+          teamName: (r.teams as any)?.name || null,
+          mgmtGroupId: r.mgmt_group_id || null,
+          mgmtGroupName: (r.mgmt_groups as any)?.name || null,
+        }
+      ]) || []);
 
       const repsMap = new Map(repsData?.map(r => [
         r.user_id, 
@@ -430,6 +456,9 @@ export const useTeamAggregatedRankings = ({
       userTotals.forEach((totals, userId) => {
         const repInfo = repsMap.get(userId);
         const teamInfo = repInfoMap.get(userId);
+        // Fallback: direct recruit org data
+        const repId = userIdToRepId.get(userId);
+        const recruitOrg = repId ? recruitOrgMap.get(repId) : null;
         if (!repInfo) return;
 
         const avgStartMinutes = totals.startTimeCount > 0 
@@ -442,10 +471,10 @@ export const useTeamAggregatedRankings = ({
         reps.push({
           userId,
           name: repInfo.name,
-          teamId: teamInfo?.teamId || null,
-          teamName: teamInfo?.teamName || repInfo.teamName,
-          mgmtGroupId: teamInfo?.mgmtGroupId || null,
-          mgmtGroupName: teamInfo?.mgmtGroupName || undefined,
+          teamId: teamInfo?.teamId || recruitOrg?.teamId || null,
+          teamName: teamInfo?.teamName || recruitOrg?.teamName || repInfo.teamName,
+          mgmtGroupId: teamInfo?.mgmtGroupId || recruitOrg?.mgmtGroupId || null,
+          mgmtGroupName: teamInfo?.mgmtGroupName || recruitOrg?.mgmtGroupName || undefined,
           recruiterName: teamInfo?.recruiterName || null,
           year: repInfo.year,
           phone: repInfo.phone,
