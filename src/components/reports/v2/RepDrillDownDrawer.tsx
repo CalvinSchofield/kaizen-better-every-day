@@ -18,6 +18,7 @@ import { useRepActivityCalendar } from "@/hooks/useRepActivityCalendar";
 import { useRepComparison } from "@/hooks/useRepComparison";
 import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { RepPeriodKpis } from "./RepPeriodKpis";
+import { RepKpiDetailDrawer } from "./RepKpiDetailDrawer";
 import { RepTimingChart } from "./RepTimingChart";
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { Sale } from "@/hooks/useDailyEntry";
