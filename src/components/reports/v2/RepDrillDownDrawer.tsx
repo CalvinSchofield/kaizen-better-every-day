@@ -521,6 +521,18 @@ export const RepDrillDownDrawer = ({
           salesLog={(dayActivity?.salesLog as any) || []}
           repTimezone={extendedData?.timezone || undefined}
         />
+
+        <RepKpiDetailDrawer
+          open={!!activeKpiMetric}
+          onOpenChange={(open) => !open && setActiveKpiMetric(null)}
+          metricKey={activeKpiMetric}
+          current={currentTotals}
+          sparklineHistory={sparklineHistory}
+          repName={rep.name}
+          periodLabel={periodLabel}
+          userId={rep.userId}
+          dateRange={dateRange}
+        />
       </DrawerContent>
     </Drawer>
   );
