@@ -115,35 +115,67 @@ export const SummerAvailabilityView = () => {
   });
 
   // Fetch pace data for all accessible reps (MGMT group lead+ only)
+  // Uses Launch Pad logic: summer pace when rep has 7+ summer knocking days,
+  // otherwise falls back to preseason pace.
   const { data: paceDataMap } = useQuery({
     queryKey: ['summer-avail-pace', teamAccess?.accessibleUserIds],
     queryFn: async () => {
       const userIds = teamAccess?.accessibleUserIds || [];
       if (!userIds.length) return new Map<string, number>();
 
-      // Fetch finalized daily entries for the season to calculate avg FP+/day per rep
-      const { data: entries } = await supabase
-        .from('daily_entries')
-        .select('user_id, fp_plus, doors_knocked')
-        .in('user_id', userIds)
-        .gte('entry_date', SEASON_START)
-        .eq('is_finalized', true);
+      // Fetch all finalized entries + season configs in parallel
+      const [entriesResult, configsResult] = await Promise.all([
+        supabase
+          .from('daily_entries')
+          .select('user_id, entry_date, fp_plus, doors_knocked')
+          .in('user_id', userIds)
+          .gte('entry_date', SEASON_START)
+          .eq('is_finalized', true),
+        supabase
+          .from('season_config')
+          .select('user_id, personal_summer_start')
+          .in('user_id', userIds),
+      ]);
 
-      if (!entries) return new Map<string, number>();
+      const entries = entriesResult.data || [];
+      const configs = configsResult.data || [];
+      const summerStartMap = new Map(configs.map(c => [c.user_id, c.personal_summer_start]));
 
-      // Build per-rep: total FP+ and knocking days
-      const repStats = new Map<string, { totalFp: number; knockingDays: number }>();
+      const SUMMER_KNOCKING_DAYS_THRESHOLD = 7;
+
+      // Build per-rep stats split by preseason vs summer
+      const repStats = new Map<string, {
+        preseasonFp: number; preseasonDays: number;
+        summerFp: number; summerDays: number;
+      }>();
+
       for (const e of entries) {
-        const stat = repStats.get(e.user_id) || { totalFp: 0, knockingDays: 0 };
-        stat.totalFp += e.fp_plus || 0;
-        if ((e.doors_knocked || 0) >= 4) stat.knockingDays++;
+        if ((e.doors_knocked || 0) < 4) continue;
+        const stat = repStats.get(e.user_id) || {
+          preseasonFp: 0, preseasonDays: 0,
+          summerFp: 0, summerDays: 0,
+        };
+        const repSummerStart = summerStartMap.get(e.user_id) || DEFAULT_SUMMER_START;
+        const fp = e.fp_plus || 0;
+
+        if (e.entry_date >= repSummerStart) {
+          stat.summerFp += fp;
+          stat.summerDays++;
+        } else {
+          stat.preseasonFp += fp;
+          stat.preseasonDays++;
+        }
         repStats.set(e.user_id, stat);
       }
 
-      // Convert to avg FP+/day
+      // Determine pace per rep: use summer pace when enough data, else preseason
       const paceMap = new Map<string, number>();
       for (const [uid, stat] of repStats) {
-        paceMap.set(uid, stat.knockingDays > 0 ? stat.totalFp / stat.knockingDays : 0);
+        if (stat.summerDays >= SUMMER_KNOCKING_DAYS_THRESHOLD && stat.summerDays > 0) {
+          paceMap.set(uid, stat.summerFp / stat.summerDays);
+        } else if (stat.preseasonDays > 0) {
+          paceMap.set(uid, stat.preseasonFp / stat.preseasonDays);
+        }
       }
       return paceMap;
     },
