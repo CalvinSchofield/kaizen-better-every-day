@@ -497,10 +497,10 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         default: return sum + r.willDoGoal;
       }
     }, 0);
-    const totalFp = withGoals.reduce((sum, r) => sum + r.currentFpPlus, 0);
-    const periodFp = withGoals.reduce((sum, r) => sum + r.periodFpPlus, 0);
-    const progressPercent = totalGoal > 0 ? Math.min(100, (totalFp / totalGoal) * 100) : 0;
-    return { totalGoal, totalFp, periodFp, progressPercent };
+    const totalProgress = withGoals.reduce((sum, r) => sum + r.currentProgress, 0);
+    const periodProgress = withGoals.reduce((sum, r) => sum + r.periodProgress, 0);
+    const progressPercent = totalGoal > 0 ? Math.min(100, (totalProgress / totalGoal) * 100) : 0;
+    return { totalGoal, totalProgress, periodProgress, progressPercent };
   }, [withGoals, activeTier]);
 
   const getPeriodLabel = () => {
