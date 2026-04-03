@@ -551,6 +551,7 @@ export const ReportsV2Page = () => {
         onSendSms={(phone, message) => window.open(`sms:${phone}?body=${encodeURIComponent(message)}`, '_self')}
         dateRangeStart={parseISO(dateRange.start)}
         dateRangeEnd={parseISO(dateRange.end)}
+        datePreset={effectivePreset || 'today'}
       />
 
       <WorkingRepsDrawer
