@@ -213,7 +213,7 @@ export const PulseHero = ({
   doors, dms, pitches, transitions, presentations, closes, fp, prmr,
   avgStartTime, avgEndTime, activeHours,
   activeReps, workingCount, isLiveView,
-  teamBaseline, periodLabel, isLoading, onWorkingClick,
+  teamBaseline, periodLabel, isLoading, onWorkingClick, onKpiClick,
   onAvgStartClick, onFpClick,
   activeRecords = [], onRecordBannerClick,
   comparisonTotals, comparisonLabel, sparklineHistory,
