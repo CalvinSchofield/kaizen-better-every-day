@@ -10,7 +10,7 @@ import { Calendar, Circle, AlignJustify, ExternalLink, MessageSquare } from "luc
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { EffortResult } from "@/utils/effortScore";
-import { UnifiedGoalProgress } from "@/components/goals/UnifiedGoalProgress";
+import { RepGoalSnapshot } from "./RepGoalSnapshot";
 import { useGoalPaceCalculatorForUser } from "@/hooks/useGoalPaceCalculatorForUser";
 import { useRepDrillDownData } from "@/hooks/useRepDrillDownData";
 import { useRepDayActivity } from "@/hooks/useRepDayActivity";
@@ -359,11 +359,12 @@ export const RepDrillDownDrawer = ({
           {/* Goal Progress */}
           {downlineGoalPace.hasGoals && (
             <div className="p-4 border-b">
-              <UnifiedGoalProgress
-                data={downlineGoalPace}
-                mode="compact"
-                compactTimeframes={['D', 'Y']}
-                showPaceContext
+              <RepGoalSnapshot
+                goalPaceData={downlineGoalPace}
+                periodFp={currentTotals?.fp || 0}
+                periodLabel={periodLabel}
+                dateRangeStart={dateRangeStart}
+                dateRangeEnd={dateRangeEnd}
               />
             </div>
           )}
