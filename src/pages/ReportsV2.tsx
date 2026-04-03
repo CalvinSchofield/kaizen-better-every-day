@@ -466,7 +466,7 @@ export const ReportsV2Page = () => {
       />
 
       {/* Feature preview carousel — shown when not enough historical data for advanced features */}
-      {!isLoading && teamBaseline && !teamBaseline.hasEnoughData && (
+      {!isLoading && teamBaseline && !teamBaseline.conversions.hasEnoughData && (
         <ReportsFeaturePreview />
       )}
 
