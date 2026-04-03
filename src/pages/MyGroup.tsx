@@ -237,6 +237,11 @@ const MyGroup = () => {
         
         // Clear URL params to prevent re-triggering
         setSearchParams({}, { replace: true });
+      } else {
+        // Recruit not found in scope - graceful error handling
+        toast.error("Recruit not found or no longer in your group");
+        setHasProcessedDeepLink(true);
+        setSearchParams({}, { replace: true });
       }
     }
   }, [hasProcessedDeepLink, isLoading, searchParams, groupData?.recruits, setSearchParams]);
