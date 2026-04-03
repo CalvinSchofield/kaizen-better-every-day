@@ -384,7 +384,23 @@ const MyGroup = () => {
     staleTime: 1000 * 60 * 2,
   });
 
-  // Build SummerRepData for useSummerRecommendations
+  // Performance alerts from daily entries data
+  const performanceAlertReps = useMemo(() => {
+    if (!recruitsRepData) return [];
+    return recruitsRepData
+      .filter(r => r.user_id)
+      .map(r => ({
+        userId: r.user_id!,
+        name: allRecruits.find(rec => rec.id === r.id)?.name || '',
+        year: allRecruits.find(rec => rec.id === r.id)?.year,
+      }));
+  }, [recruitsRepData, allRecruits]);
+
+  const performanceAlerts = usePerformanceAlerts({
+    entries: summerEntriesData || [],
+    reps: performanceAlertReps,
+    enabled: isFullLeader && (summerEntriesData?.length || 0) > 0,
+  });
   const summerReps = useMemo<SummerRepData[]>(() => {
     if (!recruitsRepData || !recruitsGoalsData || !recruitsSummerConfigData) return [];
     
