@@ -689,12 +689,17 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         <div className="space-y-1.5">
           <Progress value={aggregate.progressPercent} className="h-2.5" />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{aggregate.progressPercent.toFixed(0)}% of {tierLabel}</span>
-            {aggregate.periodProgress > 0 && effectivePreset !== 'ytd' && (
-              <span className="text-foreground font-medium">+{aggregate.periodProgress.toFixed(1)} {getPeriodLabel()}</span>
-            )}
+            <span>{aggregate.progressPercent.toFixed(0)}% of {isGlobalPreseason ? 'Preseason' : tierLabel}</span>
           </div>
         </div>
+
+        {/* Period production line (when not viewing full season) */}
+        {isPeriodFiltered && (
+          <div className="bg-muted/30 rounded-lg px-3 py-2 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">{getPeriodLabel()}</span>
+            <span className="text-sm font-semibold tabular-nums">+{aggregate.periodProgress.toFixed(1)} FP+</span>
+          </div>
+        )}
 
         {/* Status breakdown chips */}
         <div className="grid grid-cols-6 gap-1">
