@@ -7,6 +7,10 @@ interface MicroSparklineProps {
   className?: string;
   /** Optional average/benchmark value to render as a faint horizontal "gold line" */
   goldLine?: number;
+  /** Show the numeric value label on the gold line */
+  showGoldLabel?: boolean;
+  /** Format function for gold label */
+  formatGoldLabel?: (v: number) => string;
   /** Color of the sparkline stroke */
   color?: string;
 }
@@ -17,6 +21,8 @@ export const MicroSparkline = ({
   height = 20,
   className,
   goldLine,
+  showGoldLabel,
+  formatGoldLabel,
   color,
 }: MicroSparklineProps) => {
   if (!data || data.length < 2) return null;
@@ -45,16 +51,31 @@ export const MicroSparkline = ({
     >
       {/* Gold benchmark line */}
       {goldY !== null && (
-        <line
-          x1={padding}
-          y1={goldY}
-          x2={width - padding}
-          y2={goldY}
-          stroke="hsl(var(--primary))"
-          strokeWidth={0.5}
-          strokeDasharray="2 2"
-          opacity={0.3}
-        />
+        <>
+          <line
+            x1={padding}
+            y1={goldY}
+            x2={width - padding}
+            y2={goldY}
+            stroke="hsl(var(--primary))"
+            strokeWidth={0.5}
+            strokeDasharray="2 2"
+            opacity={0.3}
+          />
+          {showGoldLabel && goldLine !== undefined && (
+            <text
+              x={width - padding}
+              y={goldY - 3}
+              textAnchor="end"
+              fill="hsl(var(--primary))"
+              opacity={0.5}
+              fontSize={Math.min(10, height * 0.18)}
+              fontWeight={600}
+            >
+              avg {formatGoldLabel ? formatGoldLabel(goldLine) : Math.round(goldLine).toLocaleString()}
+            </text>
+          )}
+        </>
       )}
       {/* Sparkline */}
       <polyline
