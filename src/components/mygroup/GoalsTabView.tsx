@@ -697,13 +697,14 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         </div>
 
         {/* Status breakdown chips */}
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid grid-cols-6 gap-1">
           {[
-            { key: 'all' as const, count: stats.total, label: 'All', activeClass: 'ring-1 ring-border bg-background' },
-            { key: 'ahead' as const, count: stats.ahead, label: 'Ahead', activeClass: 'ring-1 ring-emerald-300 bg-emerald-500/10' },
-            { key: 'on-track' as const, count: stats.onTrack, label: 'On Track', activeClass: 'ring-1 ring-blue-300 bg-blue-500/10' },
-            { key: 'behind' as const, count: stats.behind, label: 'Behind', activeClass: 'ring-1 ring-amber-300 bg-amber-500/10' },
-            { key: 'critical' as const, count: stats.critical, label: 'At Risk', activeClass: 'ring-1 ring-red-300 bg-red-500/10' },
+            { key: 'all' as const, count: stats.total, label: 'All', activeClass: 'ring-1 ring-border bg-background', textColor: '' },
+            { key: 'goal-met' as const, count: stats.goalMet, label: 'Goal Met', activeClass: 'ring-1 ring-emerald-300 bg-emerald-500/10', textColor: 'text-emerald-600 dark:text-emerald-400' },
+            { key: 'ahead' as const, count: stats.ahead, label: 'Ahead', activeClass: 'ring-1 ring-emerald-300 bg-emerald-500/10', textColor: 'text-emerald-600 dark:text-emerald-400' },
+            { key: 'on-track' as const, count: stats.onTrack, label: 'On Track', activeClass: 'ring-1 ring-blue-300 bg-blue-500/10', textColor: 'text-blue-600 dark:text-blue-400' },
+            { key: 'behind' as const, count: stats.behind, label: 'Behind', activeClass: 'ring-1 ring-amber-300 bg-amber-500/10', textColor: 'text-amber-600 dark:text-amber-400' },
+            { key: 'critical' as const, count: stats.critical, label: 'At Risk', activeClass: 'ring-1 ring-red-300 bg-red-500/10', textColor: 'text-red-600 dark:text-red-400' },
           ].map(chip => (
             <button
               key={chip.key}
@@ -715,10 +716,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
             >
               <div className={cn(
                 "text-sm font-bold tabular-nums",
-                chip.key === 'ahead' && 'text-emerald-600 dark:text-emerald-400',
-                chip.key === 'on-track' && 'text-blue-600 dark:text-blue-400',
-                chip.key === 'behind' && 'text-amber-600 dark:text-amber-400',
-                chip.key === 'critical' && 'text-red-600 dark:text-red-400',
+                chip.textColor,
               )}>{chip.count}</div>
               <div className="text-[9px] text-muted-foreground leading-tight">{chip.label}</div>
             </button>
