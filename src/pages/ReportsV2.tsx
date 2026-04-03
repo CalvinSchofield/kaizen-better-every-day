@@ -434,6 +434,7 @@ export const ReportsV2Page = () => {
         doors={funnelData.doors}
         dms={funnelData.decisionMakers}
         pitches={funnelData.pitches}
+        transitions={funnelData.transitions}
         presentations={funnelData.presentations}
         closes={funnelData.closes}
         fp={totalFP}

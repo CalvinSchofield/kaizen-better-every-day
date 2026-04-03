@@ -11,6 +11,7 @@ interface PulseHeroProps {
   doors: number;
   dms: number;
   pitches: number;
+  transitions: number;
   presentations: number;
   closes: number;
   fp: number;
@@ -35,7 +36,7 @@ interface PulseHeroProps {
   sparklineHistory?: SparklinePoint[];
 }
 
-type MetricKey = 'doors' | 'dms' | 'pitches' | 'presentations' | 'closes' | 'fp';
+type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'closes' | 'fp';
 
 interface StatTileProps {
   label: string;
@@ -208,7 +209,7 @@ const generatePulseSentence = (
 };
 
 export const PulseHero = ({
-  doors, dms, pitches, presentations, closes, fp, prmr,
+  doors, dms, pitches, transitions, presentations, closes, fp, prmr,
   avgStartTime, avgEndTime, activeHours,
   activeReps, workingCount, isLiveView,
   teamBaseline, periodLabel, isLoading, onWorkingClick,
@@ -250,7 +251,7 @@ export const PulseHero = ({
     }
     // Use comparison totals for all metrics when available
     if (!comparisonTotals) return null;
-    const currentValues: Record<MetricKey, number> = { doors, dms, pitches, presentations, closes, fp };
+    const currentValues: Record<MetricKey, number> = { doors, dms, pitches, transitions, presentations, closes, fp };
     const current = currentValues[metricKey];
     const previous = (comparisonTotals as any)[metricKey] || 0;
     if (previous === 0 && current === 0) return null;
@@ -311,8 +312,8 @@ export const PulseHero = ({
         <StatTile label="Doors" value={doors} delta={calcDelta('doors')} sparklineData={getSparkline('doors')} sparklineAvg={getSparklineAvg('doors')} delay={0} {...getRecordProps('doors')} />
         <StatTile label="DMs" value={dms} delta={calcDelta('dms')} sparklineData={getSparkline('dms')} sparklineAvg={getSparklineAvg('dms')} delay={1} {...getRecordProps('dms')} />
         <StatTile label="Pitches" value={pitches} delta={calcDelta('pitches')} sparklineData={getSparkline('pitches')} sparklineAvg={getSparklineAvg('pitches')} delay={2} {...getRecordProps('pitches')} />
-        <StatTile label="Pres" value={presentations} delta={calcDelta('presentations')} sparklineData={getSparkline('presentations')} sparklineAvg={getSparklineAvg('presentations')} delay={3} {...getRecordProps('presentations')} />
-        <StatTile label="Closes" value={closes} delta={calcDelta('closes')} sparklineData={getSparkline('closes')} sparklineAvg={getSparklineAvg('closes')} delay={4} {...getRecordProps('closes')} />
+        <StatTile label="Trans" value={transitions} delta={calcDelta('transitions')} sparklineData={getSparkline('transitions')} sparklineAvg={getSparklineAvg('transitions')} delay={3} {...getRecordProps('transitions')} />
+        <StatTile label="Pres" value={presentations} delta={calcDelta('presentations')} sparklineData={getSparkline('presentations')} sparklineAvg={getSparklineAvg('presentations')} delay={4} {...getRecordProps('presentations')} />
         {onFpClick ? (
           <button onClick={onFpClick} className="active:scale-[0.96] transition-transform">
             <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={calcDelta('fp')} sparklineData={getSparkline('fp')} sparklineAvg={getSparklineAvg('fp')} delay={5} {...getRecordProps('fp')} />
