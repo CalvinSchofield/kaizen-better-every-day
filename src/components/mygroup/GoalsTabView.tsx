@@ -532,15 +532,18 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
   }, [withGoals, statusFilter, isPeriodFiltered]);
 
   // Stats
-  const stats = useMemo(() => ({
-    total: withGoals.length,
-    ahead: withGoals.filter(r => r.paceStatus === 'ahead').length,
-    goalMet: withGoals.filter(r => r.paceStatus === 'goal-met').length,
-    onTrack: withGoals.filter(r => r.paceStatus === 'on-track').length,
-    behind: withGoals.filter(r => r.paceStatus === 'behind').length,
-    critical: withGoals.filter(r => r.paceStatus === 'critical').length,
-    notStarted: withGoals.filter(r => r.paceStatus === 'not-started').length,
-  }), [withGoals]);
+  const stats = useMemo(() => {
+    const getStatus = (r: RepGoalInfo) => isPeriodFiltered ? r.periodPaceStatus : r.paceStatus;
+    return {
+      total: withGoals.length,
+      ahead: withGoals.filter(r => getStatus(r) === 'ahead').length,
+      goalMet: withGoals.filter(r => getStatus(r) === 'goal-met').length,
+      onTrack: withGoals.filter(r => getStatus(r) === 'on-track').length,
+      behind: withGoals.filter(r => getStatus(r) === 'behind').length,
+      critical: withGoals.filter(r => getStatus(r) === 'critical').length,
+      notStarted: withGoals.filter(r => getStatus(r) === 'not-started').length,
+    };
+  }, [withGoals, isPeriodFiltered]);
 
   // Aggregate stats for selected tier
   const aggregate = useMemo(() => {
