@@ -15,6 +15,8 @@ interface RepGoalSnapshotProps {
   dateRangeEnd?: Date;
 }
 
+const SEASON_START_STR = '2025-09-28';
+
 const severityConfig: Record<PaceSeverity, { label: string; color: string; bg: string; icon: typeof TrendingUp }> = {
   green: { label: 'On Pace', color: 'text-emerald-500', bg: 'bg-emerald-500/10', icon: TrendingUp },
   amber: { label: 'At Risk', color: 'text-amber-500', bg: 'bg-amber-500/10', icon: Minus },
@@ -44,25 +46,44 @@ export const RepGoalSnapshot = ({
   const tierKey = focusTier === 'preseason' ? 'preseason' : focusTier;
   const tierCfg = GOAL_TIER_CONFIG[tierKey as keyof typeof GOAL_TIER_CONFIG];
 
-  // Period pace: use original planned pace (goal / total planned days), not catch-up pace
-  // This gives a fair "what should they have produced in this window" expectation
+  // Original planned pace (goal / total planned days)
   const originalDailyPace = useMemo(() => {
     const totalPlannedDays = season.plannedDaysTotal;
     if (totalPlannedDays <= 0 || activeGoal <= 0) return 0;
     return activeGoal / totalPlannedDays;
   }, [activeGoal, season.plannedDaysTotal]);
 
+  // Cumulative expected by end of selected date range
+  const cumulativeExpectedByEndOfRange = useMemo(() => {
+    if (!dateRangeEnd || originalDailyPace <= 0) return 0;
+    const seasonStart = new Date(SEASON_START_STR + 'T00:00:00');
+    const calDays = differenceInCalendarDays(dateRangeEnd, seasonStart) + 1;
+    if (calDays <= 0) return 0;
+    const estimatedWorkDays = Math.max(1, Math.round(calDays * (6 / 7)));
+    return originalDailyPace * estimatedWorkDays;
+  }, [dateRangeEnd, originalDailyPace]);
+
+  // Period-only expected (just the window)
   const periodExpected = useMemo(() => {
     if (!dateRangeStart || !dateRangeEnd || originalDailyPace <= 0) return 0;
     const calDays = differenceInCalendarDays(dateRangeEnd, dateRangeStart) + 1;
-    // Approximate planned days as ~6/7 of calendar days (typical knocking schedule)
     const estimatedWorkDays = Math.max(1, Math.round(calDays * (6 / 7)));
     return originalDailyPace * estimatedWorkDays;
   }, [dateRangeStart, dateRangeEnd, originalDailyPace]);
 
-  const periodPercent = periodExpected > 0
-    ? Math.min(100, (periodFp / periodExpected) * 100)
-    : periodFp > 0 ? 100 : 0;
+  // Pre-period progress: everything produced before the range
+  // Approximation: currentProgress - periodFp (includes post-range production but close enough)
+  const prePeriodFp = useMemo(() => {
+    return Math.max(0, currentProgress - periodFp);
+  }, [currentProgress, periodFp]);
+
+  // Stacked bar percentages (relative to cumulative expected by end of range)
+  const barScale = cumulativeExpectedByEndOfRange;
+  const prePeriodPercent = barScale > 0 ? Math.min(100, (prePeriodFp / barScale) * 100) : 0;
+  const periodPercent = barScale > 0 ? Math.min(100 - prePeriodPercent, (periodFp / barScale) * 100) : 0;
+  const totalPercent = prePeriodPercent + periodPercent;
+
+  const showPeriodRow = periodExpected > 0 && dateRangeStart && dateRangeEnd;
 
   // Season progress
   const seasonGoal = unbufferedGoal || activeGoal;
@@ -74,9 +95,10 @@ export const RepGoalSnapshot = ({
   const sev = severityConfig[severity];
   const SevIcon = sev.icon;
 
-  // Determine period performance color
-  const periodIsAhead = periodFp >= periodExpected;
-  const periodColor = periodExpected <= 0
+  // Period performance color for the text
+  const periodTotal = prePeriodFp + periodFp;
+  const periodIsAhead = periodTotal >= cumulativeExpectedByEndOfRange;
+  const periodColor = cumulativeExpectedByEndOfRange <= 0
     ? 'text-muted-foreground'
     : periodIsAhead ? 'text-emerald-500' : 'text-amber-500';
 
@@ -97,8 +119,8 @@ export const RepGoalSnapshot = ({
         )}
       </div>
 
-      {/* Period Row */}
-      {periodExpected > 0 && (
+      {/* Period Row — Stacked dual-segment bar */}
+      {showPeriodRow && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground font-medium">{periodLabel}</span>
@@ -106,14 +128,38 @@ export const RepGoalSnapshot = ({
               {formatFP(periodFp)} / {formatFP(periodExpected)} {metricLabel}
             </span>
           </div>
-          <div className="relative">
-            <Progress value={periodPercent} className="h-2" />
-            {/* Period percent badge */}
-            <span className={cn(
-              "absolute right-0 -top-0.5 text-[9px] font-semibold tabular-nums",
-              periodColor
-            )}>
-              {Math.round(periodPercent)}%
+
+          {/* Stacked progress bar */}
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted/30 dark:bg-muted/50 border border-border/30">
+            {/* Pre-period segment (muted emerald) */}
+            <div
+              className="absolute inset-y-0 left-0 rounded-l-full bg-emerald-500/40 transition-all duration-700"
+              style={{ width: `${Math.min(prePeriodPercent, 100)}%` }}
+            />
+            {/* Period segment (orange) */}
+            <div
+              className="absolute inset-y-0 rounded-r-full bg-amber-500 transition-all duration-700 shadow-sm"
+              style={{
+                left: `${Math.min(prePeriodPercent, 100)}%`,
+                width: `${Math.min(periodPercent, 100 - Math.min(prePeriodPercent, 100))}%`,
+              }}
+            />
+          </div>
+
+          {/* Legend row */}
+          <div className="flex items-center justify-between text-[9px]">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500/40" />
+                Prior: {formatFP(prePeriodFp)}
+              </span>
+              <span className="flex items-center gap-1 text-amber-500">
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+                {periodLabel}: {formatFP(periodFp)}
+              </span>
+            </div>
+            <span className={cn("font-semibold tabular-nums", periodColor)}>
+              {Math.round(totalPercent)}%
             </span>
           </div>
         </div>
