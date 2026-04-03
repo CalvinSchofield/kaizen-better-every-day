@@ -805,8 +805,12 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                             style={{ width: `${progressPercent}%` }}
                           />
                         </div>
-                        <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-right">
-                          {progressPercent.toFixed(0)}%
+                        <span className="text-[10px] text-muted-foreground tabular-nums text-right">
+                          {isPeriodFiltered ? (
+                            <span className="font-medium text-foreground">+{rep.periodProgress.toFixed(1)}</span>
+                          ) : (
+                            `${progressPercent.toFixed(0)}%`
+                          )}
                         </span>
                       </div>
                     </div>
