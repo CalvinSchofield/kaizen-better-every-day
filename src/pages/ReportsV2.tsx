@@ -29,6 +29,7 @@ import { RepTimesDrawer } from "@/components/reports/v2/RepTimesDrawer";
 import { DealAnalyticsDrawer } from "@/components/reports/v2/DealAnalyticsDrawer";
 import { KpiDetailDrawer, KpiMetricKey } from "@/components/reports/v2/KpiDetailDrawer";
 import { FpDetailDrawer } from "@/components/reports/v2/FpDetailDrawer";
+import { getSparklineAvgLabel } from "@/components/reports/v2/MicroSparkline";
 import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, resolveFilteredUserIds } from "@/components/filters/UnifiedFilterDrawer";
 import { LeaderAICoachComingSoon } from '@/components/reports/LeaderAICoachComingSoon';
 import { Sparkles } from "lucide-react";
@@ -613,6 +614,7 @@ export const ReportsV2Page = () => {
         sparklineAvg={sparklineHistory && sparklineHistory.length > 0
           ? sparklineHistory.reduce((s, p) => s + p.fp, 0) / sparklineHistory.length
           : undefined}
+        sparklineAvgLabel={getSparklineAvgLabel(effectivePreset || undefined)}
       />
 
       <KpiDetailDrawer
@@ -625,6 +627,7 @@ export const ReportsV2Page = () => {
         sparklineAvg={kpiDrawerMetric && sparklineHistory && sparklineHistory.length > 0
           ? sparklineHistory.reduce((s, p) => s + ((p as any)[kpiDrawerMetric] || 0), 0) / sparklineHistory.length
           : undefined}
+        sparklineAvgLabel={getSparklineAvgLabel(effectivePreset || undefined)}
         userIds={filteredUserIds}
         dateRange={dateRange}
         onClose={() => setKpiDrawerMetric(null)}

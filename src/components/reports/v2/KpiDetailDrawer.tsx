@@ -18,6 +18,7 @@ interface KpiDetailDrawerProps {
   totalValue: number;
   sparklineData?: number[];
   sparklineAvg?: number;
+  sparklineAvgLabel?: string;
   userIds: string[];
   dateRange: { start: string; end: string };
   onClose?: () => void;
@@ -55,7 +56,7 @@ const formatValue = (key: KpiMetricKey, value: number): string => {
 
 export const KpiDetailDrawer = ({
   open, onOpenChange, metricKey, metricLabel, totalValue,
-  sparklineData, sparklineAvg, userIds, dateRange, onClose,
+  sparklineData, sparklineAvg, sparklineAvgLabel, userIds, dateRange, onClose,
 }: KpiDetailDrawerProps) => {
   const column = metricKey ? METRIC_TO_COLUMN[metricKey] : null;
 
@@ -138,6 +139,7 @@ export const KpiDetailDrawer = ({
                 height={60}
                 goldLine={sparklineAvg}
                 showGoldLabel
+                goldLabelText={sparklineAvgLabel}
                 formatGoldLabel={(v) => metricKey === 'fp' ? v.toFixed(1) : Math.round(v).toLocaleString()}
               />
             </div>

@@ -16,6 +16,7 @@ interface FpDetailDrawerProps {
   totalPRMR: number;
   sparklineData?: number[];
   sparklineAvg?: number;
+  sparklineAvgLabel?: string;
 }
 
 /**
@@ -25,7 +26,7 @@ interface FpDetailDrawerProps {
  */
 export const FpDetailDrawer = ({
   open, onOpenChange, userIds, dateRange,
-  totalFP, totalPRMR, sparklineData, sparklineAvg,
+  totalFP, totalPRMR, sparklineData, sparklineAvg, sparklineAvgLabel,
 }: FpDetailDrawerProps) => {
   // Instead of nesting drawers, we render tabs inline
   // We reuse the internal content of DealAnalytics and KpiDetail
@@ -44,6 +45,7 @@ export const FpDetailDrawer = ({
         totalPRMR={totalPRMR}
         sparklineData={sparklineData}
         sparklineAvg={sparklineAvg}
+        sparklineAvgLabel={sparklineAvgLabel}
       />
     </>
   );
@@ -51,7 +53,7 @@ export const FpDetailDrawer = ({
 
 const FpTabsDrawer = ({
   open, onOpenChange, userIds, dateRange,
-  totalFP, totalPRMR, sparklineData, sparklineAvg,
+  totalFP, totalPRMR, sparklineData, sparklineAvg, sparklineAvgLabel,
 }: FpDetailDrawerProps) => {
   const [showRepBreakdown, setShowRepBreakdown] = useState(false);
 
@@ -90,6 +92,7 @@ const FpTabsDrawer = ({
                 totalFP={totalFP}
                 sparklineData={sparklineData}
                 sparklineAvg={sparklineAvg}
+                sparklineAvgLabel={sparklineAvgLabel}
                 onClose={() => onOpenChange(false)}
               />
             </TabsContent>
@@ -122,13 +125,14 @@ interface RepContribution {
 }
 
 const RepBreakdownInline = ({
-  userIds, dateRange, totalFP, sparklineData, sparklineAvg, onClose,
+  userIds, dateRange, totalFP, sparklineData, sparklineAvg, sparklineAvgLabel, onClose,
 }: {
   userIds: string[];
   dateRange: { start: string; end: string };
   totalFP: number;
   sparklineData?: number[];
   sparklineAvg?: number;
+  sparklineAvgLabel?: string;
   onClose: () => void;
 }) => {
   const { data: contributions, isLoading } = useQuery({
@@ -184,7 +188,7 @@ const RepBreakdownInline = ({
             <span className="text-3xl font-bold text-foreground">{totalFP.toFixed(1)}</span>
             <span className="text-sm text-muted-foreground">FP+</span>
           </div>
-          <MicroSparkline data={sparklineData} width={300} height={60} goldLine={sparklineAvg} />
+          <MicroSparkline data={sparklineData} width={300} height={60} goldLine={sparklineAvg} showGoldLabel goldLabelText={sparklineAvgLabel} formatGoldLabel={(v) => v.toFixed(1)} />
         </div>
       )}
 
