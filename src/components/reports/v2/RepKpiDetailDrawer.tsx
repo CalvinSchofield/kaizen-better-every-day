@@ -1,17 +1,16 @@
 import { useMemo } from "react";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
+  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
+} from "@/components/ui/drawer";
 import { MicroSparkline } from "./MicroSparkline";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { ArrowRight, TrendingUp, Trophy, BarChart3 } from "lucide-react";
+import { ArrowRight, TrendingUp, TrendingDown, Minus, Trophy, BarChart3 } from "lucide-react";
 import type { ComparisonTotals, SparklinePoint } from "@/hooks/useReportsV2Comparison";
 
-// Reuse the DealAnalyticsInline from FpDetailDrawer
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { parseISO, getDay } from "date-fns";
+import { parseISO, getDay, differenceInDays } from "date-fns";
 
 type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'fp';
 
@@ -20,9 +19,11 @@ interface RepKpiDetailDrawerProps {
   onOpenChange: (open: boolean) => void;
   metricKey: MetricKey | null;
   current: ComparisonTotals;
+  comparison: ComparisonTotals | null;
   sparklineHistory: SparklinePoint[];
   repName: string;
   periodLabel: string;
+  comparisonLabel: string;
   userId: string;
   dateRange: { start: string; end: string };
 }
@@ -74,68 +75,99 @@ const formatValue = (key: MetricKey, value: number): string => {
   return Math.round(value).toLocaleString();
 };
 
+/** Determine period granularity from the date range span */
+function getPeriodGranularity(dateRange: { start: string; end: string }): 'day' | 'week' | 'month' | 'multi-month' {
+  const days = differenceInDays(parseISO(dateRange.end), parseISO(dateRange.start)) + 1;
+  if (days <= 1) return 'day';
+  if (days <= 7) return 'week';
+  if (days <= 31) return 'month';
+  return 'multi-month';
+}
+
+function getPeriodLabels(granularity: 'day' | 'week' | 'month' | 'multi-month') {
+  switch (granularity) {
+    case 'day': return { avgLabel: 'Daily Avg', bestLabel: 'Best Day', sparkUnit: '/day' };
+    case 'week': return { avgLabel: 'Daily Avg', bestLabel: 'Best Day', sparkUnit: '/day' };
+    case 'month': return { avgLabel: 'Daily Avg', bestLabel: 'Best Day', sparkUnit: '/day' };
+    case 'multi-month': return { avgLabel: 'Monthly Avg', bestLabel: 'Best Month', sparkUnit: '/mo' };
+  }
+}
+
 export const RepKpiDetailDrawer = ({
-  open, onOpenChange, metricKey, current, sparklineHistory,
-  repName, periodLabel, userId, dateRange,
+  open, onOpenChange, metricKey, current, comparison, sparklineHistory,
+  repName, periodLabel, comparisonLabel, userId, dateRange,
 }: RepKpiDetailDrawerProps) => {
   if (!metricKey) return null;
 
-  // For FP+ we show deal breakdown, for effort metrics we show sparkline + funnel
+  const granularity = getPeriodGranularity(dateRange);
+  const labels = getPeriodLabels(granularity);
+
   if (metricKey === 'fp') {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto z-[70] rounded-t-xl">
-          <SheetHeader className="pb-2">
-            <SheetTitle className="flex items-center gap-2">
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[88vh] overflow-y-auto">
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
               FP+ Details
-            </SheetTitle>
-            <SheetDescription>{repName} · {periodLabel}</SheetDescription>
-          </SheetHeader>
+            </DrawerTitle>
+            <DrawerDescription>{repName} · {periodLabel}</DrawerDescription>
+          </DrawerHeader>
           <DealBreakdownContent
             userId={userId}
             dateRange={dateRange}
             totalFP={current.fp}
             totalPRMR={current.prmr}
           />
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     );
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto z-[70] rounded-t-xl">
-        <SheetHeader className="pb-2">
-          <SheetTitle>{METRIC_LABELS[metricKey]}</SheetTitle>
-          <SheetDescription>{repName} · {periodLabel}</SheetDescription>
-        </SheetHeader>
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[88vh] overflow-y-auto">
+        <DrawerHeader className="pb-2">
+          <DrawerTitle>{METRIC_LABELS[metricKey]}</DrawerTitle>
+          <DrawerDescription>{repName} · {periodLabel}</DrawerDescription>
+        </DrawerHeader>
         <EffortMetricContent
           metricKey={metricKey}
           current={current}
+          comparison={comparison}
           sparklineHistory={sparklineHistory}
+          granularity={granularity}
+          labels={labels}
+          comparisonLabel={comparisonLabel}
         />
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 };
 
 // ─── Effort Metric Content ───────────────────────────────────────────
 
 const EffortMetricContent = ({
-  metricKey,
-  current,
-  sparklineHistory,
+  metricKey, current, comparison, sparklineHistory, granularity, labels, comparisonLabel,
 }: {
   metricKey: Exclude<MetricKey, 'fp'>;
   current: ComparisonTotals;
+  comparison: ComparisonTotals | null;
   sparklineHistory: SparklinePoint[];
+  granularity: 'day' | 'week' | 'month' | 'multi-month';
+  labels: { avgLabel: string; bestLabel: string; sparkUnit: string };
+  comparisonLabel: string;
 }) => {
   const sparkData = sparklineHistory.map(p => (p as any)[metricKey] || 0);
   const total = current[metricKey];
+
+  // For multi-month ranges, sparkline points are monthly — avg/best are monthly
+  const isMonthly = granularity === 'multi-month';
   const daysWorked = sparkData.filter(v => v > 0).length || 1;
-  const dailyAvg = total / daysWorked;
-  const bestDay = sparkData.length > 0 ? Math.max(...sparkData) : 0;
+  const avg = isMonthly
+    ? (sparkData.length > 0 ? sparkData.reduce((a, b) => a + b, 0) / sparkData.length : 0)
+    : total / daysWorked;
+  const best = sparkData.length > 0 ? Math.max(...sparkData) : 0;
   const sparkAvg = sparkData.length > 0 ? sparkData.reduce((a, b) => a + b, 0) / sparkData.length : 0;
 
   const funnel = FUNNEL_CONFIG[metricKey];
@@ -161,7 +193,7 @@ const EffortMetricContent = ({
             height={60}
             goldLine={sparkAvg}
             showGoldLabel
-            formatGoldLabel={(v) => `${Math.round(v)}/day`}
+            formatGoldLabel={(v) => `${Math.round(v)}${labels.sparkUnit}`}
           />
         )}
       </motion.div>
@@ -175,17 +207,17 @@ const EffortMetricContent = ({
       >
         <div className="bg-card rounded-xl border border-border/50 p-3 text-center">
           <TrendingUp className="w-4 h-4 mx-auto mb-1 text-muted-foreground" />
-          <div className="text-lg font-bold text-foreground">{dailyAvg.toFixed(1)}</div>
-          <div className="text-[11px] text-muted-foreground">Daily Avg</div>
+          <div className="text-lg font-bold text-foreground">{avg.toFixed(1)}</div>
+          <div className="text-[11px] text-muted-foreground">{labels.avgLabel}</div>
         </div>
         <div className="bg-card rounded-xl border border-border/50 p-3 text-center">
           <Trophy className="w-4 h-4 mx-auto mb-1 text-amber-500" />
-          <div className="text-lg font-bold text-foreground">{bestDay}</div>
-          <div className="text-[11px] text-muted-foreground">Best Day</div>
+          <div className="text-lg font-bold text-foreground">{best}</div>
+          <div className="text-[11px] text-muted-foreground">{labels.bestLabel}</div>
         </div>
       </motion.div>
 
-      {/* Conversion Funnel */}
+      {/* Conversion Funnel with Momentum */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -200,34 +232,68 @@ const EffortMetricContent = ({
             const to = current[step.toKey];
             const pct = from > 0 ? (to / from) * 100 : 0;
 
+            // Comparison momentum
+            let compPct: number | null = null;
+            let delta: number | null = null;
+            if (comparison) {
+              const compFrom = comparison[step.fromKey];
+              const compTo = comparison[step.toKey];
+              compPct = compFrom > 0 ? (compTo / compFrom) * 100 : null;
+              if (compPct !== null && compPct > 0) {
+                delta = pct - compPct;
+              }
+            }
+
             return (
               <div
                 key={i}
-                className="bg-card rounded-xl border border-border/50 p-3 flex items-center gap-3"
+                className="bg-card rounded-xl border border-border/50 p-3"
               >
-                <div className="flex-1">
-                  <div className="flex items-center gap-1.5 text-sm">
-                    <ArrowRight className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-muted-foreground">{step.label}</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 text-sm">
+                      <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">{step.label}</span>
+                    </div>
+                    <div className="mt-1.5 h-2 bg-muted/30 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, pct)}%` }}
+                        transition={{ duration: 0.6, delay: 0.2 + i * 0.1 }}
+                        className={cn(
+                          "h-full rounded-full",
+                          pct >= 50 ? "bg-green-500/60" : pct >= 25 ? "bg-amber-500/60" : "bg-destructive/60"
+                        )}
+                      />
+                    </div>
                   </div>
-                  <div className="mt-1.5 h-2 bg-muted/30 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, pct)}%` }}
-                      transition={{ duration: 0.6, delay: 0.2 + i * 0.1 }}
-                      className={cn(
-                        "h-full rounded-full",
-                        pct >= 50 ? "bg-green-500/60" : pct >= 25 ? "bg-amber-500/60" : "bg-destructive/60"
-                      )}
-                    />
-                  </div>
+                  <span className={cn(
+                    "text-lg font-bold tabular-nums min-w-[3rem] text-right",
+                    pct >= 50 ? "text-green-600 dark:text-green-400" : pct >= 25 ? "text-amber-600 dark:text-amber-400" : "text-destructive"
+                  )}>
+                    {pct.toFixed(1)}%
+                  </span>
                 </div>
-                <span className={cn(
-                  "text-lg font-bold tabular-nums min-w-[3rem] text-right",
-                  pct >= 50 ? "text-green-600 dark:text-green-400" : pct >= 25 ? "text-amber-600 dark:text-amber-400" : "text-destructive"
-                )}>
-                  {pct.toFixed(1)}%
-                </span>
+
+                {/* Momentum comparison */}
+                {delta !== null && compPct !== null && (
+                  <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border/30">
+                    <div className={cn(
+                      "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
+                      delta > 2 ? "text-green-600 dark:text-green-400 bg-green-500/10" :
+                      delta < -2 ? "text-destructive bg-destructive/10" :
+                      "text-muted-foreground bg-muted/50"
+                    )}>
+                      {delta > 2 ? <TrendingUp className="w-2.5 h-2.5" /> :
+                       delta < -2 ? <TrendingDown className="w-2.5 h-2.5" /> :
+                       <Minus className="w-2.5 h-2.5" />}
+                      {delta > 0 ? '+' : ''}{delta.toFixed(1)}pp
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">
+                      vs {compPct.toFixed(1)}% {comparisonLabel}
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}
