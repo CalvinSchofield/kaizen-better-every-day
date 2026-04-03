@@ -41,6 +41,25 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch rep's EFP mode setting
+  const { data: repInfo } = useQuery({
+    queryKey: ['downline-rep-efp-mode', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data } = await supabase
+        .from('reps')
+        .select('year, efp_mode_enabled')
+        .eq('user_id', userId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isVet = repInfo?.year === 'Vet';
+  const efpModeEnabled = isVet && (repInfo?.efp_mode_enabled || false);
+
   // Fetch season config
   const { data: seasonConfig } = useQuery({
     queryKey: ['downline-season-config', userId],
