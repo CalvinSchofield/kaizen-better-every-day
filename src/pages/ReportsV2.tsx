@@ -159,6 +159,7 @@ export const ReportsV2Page = () => {
     teamGoalStatus, teamGoalStatusDetails,
     enhancedGoalPace,
     teamBaseline,
+    intradayPace,
     repsWithEffort, funnelData,
     dailyTrend, hourlyActivity,
     activeRecords,
