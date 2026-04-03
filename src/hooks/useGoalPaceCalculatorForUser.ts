@@ -229,7 +229,8 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
         const sl = entry.sales_log as any[] | null;
         if (Array.isArray(sl) && sl.length > 0) {
           for (const sale of sl) {
-            if (sale.install_status === 'never_installed' || sale.install_status === 'pending') continue;
+            const status = typeof sale?.install_status === 'string' ? sale.install_status.toLowerCase().trim() : '';
+            if (status === 'never_installed' || status === 'pending' || status === 'cancelled' || status === 'canceled') continue;
             trackedSince += getSaleValue(sale);
           }
         } else if (entry.is_finalized) {
