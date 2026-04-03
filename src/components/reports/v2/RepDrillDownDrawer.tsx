@@ -110,20 +110,45 @@ export const RepDrillDownDrawer = ({
     preset: datePreset,
   });
 
-  // Build timing data from the rep's entries
-  const timingDays = useMemo(() => {
-    if (!calendarData?.summaries) return [];
-    const startStr = dateRange.start;
-    const endStr = dateRange.end;
-    return calendarData.summaries
-      .filter(s => s.date >= startStr && s.date <= endStr && s.hasWork)
-      .map(s => ({
-        date: s.date,
-        startTime: s.workStartTime || null,
-        endTime: s.workEndTime || null,
-        hoursWorked: s.hoursWorked || 0,
-      }));
-  }, [calendarData, dateRange]);
+  // Timing data comes from the comparison hook's raw entries
+  // We'll use a separate small query for timing since DaySummary doesn't have work times
+  const timingQuery = useQuery({
+    queryKey: ['rep-timing', userId, dateRange.start, dateRange.end],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from('daily_entries')
+        .select('entry_date, work_start_time, work_end_time, break_periods')
+        .eq('user_id', userId)
+        .gte('entry_date', dateRange.start)
+        .lte('entry_date', dateRange.end)
+        .not('work_start_time', 'is', null);
+      if (error) throw error;
+      return (data || []).map(e => {
+        let hoursWorked = 0;
+        if (e.work_start_time && e.work_end_time) {
+          let mins = (new Date(e.work_end_time).getTime() - new Date(e.work_start_time).getTime()) / 60000;
+          if (e.break_periods && Array.isArray(e.break_periods)) {
+            (e.break_periods as any[]).forEach((bp: any) => {
+              const bMins = (new Date(bp.end).getTime() - new Date(bp.start).getTime()) / 60000;
+              if (bMins > 0) mins -= bMins;
+            });
+          }
+          hoursWorked = Math.max(0, mins) / 60;
+        }
+        return {
+          date: e.entry_date,
+          startTime: e.work_start_time,
+          endTime: e.work_end_time,
+          hoursWorked,
+        };
+      });
+    },
+    enabled: !!userId,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const timingDays = timingQuery.data || [];
 
   // Period label
   const periodLabel = useMemo(() => {
