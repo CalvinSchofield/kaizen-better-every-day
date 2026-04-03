@@ -79,7 +79,7 @@ export const RepDrillDownDrawer = ({
   datePreset = 'today',
 }: RepDrillDownDrawerProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [showCalendar, setShowCalendar] = useState(false);
+  
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
   const [selectedSegment, setSelectedSegment] = useState<RingSegment | null>(null);
