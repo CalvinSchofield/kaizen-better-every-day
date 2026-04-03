@@ -614,6 +614,8 @@ export const ReportsV2Page = () => {
         open={showRecordDrawer}
         onOpenChange={setShowRecordDrawer}
         records={activeRecords}
+        userIds={filteredUserIds}
+        dateRange={dateRange}
       />
 
       <LeaderAICoachComingSoon
