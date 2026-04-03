@@ -17,6 +17,7 @@ export interface ComparisonTotals {
   fp: number;
   prmr: number;
   hoursWorked: number;
+  daysWorked?: number;
 }
 
 export interface SparklinePoint {

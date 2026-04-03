@@ -366,6 +366,7 @@ export const RepDrillDownDrawer = ({
                   ? (currentTotals?.prmr || 0) / 85 
                   : (currentTotals?.fp || 0)}
                 periodLabel={periodLabel}
+                periodDaysWorked={currentTotals?.daysWorked}
                 dateRangeStart={dateRangeStart}
                 dateRangeEnd={dateRangeEnd}
               />

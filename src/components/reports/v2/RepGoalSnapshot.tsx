@@ -9,6 +9,8 @@ interface RepGoalSnapshotProps {
   goalPaceData: GoalPaceData;
   periodFp: number;
   periodLabel: string;
+  /** Actual days worked in this period (from daily_entries count) */
+  periodDaysWorked?: number;
   dateRangeStart?: Date;
   dateRangeEnd?: Date;
 }
@@ -17,6 +19,7 @@ export const RepGoalSnapshot = ({
   goalPaceData,
   periodFp,
   periodLabel,
+  periodDaysWorked,
   dateRangeStart,
   dateRangeEnd,
 }: RepGoalSnapshotProps) => {
@@ -45,20 +48,21 @@ export const RepGoalSnapshot = ({
     return activeGoal / season.plannedDaysTotal;
   }, [activeGoal, season.plannedDaysTotal]);
 
-  // For the period expected, use actual elapsed days in that period
-  // We approximate: if season has X total planned days and Y elapsed, 
-  // then this period's share = periodFp's timespan / total timespan × total planned days
-  // But simpler: use the daily pace × days they actually worked (activeReps days)
-  // Best proxy: (periodFp is what they did, periodExpected is dailyPace × workDaysInPeriod)
-  // We estimate work days from calendar days with 6/7 ratio, capped reasonably
+  // What was expected for THIS period: dailyPace × actual days worked
+  // If we have real daysWorked (from daily_entries count), use that.
+  // Otherwise fall back to calendar-based estimate.
   const periodExpected = useMemo(() => {
-    if (!dateRangeStart || !dateRangeEnd || originalDailyPace <= 0) return 0;
+    if (originalDailyPace <= 0) return 0;
+    if (periodDaysWorked !== undefined && periodDaysWorked > 0) {
+      return originalDailyPace * periodDaysWorked;
+    }
+    // Fallback: estimate from calendar days
+    if (!dateRangeStart || !dateRangeEnd) return 0;
     const msPerDay = 86400000;
     const calDays = Math.round((dateRangeEnd.getTime() - dateRangeStart.getTime()) / msPerDay) + 1;
-    // Use 6/7 for weekly cadence (Mon-Sat), minimum 1 day
     const workDays = Math.max(1, Math.round(calDays * (6 / 7)));
     return originalDailyPace * workDays;
-  }, [dateRangeStart, dateRangeEnd, originalDailyPace]);
+  }, [dateRangeStart, dateRangeEnd, originalDailyPace, periodDaysWorked]);
 
   const hasPeriodContext = periodExpected > 0 && dateRangeStart && dateRangeEnd;
   const periodDelta = periodFp - periodExpected;
