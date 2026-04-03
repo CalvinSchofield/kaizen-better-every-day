@@ -82,18 +82,6 @@ export const RepTimingChart = ({ days, className }: RepTimingChartProps) => {
       animate={{ opacity: 1, y: 0 }}
       className={cn("rounded-xl border border-border/50 bg-card p-4 space-y-3", className)}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-muted-foreground">Work Times</h3>
-        <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground flex-wrap justify-end">
-          <span className="bg-muted/50 px-2 py-0.5 rounded-full">
-            avg {formatTime12(avgStart)} → {formatTime12(avgEnd)}
-          </span>
-          <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-            {totalHours.toFixed(1)}h total
-          </span>
-        </div>
-      </div>
 
       {/* Chart */}
       <div className="space-y-1">
