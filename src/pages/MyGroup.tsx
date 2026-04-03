@@ -499,25 +499,42 @@ const MyGroup = () => {
 
 
   // Filter recruits by selected team if applicable
-  const filteredRecruits = useMemo(() => {
-    const applyTeamFilter = () => {
-      if (!selectedTeamFilter) return allRecruits;
-
-      if (selectedTeamFilter.startsWith('team:')) {
-        const teamId = selectedTeamFilter.replace('team:', '');
-        return allRecruits.filter(r => r.teamId === teamId);
-      } else if (selectedTeamFilter.startsWith('mgmt:')) {
-        const mgmtId = selectedTeamFilter.replace('mgmt:', '');
-        return allRecruits.filter(r => r.mgmtGroupId === mgmtId);
+  // Resolve filtered team/mgmt IDs from unified filter for recruit filtering
+  const filterSelectedTeamIds = useMemo(() => {
+    if (smartFilter.selectedNodes.length === 0) return null;
+    const teamIds = new Set<string>();
+    for (const node of smartFilter.selectedNodes) {
+      if (node.type === 'team') {
+        teamIds.add(node.id);
+      } else if (node.type === 'mgmt_group') {
+        const group = teamAccess?.mgmtGroups?.find(g => g.id === node.id);
+        if (group) group.teamIds.forEach(tid => teamIds.add(tid));
+      } else if (node.type === 'office' || node.type === 'sr_mgmt_group') {
+        // Children will also be in selectedNodes via cascading toggle
       }
-      return allRecruits;
-    };
+    }
+    return teamIds.size > 0 ? teamIds : null;
+  }, [smartFilter.selectedNodes, teamAccess?.mgmtGroups]);
 
-    const base = applyTeamFilter();
+  // Filter recruits by unified filter
+  const filteredRecruits = useMemo(() => {
+    let base = allRecruits;
+
+    // Apply team/mgmt node filter
+    if (filterSelectedTeamIds) {
+      base = base.filter(r => r.teamId && filterSelectedTeamIds.has(r.teamId));
+    }
+
+    // Apply year filter
+    if (smartFilter.yearFilters.length > 0) {
+      const allowedYears = new Set(smartFilter.yearFilters);
+      base = base.filter(r => r.year && allowedYears.has(r.year));
+    }
 
     // Levi-only: compute direct vs downline based on recruiter chain
     const leviTeamId = teamAccess?.teams?.find(t => t.name?.toLowerCase().startsWith('levi'))?.id;
-    if (!leviTeamId || selectedTeamFilter !== `team:${leviTeamId}`) return base;
+    const selectedOnlyLevi = filterSelectedTeamIds?.size === 1 && leviTeamId && filterSelectedTeamIds.has(leviTeamId);
+    if (!leviTeamId || !selectedOnlyLevi) return base;
 
     const normalize = (s: string | null | undefined) => {
       if (!s) return null;
@@ -525,8 +542,6 @@ const MyGroup = () => {
     };
 
     const rootKey = 'levi tingey';
-
-    // Build quick index of recruits by their (normalized) name
     const byName = new Map<string, string>();
     base.forEach(r => {
       const k = normalize(r.name);
@@ -536,18 +551,15 @@ const MyGroup = () => {
     const depthById = new Map<string, number>();
     const rootId = byName.get(rootKey);
     if (!rootId) return base;
-
     depthById.set(rootId, 0);
 
     let frontier = new Set<string>([rootKey]);
     let depth = 0;
-
     while (frontier.size > 0 && depth < 6) {
       const next = new Set<string>();
       for (const r of base) {
         const recruiterKey = normalize(r.recruiterName);
         if (!recruiterKey || !frontier.has(recruiterKey)) continue;
-
         if (!depthById.has(r.id)) {
           depthById.set(r.id, depth + 1);
           const childKey = normalize(r.name);
@@ -564,7 +576,7 @@ const MyGroup = () => {
         d === 1 ? 'direct' : d != null && d >= 2 ? 'downline' : null;
       return { ...r, recruiterDepth: d ?? null, recruiterLineage: lineage };
     });
-  }, [selectedTeamFilter, allRecruits, teamAccess]);
+  }, [smartFilter, allRecruits, teamAccess, filterSelectedTeamIds]);
 
   // Filter activities to match filtered recruits
   const filteredActivities = useMemo(() => {
