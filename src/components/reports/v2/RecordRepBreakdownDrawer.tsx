@@ -161,12 +161,14 @@ export const RecordRepBreakdownDrawer = ({
                     </span>
 
                     {/* Avatar */}
-                    <Avatar className="h-8 w-8">
-                      {rep.photoUrl && <AvatarImage src={rep.photoUrl} alt={rep.name} />}
-                      <AvatarFallback className="text-[10px] bg-muted">
-                        {getInitials(rep.name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <ProfileAvatar
+                      userId={rep.userId}
+                      name={rep.name}
+                      photoUrl={rep.photoUrl}
+                      className="h-8 w-8"
+                      fallbackClassName="text-[10px] bg-muted"
+                      onBeforeNavigate={() => onOpenChange(false)}
+                    />
 
                     {/* Name */}
                     <div className="flex-1 min-w-0">
