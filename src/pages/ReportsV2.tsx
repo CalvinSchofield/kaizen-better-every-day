@@ -464,6 +464,21 @@ export const ReportsV2Page = () => {
         intradayPace={intradayPace}
       />
 
+      {/* New team onboarding hint — shows when very little data exists */}
+      {!isLoading && activeReps <= 1 && totalFP === 0 && funnelData.doors < 10 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-primary/20 bg-primary/5 p-4"
+        >
+          <p className="text-sm font-medium text-foreground mb-1">📈 Building your baseline</p>
+          <p className="text-xs text-muted-foreground">
+            As your team logs daily entries, this dashboard will populate with performance trends, 
+            conversion rates, pacing insights, and coaching alerts. Most features activate after 3+ days of data.
+          </p>
+        </motion.div>
+      )}
+
       {/* Goal Pace Section */}
       <GoalPaceSection
         enhancedGoalPace={enhancedGoalPace}
