@@ -87,6 +87,7 @@ export const RepDrillDownDrawer = ({
   const [showSalesLog, setShowSalesLog] = useState(false);
   const [viewMode, setViewMode] = useState<'ring' | 'timeline'>('ring');
   const [showTimingChart, setShowTimingChart] = useState(false);
+  const [activeKpiMetric, setActiveKpiMetric] = useState<'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'fp' | null>(null);
   
   const userId = isOpen && rep ? rep.userId : undefined;
   
