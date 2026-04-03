@@ -86,6 +86,7 @@ export const RepDrillDownDrawer = ({
   const [selectedSegmentSale, setSelectedSegmentSale] = useState<Sale | null>(null);
   const [showSalesLog, setShowSalesLog] = useState(false);
   const [viewMode, setViewMode] = useState<'ring' | 'timeline'>('ring');
+  const [showTimingChart, setShowTimingChart] = useState(false);
   
   const userId = isOpen && rep ? rep.userId : undefined;
   
