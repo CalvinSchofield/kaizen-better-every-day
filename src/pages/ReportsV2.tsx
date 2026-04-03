@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useReportsV2Data } from "@/hooks/useReportsV2Data";
+import { useReportsV2Comparison } from "@/hooks/useReportsV2Comparison";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
