@@ -691,6 +691,8 @@ export const useReportsV2Data = ({
           timezone: rep.timezone,
           teamId: rep.teamId,
           teamName: rep.teamName,
+          mgmtGroupId: rep.mgmtGroupId,
+          mgmtGroupName: rep.mgmtGroupName,
           recruiterName: rep.recruiterName,
           doors: rep.doors,
           dms: rep.dms,
