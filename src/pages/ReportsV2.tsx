@@ -453,6 +453,7 @@ export const ReportsV2Page = () => {
         onWorkingClick={() => setShowWorkingDrawer(true)}
         onAvgStartClick={() => setShowTimeDrawer(true)}
         onFpClick={() => setShowDealDrawer(true)}
+        onKpiClick={(key) => key === 'fp' ? setShowDealDrawer(true) : setKpiDrawerMetric(key)}
         activeRecords={activeRecords}
         onRecordBannerClick={() => setShowRecordDrawer(true)}
         comparisonTotals={comparisonTotals}
