@@ -326,14 +326,15 @@ Deno.serve(async (req) => {
       return { isTeamLead: false, teamId: null, teamName: null, mgmtGroupId: null, mgmtGroupName: null };
     };
 
-    // Helper: get recruiter name
+    // Helper: get recruiter name — canonical recruits.recruiter_user_id takes priority
     const getRecruiterName = (rep: any): string | null => {
-      if (rep.recruiter) return rep.recruiter;
       const recruit = recruitsData.find(r => r.id === rep.id);
       if (recruit?.recruiter_user_id) {
         const recruiterRep = repsData.find(r => r.user_id === recruit.recruiter_user_id);
         if (recruiterRep) return recruiterRep.name;
       }
+      // Fallback to stale text field only if no canonical link exists
+      if (rep.recruiter) return rep.recruiter;
       return null;
     };
 
