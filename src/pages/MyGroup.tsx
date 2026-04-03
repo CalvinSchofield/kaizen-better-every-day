@@ -90,6 +90,10 @@ const MyGroup = () => {
   });
   const isCurrentUserRookie = currentUserYear === 'Rookie';
   
+  // Rookies who recruit get 'recruiter' accessLevel but should NOT see full leader view
+  // They get a limited view: suggestions + assigned tasks + read-only downline
+  const isRookieRecruiter = isCurrentUserRookie && isLeader;
+  const isFullLeader = isLeader && !isCurrentUserRookie;
   // UI State
   const navigateTo = useNavigate();
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -102,7 +106,7 @@ const MyGroup = () => {
   const [attentionDrawerOpen, setAttentionDrawerOpen] = useState(false);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const [welcomeDrawerOpen, setWelcomeDrawerOpen] = useState(false);
-  const [quickViewInitialTab, setQuickViewInitialTab] = useState<'board' | 'availability' | 'org' | 'digest' | 'goals' | undefined>(undefined);
+  const [quickViewInitialTab, setQuickViewInitialTab] = useState<'board' | 'availability' | 'digest' | 'goals' | undefined>(undefined);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [selectedRecruitInitialTab, setSelectedRecruitInitialTab] = useState<'details' | 'activity' | 'progress' | undefined>(undefined);
   
@@ -153,8 +157,11 @@ const MyGroup = () => {
   }, [accessLoading, recruitsLoading, suggestionsLoading]);
 
   // Show loading only if no data at all (placeholderData from cache skips this)
+  // RACE CONDITION FIX: If the user was previously a leader (cached), keep showing
+  // skeleton instead of flashing the non-leader view while teamAccess loads
   const hasAnyData = !!teamAccess || !!groupData;
-  const isLoading = !loadingTimedOut && !hasAnyData && (accessLoading || (isLeader ? recruitsLoading : suggestionsLoading));
+  const stillResolvingLeaderStatus = accessLoading && wasLeader && !teamAccess;
+  const isLoading = !loadingTimedOut && (!hasAnyData || stillResolvingLeaderStatus) && (accessLoading || (isLeader ? recruitsLoading : suggestionsLoading));
 
   // Fetch current user's rep data to get their team leader name
   const { data: currentUserRep } = useQuery({
@@ -234,6 +241,11 @@ const MyGroup = () => {
         
         // Clear URL params to prevent re-triggering
         setSearchParams({}, { replace: true });
+      } else {
+        // Recruit not found in scope - graceful error handling
+        toast.error("Recruit not found or no longer in your group");
+        setHasProcessedDeepLink(true);
+        setSearchParams({}, { replace: true });
       }
     }
   }, [hasProcessedDeepLink, isLoading, searchParams, groupData?.recruits, setSearchParams]);
@@ -250,10 +262,10 @@ const MyGroup = () => {
   
   // Get total unread activity count for prompts and badges
   const unreadActivityCount = useTotalUnreadCount(recruitIds);
-  const showUnreadPrompt = isLeader && unreadActivityCount > 0 && 
+  const showUnreadPrompt = isFullLeader && unreadActivityCount > 0 && 
     (dismissedAtUnreadCount === null || unreadActivityCount > dismissedAtUnreadCount);
 
-  // Fetch tasks assigned to current user
+  // Fetch tasks assigned to current user (all leaders including rookies)
   const { data: assignedTasks = [] } = useAssignedTasks(allRecruits);
 
   // Fetch rep data for training progress tracking
@@ -857,12 +869,12 @@ const MyGroup = () => {
   const [pendingNewRecruitId, setPendingNewRecruitId] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
-  // Handle recruit created - wait for data refresh then open detail drawer (leaders only)
+  // Handle recruit created - wait for data refresh then open detail drawer (full leaders only)
   const handleRecruitCreated = useCallback((notionPageId: string, name: string) => {
-    if (!isLeader) return;
+    if (!isFullLeader) return;
     // Store the pending recruit ID and wait for the query to refresh
     setPendingNewRecruitId(notionPageId);
-  }, [isLeader]);
+  }, [isFullLeader]);
 
   // Effect to open detail drawer when newly created recruit appears in data
   useEffect(() => {
@@ -907,7 +919,7 @@ const MyGroup = () => {
           <X className="h-3 w-3" />
         </Badge>
       )}
-      {isLeader && (
+      {isFullLeader && (
         <Button 
           variant="ghost" 
           size="icon"
@@ -916,7 +928,8 @@ const MyGroup = () => {
           <Search className="h-4 w-4" />
         </Button>
       )}
-      {teamAccess?.accessLevel && canFilterByTeam(teamAccess.accessLevel) && (
+      {teamAccess?.accessLevel && canFilterByTeam(teamAccess.accessLevel) && 
+       ((teamAccess.teams?.length || 0) + (teamAccess.mgmtGroups?.length || 0) > 1) && (
         <Button 
           variant={selectedTeamFilter ? 'default' : 'ghost'} 
           size="icon" 
@@ -925,7 +938,7 @@ const MyGroup = () => {
           <Filter className="h-4 w-4" />
         </Button>
       )}
-      {isLeader && (
+      {isFullLeader && (
         <Button 
           variant="ghost" 
           size="icon"
@@ -950,7 +963,7 @@ const MyGroup = () => {
   // Error state with no cached data - includes team access errors
   // CRITICAL: If team access failed but user WAS a leader, show recovery UI, not non-leader view
   const hasTeamAccessError = teamAccessError && !teamAccess;
-  const hasUnrecoverableError = (recruitsError && !groupData && isLeader) || hasTeamAccessError;
+  const hasUnrecoverableError = (recruitsError && !groupData && isFullLeader) || hasTeamAccessError;
   const showLeaderRecoveryUI = hasTeamAccessError && wasLeader;
 
   const handleRetry = async () => {
@@ -976,7 +989,7 @@ const MyGroup = () => {
             isRetrying={isRetrying}
             lastUpdated={lastUpdated}
           />
-        ) : isLeader ? (
+        ) : isFullLeader ? (
           hasUnrecoverableError ? (
             <DataLoadError
               title="Couldn't load your group"
@@ -1091,8 +1104,57 @@ const MyGroup = () => {
             </>
           )
         ) : (
-          // Non-leader view: Show their suggestions list
+          // Non-leader OR rookie recruiter view
           <div className="space-y-4">
+            {/* Assigned Tasks section for rookie recruiters */}
+            {isRookieRecruiter && assignedTasks.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Tasks Assigned to You ({assignedTasks.length})
+                </h3>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setAssignedTasksDrawerOpen(true)}
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  View {assignedTasks.length} assigned task{assignedTasks.length !== 1 ? 's' : ''}
+                </Button>
+              </div>
+            )}
+
+            {/* Rookie recruiter downline preview */}
+            {isRookieRecruiter && allRecruits.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Your Recruits ({allRecruits.length})
+                </h3>
+                <div className="space-y-2">
+                  {allRecruits.slice(0, 10).map((recruit) => (
+                    <div
+                      key={recruit.id}
+                      className="bg-card rounded-xl p-3 border border-border flex items-center justify-between cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => handleRecruitClick(recruit)}
+                    >
+                      <div>
+                        <span className="font-medium text-sm">{recruit.name}</span>
+                        <p className="text-xs text-muted-foreground">{recruit.stage || 'No stage'}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">{recruit.stage || '—'}</Badge>
+                    </div>
+                  ))}
+                  {allRecruits.length > 10 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      + {allRecruits.length - 10} more
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Suggestions section */}
             {mySuggestions && mySuggestions.length > 0 ? (
               <>
                 <p className="text-sm text-muted-foreground">
@@ -1160,7 +1222,7 @@ const MyGroup = () => {
                   ))}
                 </div>
               </>
-            ) : (
+            ) : !isRookieRecruiter || allRecruits.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium mb-2">Know someone who'd be great?</p>
@@ -1170,7 +1232,7 @@ const MyGroup = () => {
                   Add Someone
                 </Button>
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>
@@ -1383,7 +1445,7 @@ const MyGroup = () => {
       />
 
       {/* Leader onboarding tour - unified PageTour system */}
-      {isLeader && (
+      {isFullLeader && (
         <PageTour
           steps={getMyGroupTourSteps(teamAccess?.accessLevel)}
           isOpen={showGroupTour}
@@ -1397,9 +1459,9 @@ const MyGroup = () => {
         onOpenChange={setWelcomeDrawerOpen}
         onGetStarted={() => {
           setWelcomeDrawerOpen(false);
-          // Open org structure after welcome closes
+          // Open board view after welcome closes
           setTimeout(() => {
-            setQuickViewInitialTab('org');
+            setQuickViewInitialTab('board');
             setQuickViewOpen(true);
           }, 400);
         }}
