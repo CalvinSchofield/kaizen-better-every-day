@@ -241,8 +241,13 @@ export const PulseHero = ({
   };
 
   // Calculate deltas from comparison data (period-over-period)
+  // In live view with intraday pace, use pace deltas instead
   const calcDelta = (metricKey: MetricKey): number | null => {
-    // For live view, use baseline delta for FP only (existing behavior)
+    // Live view with intraday pace — use pace-based deltas
+    if (isLiveView && intradayPace?.hasEnoughData) {
+      return intradayPace.deltas[metricKey as keyof typeof intradayPace.deltas] ?? null;
+    }
+    // For live view without pace, use baseline delta for FP only (existing behavior)
     if (isLiveView && metricKey === 'fp' && teamBaseline?.teamExpectedFPToday) {
       const expected = teamBaseline.teamExpectedFPToday;
       if (expected > 0) return ((fp - expected) / expected) * 100;
