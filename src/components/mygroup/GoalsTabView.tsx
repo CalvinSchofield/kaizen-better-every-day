@@ -882,61 +882,91 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                         className="overflow-hidden"
                       >
                         <div className="px-3 pb-3 pt-0 space-y-3 border-t border-border/30">
-                          {/* Key metrics */}
-                          <div className="grid grid-cols-3 gap-2 pt-2.5">
-                            <div className="text-center">
-                              <div className="text-xs text-muted-foreground">Progress</div>
-                              <div className="text-sm font-semibold tabular-nums">{rep.currentProgress.toFixed(1)}</div>
-                              <div className="text-[10px] text-muted-foreground">/ {activeGoal} {metricLabel}</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-xs text-muted-foreground">Variance</div>
-                              <div className={cn(
-                                "text-sm font-semibold tabular-nums",
-                                rep.variance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                              )}>
-                                {rep.variance >= 0 ? '+' : ''}{rep.variance.toFixed(1)}
+                          {/* Key metrics — period-aware when filtered */}
+                          {isPeriodFiltered ? (
+                            <div className="space-y-2 pt-2.5">
+                              <div className="bg-muted/30 rounded-lg px-3 py-2.5 space-y-1.5">
+                                <div className="text-[10px] text-muted-foreground font-medium">{getPeriodLabel()}</div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground">Actual</div>
+                                    <div className="text-sm font-semibold tabular-nums">{rep.periodProgress.toFixed(1)}</div>
+                                    <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground">Expected</div>
+                                    <div className="text-sm font-semibold tabular-nums">{rep.periodExpected.toFixed(1)}</div>
+                                    <div className="text-[10px] text-muted-foreground">{rep.periodPlannedDays} days</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground">Variance</div>
+                                    {(() => {
+                                      const pVar = rep.periodProgress - rep.periodExpected;
+                                      return (
+                                        <>
+                                          <div className={cn(
+                                            "text-sm font-semibold tabular-nums",
+                                            pVar >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                                          )}>
+                                            {pVar >= 0 ? '+' : ''}{pVar.toFixed(1)}
+                                          </div>
+                                          <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                                {/* Period detail row */}
+                                <div className="flex gap-4 text-xs text-muted-foreground pt-1 border-t border-border/20">
+                                  <span><span className="font-medium text-foreground">{rep.periodDoors}</span> doors</span>
+                                  <span><span className="font-medium text-foreground">{rep.periodKnockingDays}</span> worked</span>
+                                </div>
                               </div>
-                              <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
+                              {/* Season context row */}
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="text-center">
+                                  <div className="text-xs text-muted-foreground">Season</div>
+                                  <div className="text-sm font-semibold tabular-nums">{rep.currentProgress.toFixed(1)}</div>
+                                  <div className="text-[10px] text-muted-foreground">/ {activeGoal} {metricLabel}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-xs text-muted-foreground">Variance</div>
+                                  <div className={cn(
+                                    "text-sm font-semibold tabular-nums",
+                                    rep.variance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                                  )}>
+                                    {rep.variance >= 0 ? '+' : ''}{rep.variance.toFixed(1)}
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-xs text-muted-foreground">Need/Day</div>
+                                  <div className="text-sm font-semibold tabular-nums">{rep.dailyTarget.toFixed(2)}</div>
+                                  <div className="text-[10px] text-muted-foreground">{rep.daysRemaining} days left</div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-center">
-                              <div className="text-xs text-muted-foreground">Need/Day</div>
-                              <div className="text-sm font-semibold tabular-nums">{rep.dailyTarget.toFixed(2)}</div>
-                              <div className="text-[10px] text-muted-foreground">{rep.daysRemaining} days left</div>
-                            </div>
-                          </div>
-
-                          {/* Goal tiers */}
-                          <div className="flex rounded-lg border overflow-hidden">
-                            {[
-                              { tier: 'mustDo', label: 'Must Do', value: rep.mustDoGoal },
-                              { tier: 'willDo', label: 'Will Do', value: rep.willDoGoal },
-                              { tier: 'couldDo', label: 'Could Do', value: rep.couldDoGoal },
-                            ].map(({ tier, label, value }) => (
-                              <div
-                                key={tier}
-                                className={cn(
-                                  "flex-1 text-center py-1.5 border-r last:border-r-0",
-                                  activeTier === tier && !rep.isInPreseason && "bg-primary/10"
-                                )}
-                              >
-                                <div className="text-[10px] text-muted-foreground">{label}</div>
+                          ) : (
+                            <div className="grid grid-cols-3 gap-2 pt-2.5">
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground">Progress</div>
+                                <div className="text-sm font-semibold tabular-nums">{rep.currentProgress.toFixed(1)}</div>
+                                <div className="text-[10px] text-muted-foreground">/ {activeGoal} {metricLabel}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground">Variance</div>
                                 <div className={cn(
                                   "text-sm font-semibold tabular-nums",
-                                  activeTier === tier && !rep.isInPreseason && "text-primary"
-                                )}>{value}</div>
+                                  rep.variance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                                )}>
+                                  {rep.variance >= 0 ? '+' : ''}{rep.variance.toFixed(1)}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
                               </div>
-                            ))}
-                          </div>
-
-                          {/* Period performance (if not YTD) */}
-          {effectivePreset !== 'ytd' && (rep.periodProgress > 0 || rep.periodDoors > 0) && (
-                            <div className="bg-muted/30 rounded-lg px-3 py-2">
-                              <div className="text-[10px] text-muted-foreground mb-1">{getPeriodLabel()}</div>
-                              <div className="flex gap-4 text-xs">
-                                <span><span className="font-medium">{rep.periodProgress.toFixed(1)}</span> {metricLabel}</span>
-                                <span><span className="font-medium">{rep.periodDoors}</span> doors</span>
-                                <span><span className="font-medium">{rep.periodKnockingDays}</span> days</span>
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground">Need/Day</div>
+                                <div className="text-sm font-semibold tabular-nums">{rep.dailyTarget.toFixed(2)}</div>
+                                <div className="text-[10px] text-muted-foreground">{rep.daysRemaining} days left</div>
                               </div>
                             </div>
                           )}
