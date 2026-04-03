@@ -345,6 +345,7 @@ export const RepDrillDownDrawer = ({
               avgEndTime={avgTimes.avgEnd}
               onSummaryRowClick={timingDays.length > 0 ? () => setShowTimingChart(v => !v) : undefined}
               summaryExpanded={showTimingChart}
+              onKpiTap={(key) => setActiveKpiMetric(key)}
             />
 
             {/* Expandable Timing Chart */}
