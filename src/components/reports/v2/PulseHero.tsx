@@ -277,7 +277,12 @@ export const PulseHero = ({
     return avg > 0 ? avg : undefined;
   };
 
-  const pulseSentence = generatePulseSentence(
+  // Use intraday pace sentence when available, otherwise fall back to existing logic
+  const paceSentence = intradayPace?.hasEnoughData 
+    ? generatePacePulseSentence(intradayPace, intradayPace.dayName)
+    : null;
+  
+  const pulseSentence = paceSentence || generatePulseSentence(
     fp, doors, closes, activeReps, periodLabel, teamBaseline, isLiveView,
     comparisonTotals, comparisonLabel,
   );
