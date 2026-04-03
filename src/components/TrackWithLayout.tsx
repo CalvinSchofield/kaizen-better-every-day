@@ -121,39 +121,42 @@ const TrackWithLayout = () => {
     const checkAuth = async () => {
       try {
         const { user } = await getSessionSafe();
-        if (mounted) {
-          if (!user) {
-            // Try to refresh before marking unhealthy
-            const { data: refreshData } = await supabase.auth.refreshSession();
-            setAuthHealthy(!!refreshData?.user);
-            if (!refreshData?.user) {
-              console.error('[TrackWithLayout] Auth session expired - data may not save!');
-            }
-          } else {
-            setAuthHealthy(true);
-          }
+        if (!mounted) return;
+
+        if (user) {
+          setAuthHealthy(true);
+          return;
         }
+
+        if (currentUserId) {
+          console.warn('[TrackWithLayout] Session temporarily unavailable; preserving live tracking state');
+          setAuthHealthy(true);
+          return;
+        }
+
+        setAuthHealthy(false);
+        console.error('[TrackWithLayout] No authenticated user available for Track');
       } catch {
-        if (mounted) setAuthHealthy(false);
+        if (mounted) {
+          setAuthHealthy(Boolean(currentUserId));
+        }
       }
     };
-    
-    // Check immediately and every 60 seconds
+
     checkAuth();
     const interval = setInterval(checkAuth, 60_000);
-    
-    // Also check on visibility change (app resume)
+
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') checkAuth();
+      if (document.visibilityState === 'visible') void checkAuth();
     };
     document.addEventListener('visibilitychange', handleVisibility);
-    
+
     return () => {
       mounted = false;
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [currentUserId]);
   
   // Local backup for data recovery
   const userId = currentUserId;
