@@ -335,7 +335,7 @@ export const SummerAvailabilityView = () => {
           )}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground">
             <Palmtree className="h-3.5 w-3.5" />
-            {offTodayCount} Off Today
+            {offThisWeekCount} Off This Week
           </div>
         </div>
 
