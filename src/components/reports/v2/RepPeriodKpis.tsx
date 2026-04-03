@@ -16,6 +16,7 @@ interface RepPeriodKpisProps {
   avgEndTime?: string | null;
   onSummaryRowClick?: () => void;
   summaryExpanded?: boolean;
+  onKpiTap?: (metricKey: MetricKey) => void;
 }
 
 type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'fp';
@@ -53,6 +54,7 @@ export const RepPeriodKpis = ({
   avgEndTime,
   onSummaryRowClick,
   summaryExpanded,
+  onKpiTap,
 }: RepPeriodKpisProps) => {
   if (isLoading) {
     return (
@@ -112,10 +114,12 @@ export const RepPeriodKpis = ({
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
+              onClick={() => onKpiTap?.(m.key)}
               className={cn(
                 "rounded-xl p-2.5 flex flex-col items-center gap-0.5",
                 "bg-card border border-border/50",
                 m.key === 'fp' && "ring-2 ring-primary/20 bg-primary/5",
+                onKpiTap && "cursor-pointer active:scale-[0.96] transition-transform",
               )}
             >
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">

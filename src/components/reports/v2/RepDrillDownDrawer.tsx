@@ -18,6 +18,7 @@ import { useRepActivityCalendar } from "@/hooks/useRepActivityCalendar";
 import { useRepComparison } from "@/hooks/useRepComparison";
 import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { RepPeriodKpis } from "./RepPeriodKpis";
+import { RepKpiDetailDrawer } from "./RepKpiDetailDrawer";
 import { RepTimingChart } from "./RepTimingChart";
 import { RingSegment } from "@/utils/inHomeZoneCalculator";
 import { Sale } from "@/hooks/useDailyEntry";
@@ -87,6 +88,7 @@ export const RepDrillDownDrawer = ({
   const [showSalesLog, setShowSalesLog] = useState(false);
   const [viewMode, setViewMode] = useState<'ring' | 'timeline'>('ring');
   const [showTimingChart, setShowTimingChart] = useState(false);
+  const [activeKpiMetric, setActiveKpiMetric] = useState<'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'fp' | null>(null);
   
   const userId = isOpen && rep ? rep.userId : undefined;
   
@@ -343,6 +345,7 @@ export const RepDrillDownDrawer = ({
               avgEndTime={avgTimes.avgEnd}
               onSummaryRowClick={timingDays.length > 0 ? () => setShowTimingChart(v => !v) : undefined}
               summaryExpanded={showTimingChart}
+              onKpiTap={(key) => setActiveKpiMetric(key)}
             />
 
             {/* Expandable Timing Chart */}
@@ -517,6 +520,18 @@ export const RepDrillDownDrawer = ({
           onOpenChange={setShowSalesLog}
           salesLog={(dayActivity?.salesLog as any) || []}
           repTimezone={extendedData?.timezone || undefined}
+        />
+
+        <RepKpiDetailDrawer
+          open={!!activeKpiMetric}
+          onOpenChange={(open) => !open && setActiveKpiMetric(null)}
+          metricKey={activeKpiMetric}
+          current={currentTotals}
+          sparklineHistory={sparklineHistory}
+          repName={rep.name}
+          periodLabel={periodLabel}
+          userId={rep.userId}
+          dateRange={dateRange}
         />
       </DrawerContent>
     </Drawer>
