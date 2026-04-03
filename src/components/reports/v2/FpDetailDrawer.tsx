@@ -16,6 +16,7 @@ interface FpDetailDrawerProps {
   totalPRMR: number;
   sparklineData?: number[];
   sparklineAvg?: number;
+  sparklineAvgLabel?: string;
 }
 
 /**

@@ -139,6 +139,7 @@ export const KpiDetailDrawer = ({
                 height={60}
                 goldLine={sparklineAvg}
                 showGoldLabel
+                goldLabelText={sparklineAvgLabel}
                 formatGoldLabel={(v) => metricKey === 'fp' ? v.toFixed(1) : Math.round(v).toLocaleString()}
               />
             </div>
