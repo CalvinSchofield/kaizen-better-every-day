@@ -1,7 +1,7 @@
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
 } from "@/components/ui/drawer";
-import { Crown, TrendingUp, Clock } from "lucide-react";
+import { Crown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ActiveRecord,
@@ -9,16 +9,23 @@ import {
   minutesToTimeStr,
   GRANULARITY_LABELS,
 } from "@/utils/teamRecordDetection";
+import { useState } from "react";
+import { RecordRepBreakdownDrawer } from "./RecordRepBreakdownDrawer";
 
 interface RecordDetailsDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   records: ActiveRecord[];
+  /** User IDs for fetching rep breakdown */
+  userIds?: string[];
+  /** Current date range */
+  dateRange?: { start: string; end: string };
 }
 
-export const RecordDetailsDrawer = ({ open, onOpenChange, records }: RecordDetailsDrawerProps) => {
+export const RecordDetailsDrawer = ({ open, onOpenChange, records, userIds, dateRange }: RecordDetailsDrawerProps) => {
   const confirmed = records.filter(r => r.isRecord);
   const onPace = records.filter(r => r.onPace && !r.isRecord);
+  const [selectedRecord, setSelectedRecord] = useState<ActiveRecord | null>(null);
 
   const formatValue = (key: string, value: number): string => {
     if (key === 'avgStartMinutes') return minutesToTimeStr(value);
@@ -29,17 +36,26 @@ export const RecordDetailsDrawer = ({ open, onOpenChange, records }: RecordDetai
   };
 
   const renderRecord = (record: ActiveRecord) => {
-    const granLabel = GRANULARITY_LABELS[record.granularity];
     const isTimeMetric = record.metricKey === 'avgStartMinutes';
-    const improvement = isTimeMetric
-      ? ((record.recordValue - record.currentValue) / record.recordValue * 100)
-      : ((record.currentValue - record.recordValue) / record.recordValue * 100);
+    
+    // Show previousRecordValue (the old record that was beaten), not recordValue
+    const prevValue = record.previousRecordValue ?? record.recordValue;
+    const prevDate = record.previousRecordDate ?? record.recordDate;
+    
+    // Only show improvement if there's an actual different previous record
+    const hasDifferentPrev = record.previousRecordValue !== undefined && record.previousRecordValue !== record.currentValue;
+    const improvement = hasDifferentPrev
+      ? isTimeMetric
+        ? ((record.previousRecordValue! - record.currentValue) / record.previousRecordValue! * 100)
+        : ((record.currentValue - record.previousRecordValue!) / record.previousRecordValue! * 100)
+      : 0;
 
     return (
-      <div
+      <button
         key={`${record.metricKey}-${record.dayOfWeekLabel || 'overall'}`}
+        onClick={() => setSelectedRecord(record)}
         className={cn(
-          "flex items-start gap-3 p-3 rounded-xl",
+          "w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all active:scale-[0.98]",
           record.isRecord ? "bg-amber-500/5 border border-amber-400/20" : "bg-muted/30"
         )}
       >
@@ -55,8 +71,10 @@ export const RecordDetailsDrawer = ({ open, onOpenChange, records }: RecordDetai
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground">
-            {record.dayOfWeekLabel || (record.isRecord ? `Best ${granLabel} ever` : `On pace for best ${granLabel}`)}
-            {' '}<span className="text-primary">{record.label}</span>
+            {record.contextualLabel || record.dayOfWeekLabel || `Best ${GRANULARITY_LABELS[record.granularity]} ever`}
+            {!record.contextualLabel && (
+              <>{' '}<span className="text-primary">{record.label}</span></>
+            )}
           </p>
           <div className="flex items-baseline gap-3 mt-1">
             <div>
@@ -65,62 +83,79 @@ export const RecordDetailsDrawer = ({ open, onOpenChange, records }: RecordDetai
               </span>
               <span className="text-xs text-muted-foreground ml-1">now</span>
             </div>
-            <div className="text-muted-foreground text-xs">
-              vs <span className="font-medium">{formatValue(record.metricKey, record.recordValue)}</span>
-              {' '}prev record
-            </div>
+            {hasDifferentPrev && (
+              <div className="text-muted-foreground text-xs">
+                vs <span className="font-medium">{formatValue(record.metricKey, record.previousRecordValue!)}</span>
+                {' '}prev record
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-[10px] text-muted-foreground">
-              {formatRecordDate(record.recordDate, record.granularity)} · {record.recordReps} reps
+              {hasDifferentPrev
+                ? `Prev: ${formatRecordDate(prevDate, record.granularity)} · ${record.recordReps} reps`
+                : `${formatRecordDate(record.recordDate, record.granularity)} · ${record.recordReps} reps`
+              }
             </span>
-            {record.isRecord && improvement > 0 && (
+            {hasDifferentPrev && improvement > 0 && (
               <span className="text-[10px] font-semibold text-green-600 dark:text-green-400">
                 +{improvement.toFixed(0)}% improvement
               </span>
             )}
           </div>
+          <p className="text-[10px] text-muted-foreground/60 mt-0.5">Tap for rep breakdown →</p>
         </div>
-      </div>
+      </button>
     );
   };
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle className="flex items-center gap-2">
-            <Crown className="w-5 h-5 text-amber-500" />
-            Group Records
-          </DrawerTitle>
-          <DrawerDescription>
-            Comparing current period against all-time group performance
-          </DrawerDescription>
-        </DrawerHeader>
-        <div className="px-4 pb-6 space-y-3 overflow-y-auto max-h-[60vh]">
-          {confirmed.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                🏆 Records Broken
-              </h4>
-              {confirmed.map(renderRecord)}
-            </div>
-          )}
-          {onPace.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-primary uppercase tracking-wider">
-                📈 On Pace
-              </h4>
-              {onPace.map(renderRecord)}
-            </div>
-          )}
-          {records.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No records detected for this period
-            </p>
-          )}
-        </div>
-      </DrawerContent>
-    </Drawer>
+    <>
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-amber-500" />
+              Group Records
+            </DrawerTitle>
+            <DrawerDescription>
+              Comparing current period against all-time group performance
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-3 overflow-y-auto max-h-[60vh]">
+            {confirmed.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  🏆 Records Broken
+                </h4>
+                {confirmed.map(renderRecord)}
+              </div>
+            )}
+            {onPace.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-primary uppercase tracking-wider">
+                  📈 On Pace
+                </h4>
+                {onPace.map(renderRecord)}
+              </div>
+            )}
+            {records.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No records detected for this period
+              </p>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Rep Breakdown Drawer */}
+      <RecordRepBreakdownDrawer
+        open={!!selectedRecord}
+        onOpenChange={(open) => { if (!open) setSelectedRecord(null); }}
+        record={selectedRecord}
+        userIds={userIds || []}
+        dateRange={dateRange}
+      />
+    </>
   );
 };
