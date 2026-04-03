@@ -333,6 +333,7 @@ export function detectActiveRecords(
   }
 
   const records = allTimeRecords[granularity];
+  const sb = allTimeRecords.secondBest[granularity];
   const minPeriods = 3; // Suppress if < 3 comparable periods
   const periodCount = allTimeRecords.periodCounts[granularity];
   if (periodCount < minPeriods) return [];
@@ -355,11 +356,14 @@ export function detectActiveRecords(
 
     if (isRecord || onPace) {
       const metricLabel = METRIC_LABELS[key] || key;
+      const prev = sb?.[key];
       result.push({
         metricKey: key,
         label: metricLabel,
         currentValue,
         recordValue: record.value,
+        previousRecordValue: prev?.value,
+        previousRecordDate: prev?.date,
         recordDate: record.date,
         recordReps: record.repsWorked,
         isRecord,
@@ -375,14 +379,17 @@ export function detectActiveRecords(
     const currentStart = currentTotals.avgStartMinutes;
     const recordStart = records.avgStartMinutes.value;
     const isRecord = currentStart <= recordStart;
-    const onPace = !isRecord && isLiveView && currentStart <= recordStart * 1.05; // within 5%
+    const onPace = !isRecord && isLiveView && currentStart <= recordStart * 1.05;
 
     if (isRecord || onPace) {
+      const prev = sb?.avgStartMinutes;
       result.push({
         metricKey: 'avgStartMinutes',
         label: 'Earliest Start',
         currentValue: currentStart,
         recordValue: recordStart,
+        previousRecordValue: prev?.value,
+        previousRecordDate: prev?.date,
         recordDate: records.avgStartMinutes.date,
         recordReps: records.avgStartMinutes.repsWorked,
         isRecord,
