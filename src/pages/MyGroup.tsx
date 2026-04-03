@@ -989,7 +989,7 @@ const MyGroup = () => {
             isRetrying={isRetrying}
             lastUpdated={lastUpdated}
           />
-        ) : isLeader ? (
+        ) : isFullLeader ? (
           hasUnrecoverableError ? (
             <DataLoadError
               title="Couldn't load your group"
@@ -1104,8 +1104,57 @@ const MyGroup = () => {
             </>
           )
         ) : (
-          // Non-leader view: Show their suggestions list
+          // Non-leader OR rookie recruiter view
           <div className="space-y-4">
+            {/* Assigned Tasks section for rookie recruiters */}
+            {isRookieRecruiter && assignedTasks.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Tasks Assigned to You ({assignedTasks.length})
+                </h3>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setAssignedTasksDrawerOpen(true)}
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  View {assignedTasks.length} assigned task{assignedTasks.length !== 1 ? 's' : ''}
+                </Button>
+              </div>
+            )}
+
+            {/* Rookie recruiter downline preview */}
+            {isRookieRecruiter && allRecruits.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Your Recruits ({allRecruits.length})
+                </h3>
+                <div className="space-y-2">
+                  {allRecruits.slice(0, 10).map((recruit) => (
+                    <div
+                      key={recruit.id}
+                      className="bg-card rounded-xl p-3 border border-border flex items-center justify-between cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => handleRecruitClick(recruit)}
+                    >
+                      <div>
+                        <span className="font-medium text-sm">{recruit.name}</span>
+                        <p className="text-xs text-muted-foreground">{recruit.stage || 'No stage'}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">{recruit.stage || '—'}</Badge>
+                    </div>
+                  ))}
+                  {allRecruits.length > 10 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      + {allRecruits.length - 10} more
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Suggestions section */}
             {mySuggestions && mySuggestions.length > 0 ? (
               <>
                 <p className="text-sm text-muted-foreground">
@@ -1173,7 +1222,7 @@ const MyGroup = () => {
                   ))}
                 </div>
               </>
-            ) : (
+            ) : !isRookieRecruiter || allRecruits.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium mb-2">Know someone who'd be great?</p>
@@ -1183,7 +1232,7 @@ const MyGroup = () => {
                   Add Someone
                 </Button>
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>
