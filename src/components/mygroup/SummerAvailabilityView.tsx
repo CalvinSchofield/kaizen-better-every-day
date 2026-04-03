@@ -36,6 +36,7 @@ interface PersonSummerInfo {
   userId: string;
   name: string;
   phone?: string;
+  profilePhotoUrl?: string | null;
   personalSummerStart: string | null;
   personalSummerEnd: string | null;
   excludedSummerDays: string[];
