@@ -436,6 +436,7 @@ export const ReportsV2Page = () => {
         pitches={funnelData.pitches}
         transitions={funnelData.transitions}
         presentations={funnelData.presentations}
+        closes={funnelData.closes}
         fp={totalFP}
         prmr={totalPRMR}
         avgStartTime={avgStartTime}
