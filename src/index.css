@@ -222,6 +222,9 @@ All colors MUST be HSL.
     --header-padding-top: max(0.75rem, var(--effective-safe-area-top));
     --nav-height: 4.5rem;
     --nav-padding-bottom: max(0.5rem, var(--effective-safe-area-bottom));
+    
+    /* Keyboard height - set dynamically by useKeyboardViewport hook */
+    --keyboard-height: 0px;
   }
 
   /* Compact layout in landscape orientation */
@@ -232,10 +235,6 @@ All colors MUST be HSL.
       --nav-height: 3.5rem;
       --nav-padding-bottom: max(0.25rem, var(--effective-safe-area-bottom));
     }
-  }
-    
-    /* Keyboard height - set dynamically by useKeyboardViewport hook */
-    --keyboard-height: 0px;
   }
   
   /* keyboard-open class is added by useKeyboardViewport hook — no height forcing */
