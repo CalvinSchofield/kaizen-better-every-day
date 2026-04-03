@@ -9,6 +9,8 @@ interface RepGoalSnapshotProps {
   goalPaceData: GoalPaceData;
   periodFp: number;
   periodLabel: string;
+  /** Actual days worked in this period (from daily_entries count) */
+  periodDaysWorked?: number;
   dateRangeStart?: Date;
   dateRangeEnd?: Date;
 }
