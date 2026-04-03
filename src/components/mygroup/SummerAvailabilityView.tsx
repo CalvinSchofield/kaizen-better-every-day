@@ -701,9 +701,15 @@ export const SummerAvailabilityView = () => {
       <UnifiedFilterDrawer
         open={filterOpen}
         onOpenChange={setFilterOpen}
-        state={filterState}
-        onChange={setFilterState}
+        filterState={filterState}
+        onFilterApply={setFilterState}
         mode="mygroup"
+        hierarchy={teamAccess?.hierarchy}
+        mgmtGroups={teamAccess?.mgmtGroups?.map(g => ({ id: g.id, name: g.name, teamIds: g.teamIds || [] }))}
+        teams={teamAccess?.teams?.map(t => ({ id: t.id, name: t.name }))}
+        accessibleReps={teamAccess?.accessibleReps?.map(r => ({ userId: r.userId, teamId: r.teamId, mgmtGroupId: r.mgmtGroupId, year: r.year })) || []}
+        accessLevel={accessLevel}
+        repCount={people.length}
       />
     </div>
   );
