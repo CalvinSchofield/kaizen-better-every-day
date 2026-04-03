@@ -25,7 +25,7 @@ import {
   ActivityRingHero, 
   FinalizedStatsGrid, 
   WeekActivityStrip,
-  ActivityCalendarDrawer,
+  
   ActivityRingLegend,
   LegendTriggerButton,
   SegmentDetailDrawer,
