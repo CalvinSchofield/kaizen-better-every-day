@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { MicroSparkline } from "./MicroSparkline";
@@ -12,6 +12,10 @@ interface RepPeriodKpisProps {
   repName: string;
   periodLabel: string;
   isLoading?: boolean;
+  avgStartTime?: string | null;
+  avgEndTime?: string | null;
+  onSummaryRowClick?: () => void;
+  summaryExpanded?: boolean;
 }
 
 type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'fp';
