@@ -358,20 +358,22 @@ export const RepDrillDownDrawer = ({
           </div>
 
           {/* Goal Progress */}
-          {downlineGoalPace.hasGoals && (
-            <div className="p-4 border-b">
-              <RepGoalSnapshot
-                goalPaceData={downlineGoalPace}
-                periodFp={downlineGoalPace.metricLabel === 'EFP' 
-                  ? (currentTotals?.prmr || 0) / 85 
-                  : (currentTotals?.fp || 0)}
-                periodLabel={periodLabel}
-                periodDaysWorked={currentTotals?.daysWorked}
-                dateRangeStart={dateRangeStart}
-                dateRangeEnd={dateRangeEnd}
-              />
-            </div>
-          )}
+          <div className="p-4 border-b">
+            <RepGoalSnapshot
+              goalPaceData={downlineGoalPace}
+              periodFp={downlineGoalPace.metricLabel === 'EFP' 
+                ? (currentTotals?.prmr || 0) / 85 
+                : (currentTotals?.fp || 0)}
+              periodLabel={periodLabel}
+              periodDaysWorked={currentTotals?.daysWorked}
+              dateRangeStart={dateRangeStart}
+              dateRangeEnd={dateRangeEnd}
+              onNudgeGoals={rep.phone && onSendSms ? () => {
+                const msg = `Hey ${getFirstName(rep.name)}, let's get your goals set up in the app! It only takes a couple minutes and helps us track your progress together.`;
+                onSendSms!(rep.phone!, msg);
+              } : undefined}
+            />
+          </div>
 
           {/* Day View Section */}
           <div className="border-b bg-muted/20">
