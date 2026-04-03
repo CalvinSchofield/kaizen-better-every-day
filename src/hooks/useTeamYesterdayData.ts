@@ -29,6 +29,7 @@ interface YesterdayRepData {
 interface UseTeamYesterdayDataParams {
   userIds: string[];
   excludeUserIds?: string[];
+  accessibleReps?: any[];
 }
 
 // Get "yesterday" date string for a given timezone

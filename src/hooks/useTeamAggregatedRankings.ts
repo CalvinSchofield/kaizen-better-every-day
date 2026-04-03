@@ -43,6 +43,7 @@ interface UseTeamAggregatedRankingsProps {
   userIds: string[];
   excludeUserIds?: string[];
   period: 'week' | 'month' | 'season' | 'ytd';
+  accessibleReps?: any[];
 }
 
 const getSundayOfWeek = (date: Date): Date => {

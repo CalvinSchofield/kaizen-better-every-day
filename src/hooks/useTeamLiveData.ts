@@ -50,6 +50,7 @@ interface LiveRepData {
 interface UseTeamLiveDataParams {
   userIds: string[];
   excludeUserIds?: string[];
+  accessibleReps?: any[];
 }
 
 // Get "today" date string for a given timezone
