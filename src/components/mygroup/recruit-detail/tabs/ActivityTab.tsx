@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format, parseISO, isToday, isYesterday, isThisWeek, isFuture, isTomorrow, isPast } from "date-fns";
+import { format, parseISO, isToday, isYesterday, isThisWeek, isFuture, isTomorrow, isPast, startOfDay } from "date-fns";
 import { 
   Phone, 
   MessageSquare, 
@@ -13,6 +13,8 @@ import {
   PhoneMissed,
   UserCircle,
   Sparkles,
+  ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -257,6 +259,45 @@ export const ActivityTab = ({
     return format(parseISO(activity.created_at), 'yyyy-MM-dd');
   };
 
+  // ── Derive "virtual scheduled tasks" from non-next_step activities that have next_action_due ──
+  // This makes scheduled follow-ups from calls/texts appear as prominent cards under their due date
+  interface VirtualScheduledTask {
+    id: string; // parent activity id with suffix
+    parentActivity: RecruitActivity;
+    nextAction: string;
+    nextActionDue: string;
+    isCompleted: boolean;
+    isOverdue: boolean;
+    isDueToday: boolean;
+    assignedToUserId: string | null;
+  }
+
+  const virtualScheduledTasks: VirtualScheduledTask[] = activities
+    .filter(a => 
+      a.activity_type !== 'next_step' && 
+      a.next_action_due && 
+      a.next_action
+    )
+    .map(a => {
+      const isCompleted = a.assignment_status === 'completed' || !!a.completed_at;
+      const dueDate = parseISO(a.next_action_due!);
+      const isDueToday = isToday(dueDate);
+      const isOverdueTask = !isCompleted && isPast(startOfDay(dueDate)) && !isDueToday;
+      return {
+        id: `vst-${a.id}`,
+        parentActivity: a,
+        nextAction: a.next_action!,
+        nextActionDue: a.next_action_due!,
+        isCompleted,
+        isOverdue: isOverdueTask,
+        isDueToday,
+        assignedToUserId: a.assigned_to_user_id,
+      };
+    });
+
+  // Build a set of parent activity IDs that have virtual scheduled tasks (to suppress the "Next:" pill)
+  const activitiesWithVirtualTasks = new Set(virtualScheduledTasks.map(vst => vst.parentActivity.id));
+
   // Group activities by their relevant date
   const groupedActivities = activities.reduce((groups, activity) => {
     const dateKey = getActivityDateKey(activity);
@@ -266,6 +307,21 @@ export const ActivityTab = ({
     groups[dateKey].push(activity);
     return groups;
   }, {} as Record<string, RecruitActivity[]>);
+
+  // Inject virtual scheduled tasks into groups under their due dates
+  // Store them separately so we can render them distinctly
+  const virtualTasksByDate: Record<string, VirtualScheduledTask[]> = {};
+  virtualScheduledTasks.forEach(vst => {
+    const dateKey = vst.nextActionDue;
+    if (!virtualTasksByDate[dateKey]) {
+      virtualTasksByDate[dateKey] = [];
+    }
+    virtualTasksByDate[dateKey].push(vst);
+    // Ensure the date appears in the grouped activities keys
+    if (!groupedActivities[dateKey]) {
+      groupedActivities[dateKey] = [];
+    }
+  });
 
   // Sort dates: strict future dates first (ascending), then today, then past dates (descending)
   const sortedDates = Object.keys(groupedActivities).sort((a, b) => {
@@ -334,6 +390,7 @@ export const ActivityTab = ({
           {sortedDates.map((dateKey) => {
             const dateForHeader = parseISO(dateKey);
             const isFutureDate = isFuture(dateForHeader) && !isToday(dateForHeader);
+            const virtualTasksForDate = virtualTasksByDate[dateKey] || [];
             
             return (
               <div key={dateKey}>
@@ -349,6 +406,72 @@ export const ActivityTab = ({
                 
                 {/* Activities for this date */}
                 <div className="space-y-2">
+                  {/* Virtual scheduled tasks — prominent cards */}
+                  {virtualTasksForDate.map((vst) => {
+                    const assigneeName = vst.assignedToUserId && vst.assignedToUserId !== currentUserId
+                      ? assigneeNames[vst.assignedToUserId]
+                      : null;
+                    
+                    return (
+                      <button
+                        key={vst.id}
+                        className={`w-full text-left p-3 rounded-lg transition-colors border ${
+                          vst.isCompleted
+                            ? 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10'
+                            : vst.isOverdue
+                            ? 'bg-destructive/5 border-destructive/20 hover:bg-destructive/10'
+                            : 'bg-amber-500/8 border-amber-500/30 hover:bg-amber-500/15'
+                        }`}
+                        onClick={() => onActivityClick(vst.parentActivity)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 shrink-0">
+                            {vst.isCompleted ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : vst.isOverdue ? (
+                              <AlertCircle className="h-4 w-4 text-destructive" />
+                            ) : (
+                              <Calendar className="h-4 w-4 text-amber-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`text-sm font-medium shrink-0 ${
+                                  vst.isCompleted ? 'text-green-600' : vst.isOverdue ? 'text-destructive' : 'text-amber-600'
+                                }`}>
+                                  {vst.isCompleted ? 'Completed' : vst.isOverdue ? 'Overdue' : 'Scheduled'}
+                                </span>
+                                {vst.isDueToday && !vst.isCompleted && (
+                                  <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                    Due today
+                                  </Badge>
+                                )}
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                            </div>
+                            
+                            {assigneeName && (
+                              <div className="mt-1">
+                                <Badge variant="outline" className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 border-indigo-500/30">
+                                  <UserCircle className="h-3 w-3" />
+                                  {assigneeName}
+                                </Badge>
+                              </div>
+                            )}
+                            
+                            <p className={`text-xs mt-1 ${
+                              vst.isCompleted ? 'text-muted-foreground/70 line-through' : 'text-foreground/80'
+                            }`}>
+                              {vst.nextAction}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  {/* Regular activities */}
                   {groupedActivities[dateKey].map((activity) => {
                     const isAssignedToOther = activity.assigned_to_user_id && 
                       activity.assigned_to_user_id !== currentUserId;
@@ -466,10 +589,16 @@ export const ActivityTab = ({
                           )}
                           
                           {/* Show "Next:" badge only if it's a non-scheduled activity with unique next action */}
-                          {!isScheduledActivity && hasUniqueNextAction && (
-                            <div className="mt-1.5 flex items-center gap-2">
-                              <Badge variant="outline" className="text-[10px] max-w-full">
-                                <span className="truncate">Next: {activity.next_action}</span>
+                          {!isScheduledActivity && hasUniqueNextAction && !activitiesWithVirtualTasks.has(activity.id) && (
+                            <div className="mt-1.5">
+                              <Badge variant="outline" className="text-[10px] max-w-full gap-1">
+                                <Calendar className="h-2.5 w-2.5 shrink-0" />
+                                <span className="truncate">Scheduled: {activity.next_action}</span>
+                                {activity.next_action_due && (
+                                  <span className="text-muted-foreground shrink-0">
+                                    · {format(parseISO(activity.next_action_due), 'MMM d')}
+                                  </span>
+                                )}
                               </Badge>
                             </div>
                           )}
