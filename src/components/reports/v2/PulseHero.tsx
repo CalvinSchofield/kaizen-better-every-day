@@ -6,6 +6,8 @@ import { ActiveRecord } from "@/utils/teamRecordDetection";
 import { RecordBanner } from "./RecordBanner";
 import { MicroSparkline } from "./MicroSparkline";
 import { ComparisonTotals, SparklinePoint } from "@/hooks/useReportsV2Comparison";
+import { IntradayPaceResult, generatePacePulseSentence } from "@/utils/intradayPaceCalculations";
+import { IntradayPaceBar } from "./IntradayPaceBar";
 
 interface PulseHeroProps {
   doors: number;
