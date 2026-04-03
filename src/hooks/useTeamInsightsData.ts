@@ -33,6 +33,7 @@ interface RepInfo {
   timezone?: string;
   teamId?: string | null;
   teamName?: string;
+  mgmtGroupId?: string | null;
   mgmtGroupName?: string;
   recruiterName?: string | null;
 }
@@ -185,6 +186,7 @@ interface TeamInsightsData {
     timezone?: string;
     teamId?: string | null;
     teamName: string;
+    mgmtGroupId?: string | null;
     mgmtGroupName: string;
     recruiterName?: string | null;
     doors: number;
@@ -1085,6 +1087,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           timezone: rep.timezone,
           teamId: rep.teamId || null,
           teamName: rep.teamName || 'No Team',
+          mgmtGroupId: rep.mgmtGroupId || null,
           mgmtGroupName: rep.mgmtGroupName || 'No Group',
           recruiterName: rep.recruiterName || null,
           doors: repTotals.doors,

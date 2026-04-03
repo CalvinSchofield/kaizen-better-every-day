@@ -219,6 +219,7 @@ Deno.serve(async (req) => {
         ...rep,
         teamId: teamId || null,
         teamName: teamId ? teamNameMap[teamId] : null,
+        mgmtGroupId: mgmtId || null,
         mgmtGroupName: mgmtId ? mgmtNameMap[mgmtId] : null,
         recruiterName: rep.recruiter || null,
       };

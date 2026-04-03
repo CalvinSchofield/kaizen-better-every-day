@@ -1,6 +1,7 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Users } from "lucide-react";
-import { HierarchicalRepList } from "./HierarchicalRepList";
+import { OrgGroupedRepList, type OrgRepData } from "@/components/reports/OrgGroupedRepList";
+import type { AccessLevel } from "@/utils/roleHierarchy";
 
 interface WorkingRepData {
   userId: string;
@@ -9,7 +10,9 @@ interface WorkingRepData {
   timezone?: string;
   teamId?: string | null;
   teamName?: string | null;
-  recruiterName?: string | null; // For organic hierarchy grouping
+  mgmtGroupId?: string | null;
+  mgmtGroupName?: string | null;
+  recruiterName?: string | null;
   workStartTime?: string;
   workEndTime?: string;
   avgStartTime?: string;
@@ -32,6 +35,7 @@ interface WorkingRepsDrawerProps {
   periodLabel: string;
   isLiveView?: boolean;
   onRepClick?: (userId: string) => void;
+  accessLevel?: AccessLevel;
 }
 
 export const WorkingRepsDrawer = ({
@@ -41,7 +45,28 @@ export const WorkingRepsDrawer = ({
   periodLabel,
   isLiveView,
   onRepClick,
+  accessLevel = 'team_lead',
 }: WorkingRepsDrawerProps) => {
+  // Convert to OrgRepData format
+  const orgReps: OrgRepData[] = reps.map(rep => ({
+    userId: rep.userId,
+    name: rep.name,
+    year: rep.year,
+    teamId: rep.teamId,
+    teamName: rep.teamName,
+    mgmtGroupId: rep.mgmtGroupId,
+    mgmtGroupName: rep.mgmtGroupName,
+    recruiterName: rep.recruiterName,
+    fp: rep.fp,
+    prmr: rep.prmr,
+    doors: rep.doors,
+    presentations: rep.presentations,
+    transitions: rep.transitions,
+    pitches: 0,
+    hoursWorked: rep.hoursWorked,
+    isWorking: rep.isWorking,
+  }));
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
@@ -53,10 +78,9 @@ export const WorkingRepsDrawer = ({
         </DrawerHeader>
         
         <div className="px-4 pb-6 overflow-y-auto">
-          <HierarchicalRepList
-            reps={reps}
-            periodLabel={periodLabel}
-            isLiveView={isLiveView}
+          <OrgGroupedRepList
+            reps={orgReps}
+            accessLevel={accessLevel}
             onRepClick={onRepClick}
           />
         </div>

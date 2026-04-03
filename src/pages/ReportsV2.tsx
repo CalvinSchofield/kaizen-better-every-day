@@ -551,6 +551,7 @@ export const ReportsV2Page = () => {
       <WorkingRepsDrawer
         open={showWorkingDrawer}
         onOpenChange={setShowWorkingDrawer}
+        accessLevel={teamAccess?.accessLevel || 'team_lead'}
         reps={repsWithEffort.map(rep => ({
           userId: rep.userId,
           name: rep.name,
@@ -558,6 +559,8 @@ export const ReportsV2Page = () => {
           timezone: rep.timezone,
           teamId: rep.teamId,
           teamName: rep.teamName,
+          mgmtGroupId: rep.mgmtGroupId,
+          mgmtGroupName: rep.mgmtGroupName,
           recruiterName: rep.recruiterName,
           workStartTime: rep.workStartTime,
           workEndTime: rep.workEndTime,
