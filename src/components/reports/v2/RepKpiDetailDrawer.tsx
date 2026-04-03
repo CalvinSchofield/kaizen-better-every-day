@@ -105,7 +105,7 @@ export const RepKpiDetailDrawer = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[88vh]">
+      <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto z-[70] rounded-t-xl">
         <SheetHeader className="pb-2">
           <SheetTitle>{METRIC_LABELS[metricKey]}</SheetTitle>
           <SheetDescription>{repName} · {periodLabel}</SheetDescription>
