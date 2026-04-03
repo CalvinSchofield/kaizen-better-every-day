@@ -262,10 +262,10 @@ const MyGroup = () => {
   
   // Get total unread activity count for prompts and badges
   const unreadActivityCount = useTotalUnreadCount(recruitIds);
-  const showUnreadPrompt = isLeader && unreadActivityCount > 0 && 
+  const showUnreadPrompt = isFullLeader && unreadActivityCount > 0 && 
     (dismissedAtUnreadCount === null || unreadActivityCount > dismissedAtUnreadCount);
 
-  // Fetch tasks assigned to current user
+  // Fetch tasks assigned to current user (all leaders including rookies)
   const { data: assignedTasks = [] } = useAssignedTasks(allRecruits);
 
   // Fetch rep data for training progress tracking
