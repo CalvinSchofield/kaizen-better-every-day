@@ -1,11 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { GOAL_TIER_CONFIG } from '@/config/goalTiers';
 import { formatFP } from '@/lib/formatters';
 import type { GoalPaceData, PaceSeverity } from '@/hooks/useGoalPaceCalculator';
-import { TrendingDown, TrendingUp, Minus, Send } from 'lucide-react';
+import { TrendingDown, TrendingUp, Minus, Send, ChevronDown } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface RepGoalSnapshotProps {
   goalPaceData: GoalPaceData;
@@ -16,6 +17,8 @@ interface RepGoalSnapshotProps {
   dateRangeEnd?: Date;
   onNudgeGoals?: () => void;
 }
+
+const SUMMER_TIERS = ['mustDo', 'willDo', 'couldDo'] as const;
 
 export const RepGoalSnapshot = ({
   goalPaceData,
@@ -36,24 +39,33 @@ export const RepGoalSnapshot = ({
     currentProgress,
     season,
     hasGoals,
+    allTiers,
   } = goalPaceData;
 
-  const tierKey = focusTier === 'preseason' ? 'preseason' : focusTier;
-  const tierCfg = GOAL_TIER_CONFIG[tierKey as keyof typeof GOAL_TIER_CONFIG];
-  const seasonGoal = unbufferedGoal || activeGoal;
+  const isPreseason = focusTier === 'preseason';
+  const [selectedTierKey, setSelectedTierKey] = useState<string | null>(null);
+  const [showTierPicker, setShowTierPicker] = useState(false);
 
-  const ytdPct = seasonGoal > 0 ? Math.min(100, (currentProgress / seasonGoal) * 100) : 0;
+  // Resolve which tier to display
+  const activeTierKey = selectedTierKey && !isPreseason ? selectedTierKey : (isPreseason ? 'preseason' : focusTier);
+  const selectedTierData = allTiers?.find(t => t.key === activeTierKey);
+  const displayGoal = selectedTierData?.goal || unbufferedGoal || activeGoal;
+  const displayLabel = isPreseason ? 'Preseason' : (selectedTierData ? GOAL_TIER_CONFIG[activeTierKey as keyof typeof GOAL_TIER_CONFIG]?.label || tierLabel : tierLabel);
+
+  const tierCfg = GOAL_TIER_CONFIG[activeTierKey as keyof typeof GOAL_TIER_CONFIG];
+
+  const ytdPct = displayGoal > 0 ? Math.min(100, (currentProgress / displayGoal) * 100) : 0;
 
   const ytdExpectedPct = useMemo(() => {
-    if (seasonGoal <= 0 || season.plannedDaysTotal <= 0) return 0;
-    const expected = (activeGoal / season.plannedDaysTotal) * season.plannedDaysElapsed;
-    return Math.min(100, Math.max(0, (expected / seasonGoal) * 100));
-  }, [activeGoal, seasonGoal, season.plannedDaysTotal, season.plannedDaysElapsed]);
+    if (displayGoal <= 0 || season.plannedDaysTotal <= 0) return 0;
+    const expected = (displayGoal / season.plannedDaysTotal) * season.plannedDaysElapsed;
+    return Math.min(100, Math.max(0, (expected / displayGoal) * 100));
+  }, [displayGoal, season.plannedDaysTotal, season.plannedDaysElapsed]);
 
   const originalDailyPace = useMemo(() => {
-    if (season.plannedDaysTotal <= 0 || activeGoal <= 0) return 0;
-    return activeGoal / season.plannedDaysTotal;
-  }, [activeGoal, season.plannedDaysTotal]);
+    if (season.plannedDaysTotal <= 0 || displayGoal <= 0) return 0;
+    return displayGoal / season.plannedDaysTotal;
+  }, [displayGoal, season.plannedDaysTotal]);
 
   const periodExpected = useMemo(() => {
     if (originalDailyPace <= 0) return 0;
@@ -102,6 +114,8 @@ export const RepGoalSnapshot = ({
     );
   }
 
+  const canSwitchTiers = !isPreseason && allTiers && allTiers.length > 1;
+
   return (
     <div className="space-y-3">
       {/* ── Section 1: Season Standing ── */}
@@ -111,12 +125,58 @@ export const RepGoalSnapshot = ({
             Goal Progress
           </span>
           {tierCfg && (
-            <span className={cn(
-              "text-[10px] font-bold px-2.5 py-0.5 rounded-full",
-              tierCfg.bgColor, tierCfg.color,
-            )}>
-              {tierLabel}
-            </span>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => canSwitchTiers && setShowTierPicker(v => !v)}
+                className={cn(
+                  "text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 transition-colors",
+                  tierCfg.bgColor, tierCfg.color,
+                  canSwitchTiers && "cursor-pointer active:scale-95"
+                )}
+              >
+                {displayLabel}
+                {canSwitchTiers && <ChevronDown className="w-2.5 h-2.5" />}
+              </button>
+
+              {/* Tier picker dropdown */}
+              <AnimatePresence>
+                {showTierPicker && canSwitchTiers && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-1 z-20 bg-popover border border-border rounded-lg shadow-lg overflow-hidden min-w-[120px]"
+                  >
+                    {SUMMER_TIERS.map(tierKey => {
+                      const cfg = GOAL_TIER_CONFIG[tierKey];
+                      const tierData = allTiers?.find(t => t.key === tierKey);
+                      const isActive = activeTierKey === tierKey;
+                      return (
+                        <button
+                          key={tierKey}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTierKey(tierKey);
+                            setShowTierPicker(false);
+                          }}
+                          className={cn(
+                            "w-full px-3 py-2 text-left flex items-center justify-between gap-3 text-xs transition-colors",
+                            isActive ? "bg-accent" : "hover:bg-accent/50"
+                          )}
+                        >
+                          <span className={cn("font-semibold", cfg.color)}>{cfg.label}</span>
+                          <span className="text-muted-foreground tabular-nums">
+                            {tierData ? formatFP(tierData.goal) : '—'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
         </div>
 
@@ -126,7 +186,7 @@ export const RepGoalSnapshot = ({
               {formatFP(currentProgress)}
             </span>
             <span className="text-sm text-muted-foreground font-medium">
-              / {formatFP(seasonGoal)} {metricLabel}
+              / {formatFP(displayGoal)} {metricLabel}
             </span>
           </div>
           <div className={cn(
