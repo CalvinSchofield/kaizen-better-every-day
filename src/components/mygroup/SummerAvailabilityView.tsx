@@ -6,12 +6,14 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   Sun, AlertCircle, Calendar, ChevronLeft, ChevronRight,
   Bell, Pencil, ChevronDown, ChevronUp, Filter, Palmtree
 } from "lucide-react";
-import { format, addDays, startOfWeek, endOfWeek, isBefore, isAfter, differenceInDays } from "date-fns";
+import { format, addDays, startOfWeek } from "date-fns";
+import { getInitials } from "@/utils/nameUtils";
 import { stripEmojis } from "./recruit-detail/utils";
 import { toast } from "sonner";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
@@ -34,6 +36,7 @@ interface PersonSummerInfo {
   userId: string;
   name: string;
   phone?: string;
+  profilePhotoUrl?: string | null;
   personalSummerStart: string | null;
   personalSummerEnd: string | null;
   excludedSummerDays: string[];
@@ -81,7 +84,7 @@ export const SummerAvailabilityView = () => {
       const { user } = await getSessionSafe();
       if (!user) return null;
       const [repResult, configResult, goalsResult] = await Promise.all([
-        supabase.from('reps').select('user_id, name, phone, year, stage').eq('user_id', user.id).single(),
+        supabase.from('reps').select('user_id, name, phone, year, stage, profile_photo_url').eq('user_id', user.id).single(),
         supabase.from('season_config').select('personal_summer_start, personal_summer_end, excluded_summer_days').eq('user_id', user.id).single(),
         supabase.from('rep_goals').select('setup_complete').eq('user_id', user.id).maybeSingle(),
       ]);
@@ -95,7 +98,7 @@ export const SummerAvailabilityView = () => {
     queryFn: async () => {
       if (!teamAccess?.accessibleUserIds?.length) return { reps: [], configs: [], goals: [] };
       const [repsResult, configsResult, goalsResult] = await Promise.all([
-        supabase.from('reps').select('user_id, name, phone, year, stage').in('user_id', teamAccess.accessibleUserIds),
+        supabase.from('reps').select('user_id, name, phone, year, stage, profile_photo_url').in('user_id', teamAccess.accessibleUserIds),
         supabase.from('season_config').select('user_id, personal_summer_start, personal_summer_end, excluded_summer_days').in('user_id', teamAccess.accessibleUserIds),
         supabase.from('rep_goals').select('user_id, setup_complete').in('user_id', teamAccess.accessibleUserIds),
       ]);
@@ -126,6 +129,7 @@ export const SummerAvailabilityView = () => {
           userId: currentUserData.rep.user_id,
           name: currentUserData.rep.name,
           phone: currentUserData.rep.phone || undefined,
+          profilePhotoUrl: currentUserData.rep.profile_photo_url,
           personalSummerStart: currentUserData.config?.personal_summer_start || null,
           personalSummerEnd: currentUserData.config?.personal_summer_end || null,
           excludedSummerDays: currentUserData.config?.excluded_summer_days || [],
@@ -150,6 +154,7 @@ export const SummerAvailabilityView = () => {
         userId: accessibleRep.userId,
         name: rep?.name || accessibleRep.name,
         phone: rep?.phone || accessibleRep.phone || undefined,
+        profilePhotoUrl: rep?.profile_photo_url || null,
         personalSummerStart: config?.personal_summer_start || null,
         personalSummerEnd: config?.personal_summer_end || null,
         excludedSummerDays: config?.excluded_summer_days || [],
@@ -220,17 +225,33 @@ export const SummerAvailabilityView = () => {
     return { readyPeople: ready, needsSetupPeople: needs };
   }, [people]);
 
-  // Stats - Off this week (count reps who have at least one off/excluded day in the displayed week)
+  // Stats - Off this week: only count reps with explicit excluded days this week (not out-of-range)
   const offThisWeekCount = useMemo(() => {
     const weekDateStrs = weekDays.map(d => format(d, 'yyyy-MM-dd'));
     return readyPeople.filter(p => {
-      return weekDateStrs.some(dayStr => {
-        const start = p.personalSummerStart!;
-        const end = p.personalSummerEnd!;
-        if (dayStr < start || dayStr > end) return true;
-        return p.excludedSummerDays.includes(dayStr);
-      });
+      return weekDateStrs.some(dayStr => p.excludedSummerDays.includes(dayStr));
     }).length;
+  }, [readyPeople, weekDays]);
+
+  // Split ready people into active (in-range this week) and out-of-range
+  const { activePeople, outOfRangePeople } = useMemo(() => {
+    const weekDateStrs = weekDays.map(d => format(d, 'yyyy-MM-dd'));
+    const active: PersonSummerInfo[] = [];
+    const outOfRange: PersonSummerInfo[] = [];
+
+    readyPeople.forEach(p => {
+      const start = p.personalSummerStart!;
+      const end = p.personalSummerEnd!;
+      // A rep is "in range" if any day of the week overlaps their summer range
+      const anyDayInRange = weekDateStrs.some(d => d >= start && d <= end);
+      if (anyDayInRange) {
+        active.push(p);
+      } else {
+        outOfRange.push(p);
+      }
+    });
+
+    return { activePeople: active, outOfRangePeople: outOfRange };
   }, [readyPeople, weekDays]);
 
   // Check if a rep is off on a given date
@@ -423,14 +444,14 @@ export const SummerAvailabilityView = () => {
           })}
         </div>
 
-        {/* Rep rows */}
-        {readyPeople.length === 0 ? (
+        {/* Active rep rows */}
+        {activePeople.length === 0 && outOfRangePeople.length === 0 ? (
           <div className="p-6 text-center text-sm text-muted-foreground">
             No reps with dates set match your filter
           </div>
         ) : (
           <div className="divide-y divide-border/50">
-            {readyPeople.map((person) => {
+            {activePeople.map((person) => {
               const isExpanded = expandedRepId === person.userId;
               const firstName = getFirstName(person.name);
 
@@ -446,9 +467,12 @@ export const SummerAvailabilityView = () => {
                     onClick={() => toggleExpand(person.userId)}
                   >
                     <div className="px-3 py-2.5 flex items-center gap-2 min-w-0">
-                      <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-[11px] font-bold text-primary shrink-0">
-                        {firstName[0]}
-                      </div>
+                      <Avatar className="h-7 w-7 shrink-0">
+                        {person.profilePhotoUrl && <AvatarImage src={person.profilePhotoUrl} />}
+                        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                          {getInitials(person.name)}
+                        </AvatarFallback>
+                      </Avatar>
                       <span className="text-xs font-medium text-foreground truncate">
                         {firstName}
                         {person.isSelf && <span className="text-muted-foreground ml-1">(you)</span>}
@@ -579,6 +603,55 @@ export const SummerAvailabilityView = () => {
         )}
       </div>
 
+      {/* Out of Range Section (collapsed by default) */}
+      {outOfRangePeople.length > 0 && (
+        <Collapsible defaultOpen={false}>
+          <CollapsibleTrigger className="w-full flex items-center justify-between px-1 py-1">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">
+                Out of Range
+              </span>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                {outOfRangePeople.length}
+              </Badge>
+            </div>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-1 mt-1">
+              {outOfRangePeople.map(person => {
+                const firstName = getFirstName(person.name);
+                const notStarted = weekDays.every(d => format(d, 'yyyy-MM-dd') < person.personalSummerStart!);
+                return (
+                  <div
+                    key={person.userId}
+                    className="flex items-center justify-between bg-muted/20 border border-border/30 rounded-xl px-3 py-2"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar className="h-7 w-7 shrink-0 opacity-60">
+                        {person.profilePhotoUrl && <AvatarImage src={person.profilePhotoUrl} />}
+                        <AvatarFallback className="text-[10px] font-bold bg-muted text-muted-foreground">
+                          {getInitials(person.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground truncate">{firstName}</p>
+                        <p className="text-[10px] text-muted-foreground/70">
+                          {notStarted
+                            ? `Starts ${format(parseLocalDate(person.personalSummerStart!), 'MMM d')}`
+                            : `Ended ${format(parseLocalDate(person.personalSummerEnd!), 'MMM d')}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
         <div className="flex items-center gap-1.5">
@@ -640,9 +713,12 @@ export const SummerAvailabilityView = () => {
                         className="flex items-center justify-between bg-muted/30 border border-border/50 rounded-xl px-3 py-2.5"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="h-8 w-8 rounded-full bg-destructive/10 flex items-center justify-center text-xs font-bold text-destructive shrink-0">
-                            {firstName[0]}
-                          </div>
+                          <Avatar className="h-8 w-8 shrink-0">
+                            {person.profilePhotoUrl && <AvatarImage src={person.profilePhotoUrl} />}
+                            <AvatarFallback className="text-[10px] font-bold bg-destructive/10 text-destructive">
+                              {getInitials(person.name)}
+                            </AvatarFallback>
+                          </Avatar>
                           <div className="min-w-0">
                             <p className="text-xs font-medium text-foreground truncate">
                               {firstName}
