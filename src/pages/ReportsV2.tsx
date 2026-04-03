@@ -165,6 +165,30 @@ export const ReportsV2Page = () => {
     isLiveView: effectivePreset === 'today',
   });
 
+  // Comparison period hook for momentum indicators
+  const {
+    comparisonTotals,
+    sparklineHistory,
+    comparisonLabel,
+    isLoading: comparisonLoading,
+  } = useReportsV2Comparison({
+    userIds: filteredUserIds,
+    dateRange,
+    preset: effectivePreset || 'today',
+  });
+
+  // Build comparison daily data for the trend chart overlay
+  const comparisonDailyData = useMemo(() => {
+    if (!sparklineHistory || sparklineHistory.length < 2) return undefined;
+    // Only show on multi-day views
+    if (effectivePreset === 'today' || effectivePreset === 'yesterday') return undefined;
+    return sparklineHistory.map(p => ({
+      date: p.label,
+      fp: p.fp,
+      presentations: p.presentations,
+    }));
+  }, [sparklineHistory, effectivePreset]);
+
   const getPeriodLabel = () => {
     if (effectivePreset === 'custom' && customStartDate && customEndDate) {
       return `${format(customStartDate, 'MMM d')} - ${format(customEndDate, 'MMM d')}`;
