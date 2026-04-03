@@ -95,6 +95,8 @@ export interface RepWithEffort {
   timezone?: string;
   teamId?: string | null;
   teamName?: string;
+  mgmtGroupId?: string | null;
+  mgmtGroupName?: string | null;
   recruiterName?: string | null; // For organic hierarchy grouping
   phone?: string;
   doors: number;
