@@ -44,6 +44,7 @@ interface RepGoalInfo {
   year: string;
   stage?: string;
   profilePhotoUrl?: string | null;
+  efpModeEnabled: boolean;
   // Goals
   preseasonGoal: number;
   mustDoGoal: number;
@@ -55,12 +56,14 @@ interface RepGoalInfo {
   // Dates
   personalSummerStart: string | null;
   personalSummerEnd: string | null;
-  // Progress (full season)
+  // Progress (full season) — uses the rep's metric (FP+ or EFP)
+  currentProgress: number;
   currentFpPlus: number;
   currentPrmr: number;
   knockingDays: number;
   futurePlannedDays: number;
   // Period-filtered progress
+  periodProgress: number;
   periodFpPlus: number;
   periodDoors: number;
   periodKnockingDays: number;
@@ -172,7 +175,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
       if (!filteredUserIds.length) return [];
       const { data } = await supabase
         .from('reps')
-        .select('id, user_id, name, year, stage, profile_photo_url')
+        .select('id, user_id, name, year, stage, profile_photo_url, efp_mode_enabled')
         .in('user_id', filteredUserIds);
       return data || [];
     },
@@ -323,13 +326,21 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
         ).length;
 
+        // Determine if this rep uses EFP mode
+        const isVet = rep.year === 'Vet';
+        const efpModeEnabled = isVet && ((rep as any).efp_mode_enabled || false);
+        const calculateEfp = (prmr: number) => prmr / 85;
+
+        // The rep's progress in their own metric
+        const currentProgress = efpModeEnabled ? calculateEfp(currentPrmr) : currentFpPlus;
+
         // Pace calculation using the SELECTED tier (not the rep's focus tier)
         const activeGoal = getGoalForTier(goals, activeTier, isRepInPreseason);
 
         const paceInput: SalesPaceInput = {
           goals: goals ? {
             preseason_fp_goal: goals.preseason_fp_goal,
-            must_do_fp_goal: activeTier === 'mustDo' ? goals.must_do_fp_goal : goals.must_do_fp_goal,
+            must_do_fp_goal: goals.must_do_fp_goal,
             will_do_fp_goal: goals.will_do_fp_goal,
             could_do_fp_goal: goals.could_do_fp_goal,
             cancel_rate: goals.cancel_rate,
@@ -339,8 +350,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           knockingDays,
           currentFpPlus,
           currentPrmr,
-          efpModeEnabled: false,
-          calculateEfp: (prmr) => prmr / 85,
+          efpModeEnabled,
+          calculateEfp,
           personalSummerStart,
           activeTier: isRepInPreseason ? 'preseason' : activeTier,
         };
@@ -364,7 +375,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           futurePlannedDays = paceResult.futurePlannedDays;
           daysRemaining = paceResult.futurePlannedDays;
           const goalToUse = paceResult.fundedGoal;
-          pacePercentage = goalToUse > 0 ? (currentFpPlus / goalToUse) * 100 : 0;
+          pacePercentage = goalToUse > 0 ? (currentProgress / goalToUse) * 100 : 0;
 
           if (variance >= 0) {
             paceStatus = variance > 1 ? 'ahead' : 'on-track';
@@ -379,16 +390,24 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           const totalFuturePlanned = plannedDays.filter(d => d.planned_date > todayStr).length;
           futurePlannedDays = totalFuturePlanned;
           daysRemaining = totalFuturePlanned;
-          if (knockingDays === 0 && currentFpPlus === 0) {
+          if (knockingDays === 0 && currentProgress === 0) {
             paceStatus = totalFuturePlanned > 0 ? 'on-track' : 'behind';
           } else {
-            pacePercentage = activeGoal > 0 ? (currentFpPlus / activeGoal) * 100 : 0;
+            pacePercentage = activeGoal > 0 ? (currentProgress / activeGoal) * 100 : 0;
             paceStatus = 'behind';
           }
           if (daysRemaining > 0 && activeGoal > 0) {
-            dailyTarget = Math.max(0, activeGoal - currentFpPlus) / daysRemaining;
+            dailyTarget = Math.max(0, activeGoal - currentProgress) / daysRemaining;
           }
         }
+
+        // Period progress in the rep's metric
+        const periodPrmr = periodEntries.reduce((sum, e) => {
+          const salesLog = (e as any).sales_log as any[] | null;
+          if (salesLog && salesLog.length > 0) return sum + calculateFromSalesLog(salesLog).prmr;
+          return sum + (Number(e.prmr) || 0);
+        }, 0);
+        const periodProgress = efpModeEnabled ? calculateEfp(periodPrmr) : periodFpPlus;
 
         return {
           userId: rep.user_id!,
@@ -397,6 +416,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           year: rep.year || 'Rookie',
           stage: rep.stage || undefined,
           profilePhotoUrl: (rep as any).profile_photo_url || null,
+          efpModeEnabled,
           preseasonGoal: goals?.preseason_fp_goal || 0,
           mustDoGoal: goals?.must_do_fp_goal || 0,
           willDoGoal: goals?.will_do_fp_goal || 0,
@@ -406,10 +426,12 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           setupComplete: goals?.setup_complete || false,
           personalSummerStart,
           personalSummerEnd,
+          currentProgress,
           currentFpPlus,
           currentPrmr,
           knockingDays,
           futurePlannedDays,
+          periodProgress,
           periodFpPlus,
           periodDoors,
           periodKnockingDays,
@@ -475,10 +497,10 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         default: return sum + r.willDoGoal;
       }
     }, 0);
-    const totalFp = withGoals.reduce((sum, r) => sum + r.currentFpPlus, 0);
-    const periodFp = withGoals.reduce((sum, r) => sum + r.periodFpPlus, 0);
-    const progressPercent = totalGoal > 0 ? Math.min(100, (totalFp / totalGoal) * 100) : 0;
-    return { totalGoal, totalFp, periodFp, progressPercent };
+    const totalProgress = withGoals.reduce((sum, r) => sum + r.currentProgress, 0);
+    const periodProgress = withGoals.reduce((sum, r) => sum + r.periodProgress, 0);
+    const progressPercent = totalGoal > 0 ? Math.min(100, (totalProgress / totalGoal) * 100) : 0;
+    return { totalGoal, totalProgress, periodProgress, progressPercent };
   }, [withGoals, activeTier]);
 
   const getPeriodLabel = () => {
@@ -619,8 +641,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
               {isGlobalPreseason ? 'Preseason' : 'Summer'} • {withGoals.length + noGoals.length} reps
             </p>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-bold tabular-nums">{aggregate.totalFp.toFixed(1)}</span>
-              <span className="text-sm text-muted-foreground">/ {aggregate.totalGoal} FP+</span>
+              <span className="text-2xl font-bold tabular-nums">{aggregate.totalProgress.toFixed(1)}</span>
+              <span className="text-sm text-muted-foreground">/ {aggregate.totalGoal}</span>
             </div>
           </div>
           {!isGlobalPreseason && (
@@ -648,8 +670,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           <Progress value={aggregate.progressPercent} className="h-2.5" />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{aggregate.progressPercent.toFixed(0)}% of {tierLabel}</span>
-            {aggregate.periodFp > 0 && effectivePreset !== 'ytd' && (
-              <span className="text-foreground font-medium">+{aggregate.periodFp.toFixed(1)} FP+ {getPeriodLabel()}</span>
+            {aggregate.periodProgress > 0 && effectivePreset !== 'ytd' && (
+              <span className="text-foreground font-medium">+{aggregate.periodProgress.toFixed(1)} {getPeriodLabel()}</span>
             )}
           </div>
         </div>
@@ -697,7 +719,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
               activeTier === 'couldDo' ? rep.couldDoGoal :
               rep.willDoGoal
             );
-            const progressPercent = activeGoal > 0 ? Math.min(100, (rep.currentFpPlus / activeGoal) * 100) : 0;
+            const metricLabel = rep.efpModeEnabled ? 'EFP' : 'FP+';
+            const progressPercent = activeGoal > 0 ? Math.min(100, (rep.currentProgress / activeGoal) * 100) : 0;
 
             return (
               <motion.div
@@ -737,6 +760,11 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                         <Badge variant="outline" className="text-[9px] h-4 px-1 shrink-0">
                           {rep.year}
                         </Badge>
+                        {rep.efpModeEnabled && (
+                          <Badge variant="secondary" className="text-[8px] h-3.5 px-1 shrink-0 font-bold">
+                            EFP
+                          </Badge>
+                        )}
                       </div>
                       {/* Mini progress bar inline */}
                       <div className="flex items-center gap-2 mt-1">
@@ -782,8 +810,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                           <div className="grid grid-cols-3 gap-2 pt-2.5">
                             <div className="text-center">
                               <div className="text-xs text-muted-foreground">Progress</div>
-                              <div className="text-sm font-semibold tabular-nums">{rep.currentFpPlus.toFixed(1)}</div>
-                              <div className="text-[10px] text-muted-foreground">/ {activeGoal} FP+</div>
+                              <div className="text-sm font-semibold tabular-nums">{rep.currentProgress.toFixed(1)}</div>
+                              <div className="text-[10px] text-muted-foreground">/ {activeGoal} {metricLabel}</div>
                             </div>
                             <div className="text-center">
                               <div className="text-xs text-muted-foreground">Variance</div>
@@ -793,7 +821,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                               )}>
                                 {rep.variance >= 0 ? '+' : ''}{rep.variance.toFixed(1)}
                               </div>
-                              <div className="text-[10px] text-muted-foreground">FP+</div>
+                              <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
                             </div>
                             <div className="text-center">
                               <div className="text-xs text-muted-foreground">Need/Day</div>
@@ -826,11 +854,11 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                           </div>
 
                           {/* Period performance (if not YTD) */}
-                          {effectivePreset !== 'ytd' && (rep.periodFpPlus > 0 || rep.periodDoors > 0) && (
+          {effectivePreset !== 'ytd' && (rep.periodProgress > 0 || rep.periodDoors > 0) && (
                             <div className="bg-muted/30 rounded-lg px-3 py-2">
                               <div className="text-[10px] text-muted-foreground mb-1">{getPeriodLabel()}</div>
                               <div className="flex gap-4 text-xs">
-                                <span><span className="font-medium">{rep.periodFpPlus.toFixed(1)}</span> FP+</span>
+                                <span><span className="font-medium">{rep.periodProgress.toFixed(1)}</span> {metricLabel}</span>
                                 <span><span className="font-medium">{rep.periodDoors}</span> doors</span>
                                 <span><span className="font-medium">{rep.periodKnockingDays}</span> days</span>
                               </div>
