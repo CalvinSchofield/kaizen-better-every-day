@@ -251,7 +251,7 @@ export const PulseHero = ({
     }
     // Use comparison totals for all metrics when available
     if (!comparisonTotals) return null;
-    const currentValues: Record<MetricKey, number> = { doors, dms, pitches, presentations, closes, fp };
+    const currentValues: Record<MetricKey, number> = { doors, dms, pitches, transitions, presentations, closes, fp };
     const current = currentValues[metricKey];
     const previous = (comparisonTotals as any)[metricKey] || 0;
     if (previous === 0 && current === 0) return null;
