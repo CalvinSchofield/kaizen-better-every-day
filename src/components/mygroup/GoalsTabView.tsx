@@ -67,6 +67,9 @@ interface RepGoalInfo {
   periodFpPlus: number;
   periodDoors: number;
   periodKnockingDays: number;
+  periodPlannedDays: number;
+  periodExpected: number;
+  periodPaceStatus: PaceStatus;
   // Pace
   paceStatus: PaceStatus;
   pacePercentage: number;
@@ -429,6 +432,28 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
         }, 0);
         const periodProgress = efpModeEnabled ? calculateEfp(periodPrmr) : periodFpPlus;
 
+        // Period planned days and expected production
+        const periodPlannedDays = plannedDays.filter(d =>
+          d.planned_date >= dateRange.start && d.planned_date <= dateRange.end
+        ).length;
+        const periodExpected = periodPlannedDays * dailyTarget;
+
+        // Period pace status
+        let periodPaceStatus: PaceStatus = paceStatus;
+        if (isPeriodFiltered && hasGoals) {
+          if (currentProgress >= activeGoal) {
+            periodPaceStatus = 'goal-met';
+          } else if (periodPlannedDays === 0) {
+            periodPaceStatus = periodKnockingDays > 0 ? 'on-track' : 'not-started';
+          } else if (periodExpected > 0) {
+            const periodRatio = periodProgress / periodExpected;
+            if (periodRatio >= 1.1) periodPaceStatus = 'ahead';
+            else if (periodRatio >= 0.9) periodPaceStatus = 'on-track';
+            else if (periodRatio >= 0.65) periodPaceStatus = 'behind';
+            else periodPaceStatus = 'critical';
+          }
+        }
+
         return {
           userId: rep.user_id!,
           notionPageId: rep.id,
@@ -455,6 +480,9 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
           periodFpPlus,
           periodDoors,
           periodKnockingDays,
+          periodPlannedDays,
+          periodExpected,
+          periodPaceStatus,
           paceStatus,
           pacePercentage,
           dailyTarget,
@@ -481,33 +509,41 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
 
     const statusOrder: Record<PaceStatus, number> = { critical: 0, behind: 1, 'not-started': 2, 'on-track': 3, ahead: 4, 'goal-met': 5, 'no-goals': 6 };
     wg.sort((a, b) => {
-      const sd = statusOrder[a.paceStatus] - statusOrder[b.paceStatus];
+      const aStatus = isPeriodFiltered ? a.periodPaceStatus : a.paceStatus;
+      const bStatus = isPeriodFiltered ? b.periodPaceStatus : b.paceStatus;
+      const sd = statusOrder[aStatus] - statusOrder[bStatus];
       if (sd !== 0) return sd;
       return a.pacePercentage - b.pacePercentage;
     });
     ng.sort((a, b) => a.name.localeCompare(b.name));
 
     return { withGoals: wg, noGoals: ng };
-  }, [repGoals]);
+  }, [repGoals, isPeriodFiltered]);
 
   // Status filter
   const [statusFilter, setStatusFilter] = useState<PaceStatus | 'all'>('all');
 
   const displayReps = useMemo(() => {
     if (statusFilter === 'all') return withGoals;
-    return withGoals.filter(r => r.paceStatus === statusFilter);
-  }, [withGoals, statusFilter]);
+    return withGoals.filter(r => {
+      const s = isPeriodFiltered ? r.periodPaceStatus : r.paceStatus;
+      return s === statusFilter;
+    });
+  }, [withGoals, statusFilter, isPeriodFiltered]);
 
   // Stats
-  const stats = useMemo(() => ({
-    total: withGoals.length,
-    ahead: withGoals.filter(r => r.paceStatus === 'ahead').length,
-    goalMet: withGoals.filter(r => r.paceStatus === 'goal-met').length,
-    onTrack: withGoals.filter(r => r.paceStatus === 'on-track').length,
-    behind: withGoals.filter(r => r.paceStatus === 'behind').length,
-    critical: withGoals.filter(r => r.paceStatus === 'critical').length,
-    notStarted: withGoals.filter(r => r.paceStatus === 'not-started').length,
-  }), [withGoals]);
+  const stats = useMemo(() => {
+    const getStatus = (r: RepGoalInfo) => isPeriodFiltered ? r.periodPaceStatus : r.paceStatus;
+    return {
+      total: withGoals.length,
+      ahead: withGoals.filter(r => getStatus(r) === 'ahead').length,
+      goalMet: withGoals.filter(r => getStatus(r) === 'goal-met').length,
+      onTrack: withGoals.filter(r => getStatus(r) === 'on-track').length,
+      behind: withGoals.filter(r => getStatus(r) === 'behind').length,
+      critical: withGoals.filter(r => getStatus(r) === 'critical').length,
+      notStarted: withGoals.filter(r => getStatus(r) === 'not-started').length,
+    };
+  }, [withGoals, isPeriodFiltered]);
 
   // Aggregate stats for selected tier
   const aggregate = useMemo(() => {
@@ -521,8 +557,10 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
     }, 0);
     const totalProgress = withGoals.reduce((sum, r) => sum + r.currentProgress, 0);
     const periodProgress = withGoals.reduce((sum, r) => sum + r.periodProgress, 0);
+    const periodExpected = withGoals.reduce((sum, r) => sum + r.periodExpected, 0);
     const progressPercent = totalGoal > 0 ? Math.min(100, (totalProgress / totalGoal) * 100) : 0;
-    return { totalGoal, totalProgress, periodProgress, progressPercent };
+    const periodPercent = periodExpected > 0 ? Math.min(100, (periodProgress / periodExpected) * 100) : 0;
+    return { totalGoal, totalProgress, periodProgress, periodExpected, progressPercent, periodPercent };
   }, [withGoals, activeTier]);
 
   const getPeriodLabel = () => {
@@ -696,9 +734,25 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
 
         {/* Period production line (when not viewing full season) */}
         {isPeriodFiltered && (
-          <div className="bg-muted/30 rounded-lg px-3 py-2 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{getPeriodLabel()}</span>
-            <span className="text-sm font-semibold tabular-nums">+{aggregate.periodProgress.toFixed(1)} FP+</span>
+          <div className="bg-muted/30 rounded-lg px-3 py-2 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{getPeriodLabel()}</span>
+              <span className="text-sm font-semibold tabular-nums">
+                +{aggregate.periodProgress.toFixed(1)}{aggregate.periodExpected > 0 ? ` / ${aggregate.periodExpected.toFixed(1)} exp` : ''} FP+
+              </span>
+            </div>
+            {aggregate.periodExpected > 0 && (
+              <div className="h-1.5 bg-muted/60 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    aggregate.periodPercent >= 90 ? "bg-emerald-500" :
+                    aggregate.periodPercent >= 65 ? "bg-amber-500" : "bg-red-500"
+                  )}
+                  style={{ width: `${Math.min(100, aggregate.periodPercent)}%` }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -734,7 +788,8 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
       <div className="space-y-1.5">
         <AnimatePresence mode="popLayout">
           {displayReps.map(rep => {
-            const config = STATUS_CONFIG[rep.paceStatus];
+            const displayStatus = isPeriodFiltered ? rep.periodPaceStatus : rep.paceStatus;
+            const config = STATUS_CONFIG[displayStatus];
             const StatusIcon = config.icon;
             const isExpanded = expandedRepId === rep.userId;
             const cleanName = stripEmojis(rep.name) || rep.name;
@@ -835,29 +890,94 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                         className="overflow-hidden"
                       >
                         <div className="px-3 pb-3 pt-0 space-y-3 border-t border-border/30">
-                          {/* Key metrics */}
-                          <div className="grid grid-cols-3 gap-2 pt-2.5">
-                            <div className="text-center">
-                              <div className="text-xs text-muted-foreground">Progress</div>
-                              <div className="text-sm font-semibold tabular-nums">{rep.currentProgress.toFixed(1)}</div>
-                              <div className="text-[10px] text-muted-foreground">/ {activeGoal} {metricLabel}</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-xs text-muted-foreground">Variance</div>
-                              <div className={cn(
-                                "text-sm font-semibold tabular-nums",
-                                rep.variance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                              )}>
-                                {rep.variance >= 0 ? '+' : ''}{rep.variance.toFixed(1)}
+                          {/* Key metrics — period-aware when filtered */}
+                          {isPeriodFiltered ? (
+                            <div className="space-y-2 pt-2.5">
+                              <div className="bg-muted/30 rounded-lg px-3 py-2.5 space-y-1.5">
+                                <div className="text-[10px] text-muted-foreground font-medium">{getPeriodLabel()}</div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground">Actual</div>
+                                    <div className="text-sm font-semibold tabular-nums">{rep.periodProgress.toFixed(1)}</div>
+                                    <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground">Expected</div>
+                                    <div className="text-sm font-semibold tabular-nums">{rep.periodExpected.toFixed(1)}</div>
+                                    <div className="text-[10px] text-muted-foreground">{rep.periodPlannedDays} days</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground">Variance</div>
+                                    {(() => {
+                                      const pVar = rep.periodProgress - rep.periodExpected;
+                                      return (
+                                        <>
+                                          <div className={cn(
+                                            "text-sm font-semibold tabular-nums",
+                                            pVar >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                                          )}>
+                                            {pVar >= 0 ? '+' : ''}{pVar.toFixed(1)}
+                                          </div>
+                                          <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                                {/* Period detail row */}
+                                <div className="flex gap-4 text-xs text-muted-foreground pt-1 border-t border-border/20">
+                                  <span><span className="font-medium text-foreground">{rep.periodDoors}</span> doors</span>
+                                  <span><span className="font-medium text-foreground">{rep.periodKnockingDays}</span> worked</span>
+                                </div>
                               </div>
-                              <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
+                              {/* Season context row */}
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="text-center">
+                                  <div className="text-xs text-muted-foreground">Season</div>
+                                  <div className="text-sm font-semibold tabular-nums">{rep.currentProgress.toFixed(1)}</div>
+                                  <div className="text-[10px] text-muted-foreground">/ {activeGoal} {metricLabel}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-xs text-muted-foreground">Variance</div>
+                                  <div className={cn(
+                                    "text-sm font-semibold tabular-nums",
+                                    rep.variance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                                  )}>
+                                    {rep.variance >= 0 ? '+' : ''}{rep.variance.toFixed(1)}
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-xs text-muted-foreground">Need/Day</div>
+                                  <div className="text-sm font-semibold tabular-nums">{rep.dailyTarget.toFixed(2)}</div>
+                                  <div className="text-[10px] text-muted-foreground">{rep.daysRemaining} days left</div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-center">
-                              <div className="text-xs text-muted-foreground">Need/Day</div>
-                              <div className="text-sm font-semibold tabular-nums">{rep.dailyTarget.toFixed(2)}</div>
-                              <div className="text-[10px] text-muted-foreground">{rep.daysRemaining} days left</div>
+                          ) : (
+                            <div className="grid grid-cols-3 gap-2 pt-2.5">
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground">Progress</div>
+                                <div className="text-sm font-semibold tabular-nums">{rep.currentProgress.toFixed(1)}</div>
+                                <div className="text-[10px] text-muted-foreground">/ {activeGoal} {metricLabel}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground">Variance</div>
+                                <div className={cn(
+                                  "text-sm font-semibold tabular-nums",
+                                  rep.variance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                                )}>
+                                  {rep.variance >= 0 ? '+' : ''}{rep.variance.toFixed(1)}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">{metricLabel}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground">Need/Day</div>
+                                <div className="text-sm font-semibold tabular-nums">{rep.dailyTarget.toFixed(2)}</div>
+                                <div className="text-[10px] text-muted-foreground">{rep.daysRemaining} days left</div>
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* Goal tiers */}
                           <div className="flex rounded-lg border overflow-hidden">
@@ -881,18 +1001,6 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                               </div>
                             ))}
                           </div>
-
-                          {/* Period performance (if not YTD) */}
-          {effectivePreset !== 'ytd' && (rep.periodProgress > 0 || rep.periodDoors > 0) && (
-                            <div className="bg-muted/30 rounded-lg px-3 py-2">
-                              <div className="text-[10px] text-muted-foreground mb-1">{getPeriodLabel()}</div>
-                              <div className="flex gap-4 text-xs">
-                                <span><span className="font-medium">{rep.periodProgress.toFixed(1)}</span> {metricLabel}</span>
-                                <span><span className="font-medium">{rep.periodDoors}</span> doors</span>
-                                <span><span className="font-medium">{rep.periodKnockingDays}</span> days</span>
-                              </div>
-                            </div>
-                          )}
 
                           {/* Summer dates */}
                           {rep.personalSummerStart && (
