@@ -312,103 +312,23 @@ const Track = ({
           )}
         </div>
 
-        {/* Inline Stat Ribbon */}
-        <div className="px-4 mt-2">
-          <motion.button
-            className="w-full flex items-center justify-between py-2 px-1 active:scale-[0.99] transition-transform"
-            onClick={() => {
-              hapticLight();
-              setShowStats(!showStats);
-            }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className="flex items-center gap-1.5 text-[13px] flex-wrap">
-              <span className="tabular-nums font-semibold">{entry.doors_knocked || 0}</span>
-              <span className="text-muted-foreground">doors</span>
-              <span className="text-border">·</span>
-              <span className="tabular-nums font-semibold">{entry.pitches || 0}</span>
-              <span className="text-muted-foreground">pitches</span>
-              <span className="text-border">·</span>
-              <span className="tabular-nums font-semibold">{entry.transitions || 0}</span>
-              <span className="text-muted-foreground">trans</span>
-              <span className="text-border">·</span>
-              <span className="tabular-nums font-semibold">{entry.presentations || 0}</span>
-              <span className="text-muted-foreground">pres</span>
-              <span className="text-border">·</span>
-              <span className="tabular-nums font-semibold">{entry.closes || 0}</span>
-              <span className="text-muted-foreground">closes</span>
-            </div>
-            <motion.span
-              className="text-xs text-muted-foreground ml-2 flex-shrink-0"
-              animate={{ rotate: showStats ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              ▾
-            </motion.span>
-          </motion.button>
-          
-          {showStats && (() => {
-            const doors = entry.doors_knocked || 0;
-            const dms = entry.decision_makers || 0;
-            const pitches = entry.pitches || 0;
-            const trans = entry.transitions || 0;
-            const pres = entry.presentations || 0;
-            const closes = entry.closes || 0;
-            const dmRate = doors > 0 ? Math.round((dms / doors) * 100) : 0;
-            const transRate = pitches > 0 ? Math.round((trans / pitches) * 100) : 0;
-            const closeRate = pres > 0 ? Math.round((closes / pres) * 100) : 0;
-
-            return (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="py-2 px-1 space-y-1.5 text-[13px]">
-                  {/* Funnel with conversion rates */}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Doors</span>
-                    <span className="tabular-nums font-medium">{doors}</span>
-                  </div>
-                  <div className="flex justify-between pl-3">
-                    <span className="text-muted-foreground/70">└ DM Rate</span>
-                    <span className="tabular-nums text-muted-foreground">{dmRate}% <span className="text-muted-foreground/50">({dms}/{doors})</span></span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Pitches</span>
-                    <span className="tabular-nums font-medium">{pitches}</span>
-                  </div>
-                  <div className="flex justify-between pl-3">
-                    <span className="text-muted-foreground/70">└ Trans Rate</span>
-                    <span className="tabular-nums text-muted-foreground">{transRate}% <span className="text-muted-foreground/50">({trans}/{pitches})</span></span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Presentations</span>
-                    <span className="tabular-nums font-medium">{pres}</span>
-                  </div>
-                  <div className="flex justify-between pl-3">
-                    <span className="text-muted-foreground/70">└ Close Rate</span>
-                    <span className="tabular-nums text-muted-foreground">{closeRate}% <span className="text-muted-foreground/50">({closes}/{pres})</span></span>
-                  </div>
-
-                  {/* FP & PRMR */}
-                  <div className="border-t border-border/30 mt-2 pt-2 flex justify-between">
-                    <span className="text-muted-foreground">FP+</span>
-                    <span className="tabular-nums font-semibold text-primary">{formatFP(fp)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">PRMR</span>
-                    <span className="tabular-nums font-semibold text-primary">${formatPRMR(prmr)}</span>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })()}
-        </div>
+        {/* Stats Grid */}
+        <FinalizedStatsGrid
+          entry={entry}
+          salesLog={salesLog}
+          onClosesClick={() => {
+            setScrollToSaleId(null);
+            setShowSalesDrawer(true);
+          }}
+          onFPClick={() => {
+            setScrollToSaleId(null);
+            setShowSalesDrawer(true);
+          }}
+          onPRMRClick={() => {
+            setScrollToSaleId(null);
+            setShowSalesDrawer(true);
+          }}
+        />
 
         {/* Pending Install Alert - actionable after finalizing */}
         <div className="px-4 mt-2">
