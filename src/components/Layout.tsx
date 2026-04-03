@@ -347,6 +347,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
           paddingBottom: '0.75rem',
           minHeight: 'calc(var(--header-height) + var(--header-padding-top))'
         }}
+        data-landscape-compact
       >
         <div className="flex items-center h-10 gap-2">
           {/* Left side - custom or menu button */}
