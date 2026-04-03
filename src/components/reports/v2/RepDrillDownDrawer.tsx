@@ -286,6 +286,7 @@ export const RepDrillDownDrawer = ({
   };
 
   return (
+    <>
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="max-h-[92vh] z-[60]">
         {/* Header */}
@@ -522,18 +523,20 @@ export const RepDrillDownDrawer = ({
           repTimezone={extendedData?.timezone || undefined}
         />
 
-        <RepKpiDetailDrawer
-          open={!!activeKpiMetric}
-          onOpenChange={(open) => !open && setActiveKpiMetric(null)}
-          metricKey={activeKpiMetric}
-          current={currentTotals}
-          sparklineHistory={sparklineHistory}
-          repName={rep.name}
-          periodLabel={periodLabel}
-          userId={rep.userId}
-          dateRange={dateRange}
-        />
       </DrawerContent>
     </Drawer>
+
+    <RepKpiDetailDrawer
+      open={!!activeKpiMetric}
+      onOpenChange={(open) => !open && setActiveKpiMetric(null)}
+      metricKey={activeKpiMetric}
+      current={currentTotals}
+      sparklineHistory={sparklineHistory}
+      repName={rep.name}
+      periodLabel={periodLabel}
+      userId={rep.userId}
+      dateRange={dateRange}
+    />
+    </>
   );
 };
