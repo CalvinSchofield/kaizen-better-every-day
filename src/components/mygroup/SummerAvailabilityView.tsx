@@ -444,14 +444,14 @@ export const SummerAvailabilityView = () => {
           })}
         </div>
 
-        {/* Rep rows */}
-        {readyPeople.length === 0 ? (
+        {/* Active rep rows */}
+        {activePeople.length === 0 && outOfRangePeople.length === 0 ? (
           <div className="p-6 text-center text-sm text-muted-foreground">
             No reps with dates set match your filter
           </div>
         ) : (
           <div className="divide-y divide-border/50">
-            {readyPeople.map((person) => {
+            {activePeople.map((person) => {
               const isExpanded = expandedRepId === person.userId;
               const firstName = getFirstName(person.name);
 
@@ -467,9 +467,12 @@ export const SummerAvailabilityView = () => {
                     onClick={() => toggleExpand(person.userId)}
                   >
                     <div className="px-3 py-2.5 flex items-center gap-2 min-w-0">
-                      <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-[11px] font-bold text-primary shrink-0">
-                        {firstName[0]}
-                      </div>
+                      <Avatar className="h-7 w-7 shrink-0">
+                        {person.profilePhotoUrl && <AvatarImage src={person.profilePhotoUrl} />}
+                        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                          {getInitials(person.name)}
+                        </AvatarFallback>
+                      </Avatar>
                       <span className="text-xs font-medium text-foreground truncate">
                         {firstName}
                         {person.isSelf && <span className="text-muted-foreground ml-1">(you)</span>}
@@ -599,6 +602,55 @@ export const SummerAvailabilityView = () => {
           </div>
         )}
       </div>
+
+      {/* Out of Range Section (collapsed by default) */}
+      {outOfRangePeople.length > 0 && (
+        <Collapsible defaultOpen={false}>
+          <CollapsibleTrigger className="w-full flex items-center justify-between px-1 py-1">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">
+                Out of Range
+              </span>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                {outOfRangePeople.length}
+              </Badge>
+            </div>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-1 mt-1">
+              {outOfRangePeople.map(person => {
+                const firstName = getFirstName(person.name);
+                const notStarted = weekDays.every(d => format(d, 'yyyy-MM-dd') < person.personalSummerStart!);
+                return (
+                  <div
+                    key={person.userId}
+                    className="flex items-center justify-between bg-muted/20 border border-border/30 rounded-xl px-3 py-2"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar className="h-7 w-7 shrink-0 opacity-60">
+                        {person.profilePhotoUrl && <AvatarImage src={person.profilePhotoUrl} />}
+                        <AvatarFallback className="text-[10px] font-bold bg-muted text-muted-foreground">
+                          {getInitials(person.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground truncate">{firstName}</p>
+                        <p className="text-[10px] text-muted-foreground/70">
+                          {notStarted
+                            ? `Starts ${format(parseLocalDate(person.personalSummerStart!), 'MMM d')}`
+                            : `Ended ${format(parseLocalDate(person.personalSummerEnd!), 'MMM d')}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
