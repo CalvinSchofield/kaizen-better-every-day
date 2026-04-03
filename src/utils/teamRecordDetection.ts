@@ -32,6 +32,12 @@ export interface AllTimeGroupRecords {
     monthly: number;
     dayOfWeek: Record<number, number>;
   };
+  /** Second-best records per granularity for "vs prev record" display */
+  secondBest: {
+    daily: SecondBestRecords;
+    weekly: SecondBestRecords;
+    monthly: SecondBestRecords;
+  };
 }
 
 export interface ActiveRecord {
