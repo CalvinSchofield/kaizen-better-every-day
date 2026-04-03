@@ -82,14 +82,26 @@ interface CommittedBlitz {
 }
 
 /**
- * Calculate 2-week rolling average for a single rep
+ * Calculate 2-week rolling average for a single rep.
+ * If dayTypeFilter is provided, only entries matching that day type are used.
  */
 export const calculateRepBaseline = (
   userId: string,
   name: string,
   entries: DailyEntry[],
-  isWorkingToday: boolean
+  isWorkingToday: boolean,
+  dayTypeFilter?: 'weekday' | 'saturday',
 ): RepBaseline => {
+  // Filter by day type if specified
+  let filteredEntries = entries;
+  if (dayTypeFilter) {
+    filteredEntries = entries.filter(e => {
+      const d = new Date(e.entry_date + 'T12:00:00'); // noon to avoid TZ shift
+      const dow = d.getDay(); // 0=Sun, 6=Sat
+      if (dayTypeFilter === 'saturday') return dow === 6;
+      return dow >= 1 && dow <= 5;
+    });
+  }
   const workDays = entries.filter(e => 
     (e.doors_knocked || 0) > 0 && 
     e.work_start_time && 
