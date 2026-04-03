@@ -179,7 +179,7 @@ export function useRepComparison({
         fp: filtered.reduce((s, e) => s + (Number(e.fp_plus) || 0), 0),
         prmr: filtered.reduce((s, e) => s + (Number(e.prmr) || 0), 0),
         hoursWorked,
-        daysWorked: filtered.length,
+        daysWorked: filtered.filter(e => e.work_start_time && e.work_end_time && (e.doors_knocked || 0) >= 4).length,
       };
     };
 
