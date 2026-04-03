@@ -549,8 +549,10 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
     }, 0);
     const totalProgress = withGoals.reduce((sum, r) => sum + r.currentProgress, 0);
     const periodProgress = withGoals.reduce((sum, r) => sum + r.periodProgress, 0);
+    const periodExpected = withGoals.reduce((sum, r) => sum + r.periodExpected, 0);
     const progressPercent = totalGoal > 0 ? Math.min(100, (totalProgress / totalGoal) * 100) : 0;
-    return { totalGoal, totalProgress, periodProgress, progressPercent };
+    const periodPercent = periodExpected > 0 ? Math.min(100, (periodProgress / periodExpected) * 100) : 0;
+    return { totalGoal, totalProgress, periodProgress, periodExpected, progressPercent, periodPercent };
   }, [withGoals, activeTier]);
 
   const getPeriodLabel = () => {
