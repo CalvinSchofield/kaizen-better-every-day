@@ -290,7 +290,7 @@ interface UnifiedFilterDrawerProps {
   onOpenChange: (open: boolean) => void;
   filterState: UnifiedFilterState;
   onFilterApply: (state: UnifiedFilterState) => void;
-  mode: 'leaderboard' | 'reports';
+  mode: 'leaderboard' | 'reports' | 'mygroup';
   hierarchy?: OrgHierarchy;
   mgmtGroups?: Array<{ id: string; name: string; teamIds: string[] }>;
   teams?: Array<{ id: string; name: string }>;
