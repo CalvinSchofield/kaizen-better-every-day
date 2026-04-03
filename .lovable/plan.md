@@ -1,58 +1,36 @@
 
 
-# Team Goals Tab Overhaul
+# Fix Summer Pace Transition — "Launch Pad" Logic
 
-## Overview
+## Problem
+When a rep transitions from preseason to summer, the pacing logic should treat summer as a **fresh start**. The summer goal (Must/Will/Could Do) is a standalone target — preseason production served as a "launch pad" and should NOT be measured against the summer goal.
 
-Redesign the Goals tab to be a filterable, date-aware coaching dashboard with compact scannable rows, profile photos, tap-to-expand details, and a goal tier selector for the aggregate summary — matching the Reports V2 UX patterns.
+## Current State (Good News)
+After investigation, **most of the app already handles this correctly**:
 
-## Key Features
+- **GoalsTabView (Team Goals tab)**: Already scopes `currentProgress`, `knockingDays`, and entries to summer-only when a rep is in summer mode (line 298: `seasonStart = personalSummerStart`)
+- **`useGoalPaceCalculatorForUser` (Profile/Reports)**: Passes all entries to `calculateGoalPace`, which internally re-scopes knocking days and progress to the active season (lines 183-197 of the unified calculator)
+- **`useGoalPaceCalculator` (Track page)**: Same unified calculator, same correct scoping
 
-### 1. Unified Filter + Date Presets (Reports V2 style)
-- Add `UnifiedFilterDrawer` for hierarchy/year/watchlist filtering (same as Summer Availability tab)
-- Add the same date preset pill row from Reports V2: Live, Yesterday, This Week, Last Week, This Month, Last Month, Preseason, YTD + Custom
-- Reuse `useAvailableTeamReportsPresets` for smart preset availability
-- Reuse `CustomDateRangeDrawer` for custom date range selection
-- Date range filters entries to show "how did reps do on their goals **during that period**" — FP+ earned in range, doors knocked in range, etc.
+## The One Bug
+**`useDownlineGoalPace.ts`** (used by `GoalPaceCard` on Profile pages) computes `ytdFP` and `knockingDays` from ALL entries since Sept 28 without scoping to the active season. When summer starts, it would pass total preseason+summer knocking days and total progress to `calculateSalesPace`, causing incorrect daily targets and pace status.
 
-### 2. Aggregate Team Summary with Goal Tier Selector
-- Top card shows: total filtered reps, sum of FP+ earned (in selected period), sum of goals across all filtered reps
-- **Goal tier toggle** (Must Do / Will Do / Could Do) — changes which goal column is summed for the aggregate and used for individual pace calculations
-- Progress bar showing team aggregate progress against selected tier
-- Status breakdown chips (Ahead / On Track / Behind / At Risk counts)
+## Fix
 
-### 3. Compact Rep Rows with Profile Photos
-- Slim row design with status-colored left border accent (emerald/blue/amber/red)
-- Profile photo via `Avatar`/`AvatarFallback` (add `profile_photo_url` to query)
-- Inline: name, year badge, mini progress bar, status pill, key stats (daily pace, variance)
-- Sorted: At Risk → Behind → On Track → Ahead → No Goals
+### File: `src/hooks/useDownlineGoalPace.ts`
+- After determining `isPreseason` vs summer, filter entries to only the active season before computing `ytdFP` and `knockingDays`
+- When in summer: only count entries from `summerStart` onward
+- When in preseason: count entries from `SEASON_START` to `PRESEASON_END`
+- This ensures `calculateSalesPace` receives season-scoped inputs, matching how all other calculators work
 
-### 4. Tap-to-Expand Accordion Details
-- Tapping a row expands it inline (one at a time)
-- Expanded view shows:
-  - Goal tiers (Must/Will/Could) with active tier highlighted
-  - Variance from expected pace (+2.3 FP ahead / -4.1 behind)
-  - Period performance: FP+ earned in selected date range, doors knocked, knocking days
-  - Summer date range
-  - Action buttons: "View Profile" (onRepClick), "Edit Dates"
-  - For no-goals reps: "Nudge to Set Goals" button
+### Specific change (lines ~60-70):
+```typescript
+// Scope entries to active season
+const activeSeasonStart = isPreseason ? SEASON_START : (summerStart || '2026-04-12');
+const seasonEntries = entries.filter(e => e.entry_date >= activeSeasonStart);
 
-### 5. "No Goals" Section
-- Separated to bottom in collapsible section with count badge
-- Each rep shows photo + name + nudge button
+// Then compute ytdFP and knockingDays from seasonEntries only
+```
 
-## Technical Approach
-
-- **Date filtering**: When a date preset or custom range is selected, filter `entriesData` to only include entries within that range before computing FP+, knocking days, and pace. The goal targets remain the full-season values — only progress is scoped to the period.
-- **Goal tier selector**: `useState<'mustDo' | 'willDo' | 'couldDo'>('willDo')` at the top level. Pass to aggregate sum calculation and individual `getActiveGoal` function. Overrides individual rep `focusTier` when viewing team-level.
-- **Reuse existing hooks**: `useAvailableTeamReportsPresets(filteredUserIds)` for smart preset pills, `CustomDateRangeDrawer` for custom range.
-- **Profile photos**: Add `profile_photo_url` to the reps query select. Use `Avatar`/`AvatarImage`/`AvatarFallback`.
-
-## Files to Modify
-
-| File | Change |
-|---|---|
-| `src/components/mygroup/GoalsTabView.tsx` | Full redesign: unified filter, date presets, goal tier selector, compact rows with photos, accordion expand, no-goals section |
-
-No database changes required. All components and hooks already exist.
+This is a ~5-line change in one file. No other files need modification.
 
