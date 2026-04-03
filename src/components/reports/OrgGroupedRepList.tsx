@@ -138,7 +138,7 @@ const GroupHeader = ({ label, repCount, totalFP, workingCount, isLive, isExpande
 
 // ── recruiter sub-grouping helper ───────────────────────────────
 
-const MIN_RECRUITER_GROUP_SIZE = 3;
+const MIN_RECRUITER_GROUP_SIZE = 2;
 
 type RecruiterBucket = { name: string; reps: OrgRepData[] };
 
@@ -146,12 +146,11 @@ const cleanName = (n: string) => n.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '
 
 /**
  * Groups reps by recruiter using **recursive downline**.
- * If Javier recruited Izaiah, Izaiah recruited Honcho, Honcho recruited Nathaniel,
- * all three appear in a "Javier" group (downline size = 3).
- * Threshold: MIN_RECRUITER_GROUP_SIZE (3).
+ * Sub-recruiters form their own groups (processed smallest-first so they
+ * aren't swallowed by the root recruiter). The recruiter themselves is
+ * included inside their group.
  */
 const groupByRecruiter = (reps: OrgRepData[]): { groups: RecruiterBucket[]; solo: OrgRepData[] } => {
-  // Build name → rep lookup (for reps in this set)
   const repByCleanName = new Map<string, OrgRepData>();
   reps.forEach(rep => repByCleanName.set(cleanName(rep.name), rep));
 
@@ -169,7 +168,7 @@ const groupByRecruiter = (reps: OrgRepData[]): { groups: RecruiterBucket[]; solo
     }
   });
 
-  // Recursive downline getter
+  // Recursive downline getter (excludes the recruiter themselves)
   const getRecursiveDownline = (recruiterName: string, visited: Set<string>): OrgRepData[] => {
     if (visited.has(recruiterName)) return [];
     visited.add(recruiterName);
@@ -183,31 +182,37 @@ const groupByRecruiter = (reps: OrgRepData[]): { groups: RecruiterBucket[]; solo
 
   // Find all recruiters who are IN this rep set, compute recursive downline
   const recruiterDownlines = [...directRecruits.keys()]
-    .filter(name => repByCleanName.has(name)) // Only group under recruiters who are themselves in the data
+    .filter(name => repByCleanName.has(name))
     .map(name => ({ name, downline: getRecursiveDownline(name, new Set()) }))
-    .sort((a, b) => b.downline.length - a.downline.length);
+    // Sort ASCENDING so sub-recruiters form groups before the root absorbs everyone
+    .sort((a, b) => a.downline.length - b.downline.length);
 
   const assignedToGroup = new Set<string>();
   const groups: RecruiterBucket[] = [];
+  const totalReps = reps.length;
 
   for (const { name, downline } of recruiterDownlines) {
-    // Skip if this recruiter is already absorbed into a bigger group
     const recruiterRep = repByCleanName.get(name)!;
     if (assignedToGroup.has(recruiterRep.userId)) continue;
 
-    // Only count unassigned reps
+    // Only count unassigned downline
     const unassigned = downline.filter(r => !assignedToGroup.has(r.userId));
+    
+    // Skip if this recruiter's remaining group would be the entire team (they're the root)
+    // A group that covers >75% of all reps is just the team itself — not useful
+    const groupSize = unassigned.length + 1; // +1 for the recruiter themselves
+    if (groupSize > totalReps * 0.75) continue;
+    
     if (unassigned.length < MIN_RECRUITER_GROUP_SIZE) continue;
 
-    groups.push({ name, reps: unassigned });
-    unassigned.forEach(r => assignedToGroup.add(r.userId));
+    // Include the recruiter themselves in the group
+    const groupReps = [recruiterRep, ...unassigned];
+    groups.push({ name, reps: groupReps });
+    groupReps.forEach(r => assignedToGroup.add(r.userId));
   }
 
   // Remaining reps are solo
-  const solo = [
-    ...noRecruiter,
-    ...reps.filter(r => !assignedToGroup.has(r.userId) && !noRecruiter.includes(r)),
-  ];
+  const solo = reps.filter(r => !assignedToGroup.has(r.userId));
 
   // Sort groups by FP desc
   groups.sort((a, b) => {
