@@ -45,13 +45,15 @@ export const RecordBanner = ({ records, onClick }: RecordBannerProps) => {
           hasConfirmed ? "text-amber-700 dark:text-amber-400" : "text-primary"
         )}>
           {displayRecords.map((r, i) => {
-            const prefix = r.isRecord
-              ? (r.dayOfWeekLabel || `Best ${granLabel}`)
-              : `On pace for best ${granLabel}`;
+            const prefix = r.contextualLabel
+              ? r.contextualLabel
+              : r.isRecord
+                ? (r.dayOfWeekLabel || `Best ${granLabel}`)
+                : `On pace for best ${granLabel}`;
             return (
               <span key={r.metricKey}>
                 {i > 0 && <span className="opacity-50"> · </span>}
-                {prefix} {r.label}
+                {r.contextualLabel ? prefix : `${prefix} ${r.label}`}
               </span>
             );
           })}

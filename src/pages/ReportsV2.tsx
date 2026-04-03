@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useReportsV2Data } from "@/hooks/useReportsV2Data";
+import { useReportsV2Comparison } from "@/hooks/useReportsV2Comparison";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -163,6 +164,30 @@ export const ReportsV2Page = () => {
     dateRange,
     isLiveView: effectivePreset === 'today',
   });
+
+  // Comparison period hook for momentum indicators
+  const {
+    comparisonTotals,
+    sparklineHistory,
+    comparisonLabel,
+    isLoading: comparisonLoading,
+  } = useReportsV2Comparison({
+    userIds: filteredUserIds,
+    dateRange,
+    preset: effectivePreset || 'today',
+  });
+
+  // Build comparison daily data for the trend chart overlay
+  const comparisonDailyData = useMemo(() => {
+    if (!sparklineHistory || sparklineHistory.length < 2) return undefined;
+    // Only show on multi-day views
+    if (effectivePreset === 'today' || effectivePreset === 'yesterday') return undefined;
+    return sparklineHistory.map(p => ({
+      date: p.label,
+      fp: p.fp,
+      presentations: p.presentations,
+    }));
+  }, [sparklineHistory, effectivePreset]);
 
   const getPeriodLabel = () => {
     if (effectivePreset === 'custom' && customStartDate && customEndDate) {
@@ -426,6 +451,9 @@ export const ReportsV2Page = () => {
         onFpClick={() => setShowDealDrawer(true)}
         activeRecords={activeRecords}
         onRecordBannerClick={() => setShowRecordDrawer(true)}
+        comparisonTotals={comparisonTotals}
+        comparisonLabel={comparisonLabel}
+        sparklineHistory={sparklineHistory}
       />
 
       {/* Goal Pace Section */}
@@ -462,6 +490,8 @@ export const ReportsV2Page = () => {
       {/* Production Trend Chart (multi-day views) */}
       <ProductionTrendChart
         data={dailyTrend}
+        comparisonData={comparisonDailyData}
+        comparisonLabel={comparisonLabel}
         isLoading={isLoading}
       />
 
