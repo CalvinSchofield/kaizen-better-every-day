@@ -98,7 +98,7 @@ export const SummerAvailabilityView = () => {
     queryFn: async () => {
       if (!teamAccess?.accessibleUserIds?.length) return { reps: [], configs: [], goals: [] };
       const [repsResult, configsResult, goalsResult] = await Promise.all([
-        supabase.from('reps').select('user_id, name, phone, year, stage').in('user_id', teamAccess.accessibleUserIds),
+        supabase.from('reps').select('user_id, name, phone, year, stage, profile_photo_url').in('user_id', teamAccess.accessibleUserIds),
         supabase.from('season_config').select('user_id, personal_summer_start, personal_summer_end, excluded_summer_days').in('user_id', teamAccess.accessibleUserIds),
         supabase.from('rep_goals').select('user_id, setup_complete').in('user_id', teamAccess.accessibleUserIds),
       ]);
