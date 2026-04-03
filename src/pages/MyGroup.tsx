@@ -209,7 +209,10 @@ const MyGroup = () => {
       // This applies regardless of whether they're team lead, MGMT lead, or Area Director
       const myTeam = teamAccess.teams?.find(t => t.name === currentUserRep.name);
       if (myTeam) {
-        setSelectedTeamFilter(`team:${myTeam.id}`);
+        setSmartFilter(prev => ({
+          ...prev,
+          selectedNodes: [{ type: 'team', id: myTeam.id, name: myTeam.name }],
+        }));
       }
       
       // Open the specified category drawer
