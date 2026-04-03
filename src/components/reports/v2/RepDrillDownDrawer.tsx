@@ -342,15 +342,19 @@ export const RepDrillDownDrawer = ({
               repName={rep.name}
               periodLabel={periodLabel}
               isLoading={comparisonLoading}
+              avgStartTime={avgTimes.avgStart}
+              avgEndTime={avgTimes.avgEnd}
+              onSummaryRowClick={timingDays.length > 0 ? () => setShowTimingChart(v => !v) : undefined}
+              summaryExpanded={showTimingChart}
             />
-          </div>
 
-          {/* Timing Visualization */}
-          {timingDays.length > 0 && (
-            <div className="p-4 border-b">
-              <RepTimingChart days={timingDays} />
-            </div>
-          )}
+            {/* Expandable Timing Chart */}
+            {showTimingChart && timingDays.length > 0 && (
+              <div className="mt-2">
+                <RepTimingChart days={timingDays} />
+              </div>
+            )}
+          </div>
 
           {/* Goal Progress */}
           {downlineGoalPace.hasGoals && (
