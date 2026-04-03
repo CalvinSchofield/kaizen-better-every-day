@@ -132,12 +132,7 @@ const Tools = () => {
         </motion.div>
 
         {/* Vivint Portals */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1, duration: 0.2 }}
-          className="space-y-3"
-        >
+        <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">Vivint Portals</h2>
           <div className="grid grid-cols-2 gap-2">
             {vivintPortals.map((portal) => {
