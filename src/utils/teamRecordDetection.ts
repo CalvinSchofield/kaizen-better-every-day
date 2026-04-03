@@ -42,6 +42,8 @@ export interface ActiveRecord {
   onPace: boolean;
   dayOfWeekLabel?: string;
   granularity: 'daily' | 'weekly' | 'monthly';
+  /** Contextual description e.g. "Best Tuesday this Quarter" */
+  contextualLabel?: string;
 }
 
 interface EntryLike {
