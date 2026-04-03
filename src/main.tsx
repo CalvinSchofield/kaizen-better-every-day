@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "next-themes";
 import App from "./App.tsx";
 import "./index.css";
+import { restoreNativeTokens } from "./utils/nativeTokenStorage.ts";
+import { Capacitor } from "@capacitor/core";
 
 // Register service worker for PWA with update handling (production only)
 const isLovablePreviewHost =
@@ -39,9 +41,20 @@ if (import.meta.env.PROD && !isLovablePreviewHost && "serviceWorker" in navigato
   });
 }
 
+/**
+ * Boot the app. On native iOS, we restore auth tokens from native storage
+ * BEFORE React renders, so Supabase finds them in localStorage on init.
+ */
+async function boot() {
+  if (Capacitor.isNativePlatform()) {
+    await restoreNativeTokens();
+  }
 
-createRoot(document.getElementById("root")!).render(
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-    <App />
-  </ThemeProvider>
-);
+  createRoot(document.getElementById("root")!).render(
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <App />
+    </ThemeProvider>
+  );
+}
+
+boot();

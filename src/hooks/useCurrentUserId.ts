@@ -260,6 +260,11 @@ export const useCurrentUserId = () => {
       storeCachedUserId(newUserId);
       setIsReady(true);
       setAuthVerified(true);
+
+      // Persist tokens to native storage on every auth state change
+      if (newUserId) {
+        persistTokensToNative();
+      }
     });
     
     return () => {
