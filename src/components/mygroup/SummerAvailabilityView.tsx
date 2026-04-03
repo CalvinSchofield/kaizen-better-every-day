@@ -217,15 +217,18 @@ export const SummerAvailabilityView = () => {
     return { readyPeople: ready, needsSetupPeople: needs };
   }, [people]);
 
-  // Stats
-  const offTodayCount = useMemo(() => {
+  // Stats - Off this week (count reps who have at least one off/excluded day in the displayed week)
+  const offThisWeekCount = useMemo(() => {
+    const weekDateStrs = weekDays.map(d => format(d, 'yyyy-MM-dd'));
     return readyPeople.filter(p => {
-      const start = p.personalSummerStart!;
-      const end = p.personalSummerEnd!;
-      if (todayStr < start || todayStr > end) return true;
-      return p.excludedSummerDays.includes(todayStr);
+      return weekDateStrs.some(dayStr => {
+        const start = p.personalSummerStart!;
+        const end = p.personalSummerEnd!;
+        if (dayStr < start || dayStr > end) return true;
+        return p.excludedSummerDays.includes(dayStr);
+      });
     }).length;
-  }, [readyPeople, todayStr]);
+  }, [readyPeople, weekDays]);
 
   // Check if a rep is off on a given date
   const isRepOff = useCallback((person: PersonSummerInfo, dateStr: string): 'off' | 'excluded' | 'working' | 'not-started' | 'ended' => {
