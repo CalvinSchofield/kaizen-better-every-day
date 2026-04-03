@@ -1090,7 +1090,11 @@ export const useUpdateRecruitActivity = () => {
       assignedToUserId?: string | null;
       recruitId?: string;
     }) => {
-      const { session } = await getSessionSafe();
+      const { session } = await withTimeout(
+        getSessionSafe(),
+        5000,
+        'Auth recovery timed out'
+      );
       if (!session) throw new Error('Not authenticated');
 
       const updateData: Record<string, any> = {};
@@ -1111,23 +1115,41 @@ export const useUpdateRecruitActivity = () => {
         }
       }
 
-      const { error } = await supabase
-        .from('recruit_activities')
-        .update(updateData)
-        .eq('id', activityId);
+      const { error } = await withTimeout(
+        supabase
+          .from('recruit_activities')
+          .update(updateData)
+          .eq('id', activityId),
+        8000,
+        'Timed out updating activity'
+      );
 
       if (error) throw error;
 
       // Sync to recruit record for display consistency (if we have recruitId and nextAction/nextActionDue)
-      if (recruitId && (nextAction || nextActionDue)) {
+      if (recruitId && (nextAction !== undefined || nextActionDue !== undefined)) {
         const recruitUpdateData: Record<string, any> = {};
-        if (nextAction) recruitUpdateData.next_action = nextAction;
-        if (nextActionDue) recruitUpdateData.next_action_due = nextActionDue;
-        
-        await supabase
-          .from('recruits')
-          .update(recruitUpdateData)
-          .eq('id', recruitId);
+        if (nextAction !== undefined) recruitUpdateData.next_action = nextAction;
+        if (nextActionDue !== undefined) recruitUpdateData.next_action_due = nextActionDue;
+
+        if (Object.keys(recruitUpdateData).length > 0) {
+          withTimeout(
+            supabase
+              .from('recruits')
+              .update(recruitUpdateData)
+              .eq('id', recruitId),
+            5000,
+            'Timed out syncing recruit follow-up'
+          )
+            .then(({ error: recruitSyncError }) => {
+              if (recruitSyncError) {
+                console.error('Failed to sync recruit follow-up:', recruitSyncError);
+              }
+            })
+            .catch((recruitSyncError) => {
+              console.error('Recruit follow-up sync timed out:', recruitSyncError);
+            });
+        }
       }
 
       return { activityId, notes, createdAt, nextAction, nextActionDue, assignedToUserId, recruitId };

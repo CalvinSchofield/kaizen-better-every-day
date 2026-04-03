@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUserId } from "./useCurrentUserId";
+import { getSessionSafe } from "@/utils/authSession";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonField = any;
@@ -68,6 +69,22 @@ export interface RepData {
 
 // Helper to get user-specific cache key
 const getRepCacheKey = (userId: string) => `rep-data-cache-${userId}`;
+const REP_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+const getCachedRepData = (userId: string): RepData | null => {
+  try {
+    const cached = localStorage.getItem(getRepCacheKey(userId));
+    if (!cached) return null;
+
+    const parsed = JSON.parse(cached);
+    if (parsed.userId !== userId) return null;
+    if (parsed.timestamp && Date.now() - parsed.timestamp > REP_CACHE_TTL_MS) return null;
+
+    return parsed.data as RepData;
+  } catch {
+    return null;
+  }
+};
 
 // Helper to clear all rep data caches (for logout)
 export const clearAllRepCaches = () => {
@@ -86,18 +103,28 @@ export const useRepData = () => {
   // PERF FIX: Use shared useCurrentUserId instead of independent auth check.
   // This eliminates a redundant getUser() network call + duplicate onAuthStateChange listener.
   const { userId: currentUserId, isReady: authChecked } = useCurrentUserId();
+  const initialData = currentUserId ? getCachedRepData(currentUserId) : undefined;
 
   const { data: repData, isLoading: loading } = useQuery({
     queryKey: ['rep-data', currentUserId],
     enabled: !!currentUserId,
     staleTime: 1 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    initialData,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     retry: 1,
     queryFn: async () => {
       if (!currentUserId) return null;
 
       const cacheKey = getRepCacheKey(currentUserId);
+      const cachedRepData = getCachedRepData(currentUserId);
+
+      const { session } = await getSessionSafe();
+      if (!session?.user || session.user.id !== currentUserId) {
+        if (cachedRepData) return cachedRepData;
+        throw new Error('Auth session unavailable for rep fetch');
+      }
 
       const { data, error } = await supabase
         .from("reps")

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "./useCurrentUserId";
+import { getSessionSafe } from "@/utils/authSession";
 
 const SETUP_CACHE_KEY_PREFIX = 'setup-status-cache:';
 const SETUP_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
@@ -62,6 +63,7 @@ export const useSetupStatus = (): SetupStatus => {
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    refetchOnMount: 'always',
     placeholderData: () => {
       if (!userId) return undefined;
       const cached = getCachedSetup(userId);
@@ -70,6 +72,13 @@ export const useSetupStatus = (): SetupStatus => {
     },
     queryFn: async () => {
       if (!userId) return null;
+      const cached = getCachedSetup(userId);
+
+      const { session } = await getSessionSafe();
+      if (!session?.user || session.user.id !== userId) {
+        if (cached) return cached;
+        throw new Error('Auth session unavailable for setup check');
+      }
 
       // ALWAYS hit DB — placeholderData handles instant display from cache.
       // Previously this returned cached data from queryFn, which meant stale
@@ -92,6 +101,10 @@ export const useSetupStatus = (): SetupStatus => {
           .eq('user_id', userId)
           .maybeSingle(),
       ]);
+
+      if (totalsRes.error) throw totalsRes.error;
+      if (goalsRes.error) throw goalsRes.error;
+      if (configRes.error) throw configRes.error;
 
       const result: CachedSetupData = {
         hasOfficialTotals: (totalsRes.data?.length ?? 0) > 0,
