@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { TeamBaseline } from "@/utils/baselineCalculations";
 import { ActiveRecord } from "@/utils/teamRecordDetection";
 import { RecordBanner } from "./RecordBanner";
+import { MicroSparkline } from "./MicroSparkline";
+import { ComparisonTotals, SparklinePoint } from "@/hooks/useReportsV2Comparison";
 
 interface PulseHeroProps {
   doors: number;
@@ -27,7 +29,13 @@ interface PulseHeroProps {
   onFpClick?: () => void;
   activeRecords?: ActiveRecord[];
   onRecordBannerClick?: () => void;
+  // Comparison data
+  comparisonTotals?: ComparisonTotals | null;
+  comparisonLabel?: string;
+  sparklineHistory?: SparklinePoint[];
 }
+
+type MetricKey = 'doors' | 'dms' | 'pitches' | 'presentations' | 'closes' | 'fp';
 
 interface StatTileProps {
   label: string;
@@ -38,9 +46,11 @@ interface StatTileProps {
   delay?: number;
   isRecord?: boolean;
   onPace?: boolean;
+  sparklineData?: number[];
+  sparklineAvg?: number;
 }
 
-const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0, isRecord, onPace }: StatTileProps) => {
+const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0, isRecord, onPace, sparklineData, sparklineAvg }: StatTileProps) => {
   const displayValue = format === 'currency' 
     ? `$${typeof value === 'number' ? value.toLocaleString() : value}`
     : format === 'decimal' && typeof value === 'number'
@@ -59,7 +69,7 @@ const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay * 0.05, duration: 0.3 }}
       className={cn(
-        "rounded-xl p-3 flex flex-col items-center justify-center gap-1 relative",
+        "rounded-xl p-3 flex flex-col items-center justify-center gap-0.5 relative",
         "bg-card border border-border/50",
         highlight && "ring-2 ring-primary/20 bg-primary/5",
         isRecord && "ring-2 ring-amber-400/60 bg-amber-500/5",
@@ -88,15 +98,26 @@ const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0
       <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
         {label}
       </span>
-      {delta !== undefined && delta !== null && (
-        <div className={cn(
-          "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
-          getDeltaColor(delta)
-        )}>
-          {delta > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : delta < 0 ? <TrendingDown className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}
-          {delta > 0 ? '+' : ''}{delta.toFixed(0)}%
-        </div>
-      )}
+      {/* Sparkline + delta row */}
+      <div className="flex items-center gap-1.5 mt-0.5">
+        {sparklineData && sparklineData.length >= 2 && (
+          <MicroSparkline
+            data={sparklineData}
+            width={44}
+            height={16}
+            goldLine={sparklineAvg}
+          />
+        )}
+        {delta !== undefined && delta !== null && (
+          <div className={cn(
+            "flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-semibold",
+            getDeltaColor(delta)
+          )}>
+            {delta > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : delta < 0 ? <TrendingDown className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}
+            {delta > 0 ? '+' : ''}{delta.toFixed(0)}%
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
@@ -122,6 +143,8 @@ const generatePulseSentence = (
   periodLabel: string,
   baseline?: TeamBaseline,
   isLiveView?: boolean,
+  comparisonTotals?: ComparisonTotals | null,
+  comparisonLabel?: string,
 ): string => {
   // LIVE view with baseline — use pace comparison
   if (isLiveView && baseline) {
@@ -132,6 +155,14 @@ const generatePulseSentence = (
     if (pct >= 90) return "Team is tracking on pace with baseline";
     if (pct >= 70) return `Team is ${(100 - pct).toFixed(0)}% behind normal pace`;
     return `Team is significantly behind expected pace — ${(100 - pct).toFixed(0)}% below baseline`;
+  }
+
+  // Non-live with comparison data — show period-over-period
+  if (comparisonTotals && comparisonTotals.fp > 0 && fp > 0) {
+    const delta = ((fp - comparisonTotals.fp) / comparisonTotals.fp) * 100;
+    const dir = delta >= 0 ? 'up' : 'down';
+    const arrow = delta >= 0 ? '↑' : '↓';
+    return `${fp.toFixed(1)} FP+ — ${arrow}${Math.abs(delta).toFixed(0)}% ${comparisonLabel || 'vs prior period'}`;
   }
 
   // No activity yet
@@ -176,12 +207,6 @@ const generatePulseSentence = (
   return `${doors} doors knocked in this period`;
 };
 
-// Map metric keys to StatTile labels
-const METRIC_KEY_MAP: Record<string, string> = {
-  doors: 'Doors', dms: 'DMs', pitches: 'Pitches',
-  presentations: 'Pres', closes: 'Closes', fp: 'FP+',
-};
-
 export const PulseHero = ({
   doors, dms, pitches, presentations, closes, fp, prmr,
   avgStartTime, avgEndTime, activeHours,
@@ -189,6 +214,7 @@ export const PulseHero = ({
   teamBaseline, periodLabel, isLoading, onWorkingClick,
   onAvgStartClick, onFpClick,
   activeRecords = [], onRecordBannerClick,
+  comparisonTotals, comparisonLabel, sparklineHistory,
 }: PulseHeroProps) => {
   if (isLoading) {
     return (
@@ -206,7 +232,6 @@ export const PulseHero = ({
   // Build record lookup
   const recordMap = new Map<string, ActiveRecord>();
   activeRecords.forEach(r => {
-    // Only store the first (most significant) record per metric
     if (!recordMap.has(r.metricKey)) recordMap.set(r.metricKey, r);
   });
 
@@ -216,18 +241,45 @@ export const PulseHero = ({
     return { isRecord: r.isRecord, onPace: r.onPace };
   };
 
-  // Calculate deltas vs baseline
-  const calcDelta = (actual: number, expected: number | undefined) => {
-    if (!expected || expected === 0 || !isLiveView) return null;
-    return ((actual - expected) / expected) * 100;
+  // Calculate deltas from comparison data (period-over-period)
+  const calcDelta = (metricKey: MetricKey): number | null => {
+    // For live view, use baseline delta for FP only (existing behavior)
+    if (isLiveView && metricKey === 'fp' && teamBaseline?.teamExpectedFPToday) {
+      const expected = teamBaseline.teamExpectedFPToday;
+      if (expected > 0) return ((fp - expected) / expected) * 100;
+    }
+    // Use comparison totals for all metrics when available
+    if (!comparisonTotals) return null;
+    const currentValues: Record<MetricKey, number> = { doors, dms, pitches, presentations, closes, fp };
+    const current = currentValues[metricKey];
+    const previous = (comparisonTotals as any)[metricKey] || 0;
+    if (previous === 0 && current === 0) return null;
+    if (previous === 0) return current > 0 ? 100 : null;
+    return ((current - previous) / previous) * 100;
   };
 
-  const expectedFP = teamBaseline?.teamExpectedFPToday;
-  const fpDelta = calcDelta(fp, expectedFP);
+  // Extract sparkline data for a given metric
+  const getSparkline = (metricKey: MetricKey): number[] | undefined => {
+    if (!sparklineHistory || sparklineHistory.length < 2) return undefined;
+    return sparklineHistory.map(p => (p as any)[metricKey] || 0);
+  };
 
-  const pulseSentence = generatePulseSentence(fp, doors, closes, activeReps, periodLabel, teamBaseline, isLiveView);
+  // Calculate sparkline average for gold line
+  const getSparklineAvg = (metricKey: MetricKey): number | undefined => {
+    const data = getSparkline(metricKey);
+    if (!data || data.length === 0) return undefined;
+    const sum = data.reduce((a, b) => a + b, 0);
+    const avg = sum / data.length;
+    return avg > 0 ? avg : undefined;
+  };
+
+  const pulseSentence = generatePulseSentence(
+    fp, doors, closes, activeReps, periodLabel, teamBaseline, isLiveView,
+    comparisonTotals, comparisonLabel,
+  );
 
   // Determine pulse color
+  const fpDelta = calcDelta('fp');
   const pulseColor = !fpDelta ? "text-muted-foreground" 
     : fpDelta >= 0 ? "text-green-600 dark:text-green-400" 
     : fpDelta < -15 ? "text-destructive" 
@@ -247,19 +299,26 @@ export const PulseHero = ({
         </p>
       </motion.div>
 
+      {/* Comparison label */}
+      {comparisonLabel && comparisonTotals && (
+        <p className="text-[10px] text-muted-foreground/70 -mt-1 ml-6">
+          {comparisonLabel}
+        </p>
+      )}
+
       {/* Stat tiles grid - 3x2 */}
       <div className="grid grid-cols-3 gap-2">
-        <StatTile label="Doors" value={doors} delay={0} {...getRecordProps('doors')} />
-        <StatTile label="DMs" value={dms} delay={1} {...getRecordProps('dms')} />
-        <StatTile label="Pitches" value={pitches} delay={2} {...getRecordProps('pitches')} />
-        <StatTile label="Pres" value={presentations} delay={3} {...getRecordProps('presentations')} />
-        <StatTile label="Closes" value={closes} delay={4} {...getRecordProps('closes')} />
+        <StatTile label="Doors" value={doors} delta={calcDelta('doors')} sparklineData={getSparkline('doors')} sparklineAvg={getSparklineAvg('doors')} delay={0} {...getRecordProps('doors')} />
+        <StatTile label="DMs" value={dms} delta={calcDelta('dms')} sparklineData={getSparkline('dms')} sparklineAvg={getSparklineAvg('dms')} delay={1} {...getRecordProps('dms')} />
+        <StatTile label="Pitches" value={pitches} delta={calcDelta('pitches')} sparklineData={getSparkline('pitches')} sparklineAvg={getSparklineAvg('pitches')} delay={2} {...getRecordProps('pitches')} />
+        <StatTile label="Pres" value={presentations} delta={calcDelta('presentations')} sparklineData={getSparkline('presentations')} sparklineAvg={getSparklineAvg('presentations')} delay={3} {...getRecordProps('presentations')} />
+        <StatTile label="Closes" value={closes} delta={calcDelta('closes')} sparklineData={getSparkline('closes')} sparklineAvg={getSparklineAvg('closes')} delay={4} {...getRecordProps('closes')} />
         {onFpClick ? (
           <button onClick={onFpClick} className="active:scale-[0.96] transition-transform">
-            <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} {...getRecordProps('fp')} />
+            <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={calcDelta('fp')} sparklineData={getSparkline('fp')} sparklineAvg={getSparklineAvg('fp')} delay={5} {...getRecordProps('fp')} />
           </button>
         ) : (
-          <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} {...getRecordProps('fp')} />
+          <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={calcDelta('fp')} sparklineData={getSparkline('fp')} sparklineAvg={getSparklineAvg('fp')} delay={5} {...getRecordProps('fp')} />
         )}
       </div>
 
