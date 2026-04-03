@@ -45,6 +45,7 @@ export const FpDetailDrawer = ({
         totalPRMR={totalPRMR}
         sparklineData={sparklineData}
         sparklineAvg={sparklineAvg}
+        sparklineAvgLabel={sparklineAvgLabel}
       />
     </>
   );
