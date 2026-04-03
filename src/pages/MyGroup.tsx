@@ -1445,7 +1445,7 @@ const MyGroup = () => {
       />
 
       {/* Leader onboarding tour - unified PageTour system */}
-      {isLeader && (
+      {isFullLeader && (
         <PageTour
           steps={getMyGroupTourSteps(teamAccess?.accessLevel)}
           isOpen={showGroupTour}
