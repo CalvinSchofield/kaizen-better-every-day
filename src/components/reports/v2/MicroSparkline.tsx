@@ -11,6 +11,8 @@ interface MicroSparklineProps {
   showGoldLabel?: boolean;
   /** Format function for gold label */
   formatGoldLabel?: (v: number) => string;
+  /** Custom prefix for the gold label (default: "avg") */
+  goldLabelText?: string;
   /** Color of the sparkline stroke */
   color?: string;
 }
@@ -23,6 +25,7 @@ export const MicroSparkline = ({
   goldLine,
   showGoldLabel,
   formatGoldLabel,
+  goldLabelText = "avg",
   color,
 }: MicroSparklineProps) => {
   if (!data || data.length < 2) return null;
@@ -72,7 +75,7 @@ export const MicroSparkline = ({
               fontSize={Math.min(10, height * 0.18)}
               fontWeight={600}
             >
-              avg {formatGoldLabel ? formatGoldLabel(goldLine) : Math.round(goldLine).toLocaleString()}
+              {goldLabelText} {formatGoldLabel ? formatGoldLabel(goldLine) : Math.round(goldLine).toLocaleString()}
             </text>
           )}
         </>
@@ -101,4 +104,32 @@ export const MicroSparkline = ({
       })()}
     </svg>
   );
+};
+
+/** Converts a date preset to a human-readable avg label for sparkline gold lines */
+export const getSparklineAvgLabel = (preset?: string): string => {
+  if (!preset) return "avg";
+  switch (preset) {
+    case 'today': {
+      const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(new Date());
+      return `avg ${dayName}`;
+    }
+    case 'yesterday': {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(yesterday);
+      return `avg ${dayName}`;
+    }
+    case 'week':
+    case 'lastWeek':
+      return "avg weekly";
+    case 'month':
+    case 'lastMonth':
+      return "avg monthly";
+    case 'preseason':
+    case 'ytd':
+      return "avg";
+    default:
+      return "avg";
+  }
 };
