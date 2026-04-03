@@ -603,6 +603,22 @@ export const SummerAvailabilityView = () => {
         )}
       </div>
 
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground py-1">
+        <div className="flex items-center gap-1.5">
+          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500/50" />
+          Working
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-3 w-3 rounded-full bg-destructive/80" />
+          Off
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20" />
+          Not in range
+        </div>
+      </div>
+
       {/* Out of Range Section (collapsed by default) */}
       {outOfRangePeople.length > 0 && (
         <Collapsible defaultOpen={false}>
@@ -651,22 +667,6 @@ export const SummerAvailabilityView = () => {
           </CollapsibleContent>
         </Collapsible>
       )}
-
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500/50" />
-          Working
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-3 w-3 rounded-full bg-destructive/80" />
-          Off
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/20" />
-          Not in range
-        </div>
-      </div>
 
       {/* Needs Setup Section */}
       {needsSetupPeople.length > 0 && (
