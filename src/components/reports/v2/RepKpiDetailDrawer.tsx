@@ -84,7 +84,7 @@ export const RepKpiDetailDrawer = ({
   if (metricKey === 'fp') {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="max-h-[88vh]">
+        <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto z-[70] rounded-t-xl">
           <SheetHeader className="pb-2">
             <SheetTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
