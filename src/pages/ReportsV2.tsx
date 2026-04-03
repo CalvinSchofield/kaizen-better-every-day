@@ -33,6 +33,7 @@ import { FpDetailDrawer } from "@/components/reports/v2/FpDetailDrawer";
 import { getSparklineAvgLabel } from "@/components/reports/v2/MicroSparkline";
 import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, resolveFilteredUserIds } from "@/components/filters/UnifiedFilterDrawer";
 import { LeaderAICoachComingSoon } from '@/components/reports/LeaderAICoachComingSoon';
+import { ReportsFeaturePreview } from '@/components/reports/v2/ReportsFeaturePreview';
 import { Sparkles } from "lucide-react";
 import { useHeader } from "@/contexts/HeaderContext";
 import { Card } from "@/components/ui/card";
