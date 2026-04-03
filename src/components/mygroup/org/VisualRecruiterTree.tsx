@@ -1,13 +1,14 @@
-import { useMemo, useCallback, useState } from "react";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { useMemo, useCallback, useState, useRef, useEffect } from "react";
+import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, Maximize2, Building2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, Building2, Move } from "lucide-react";
 import { getCleanName, getInitials } from "@/utils/nameUtils";
 import { YearBadge } from "@/components/leaderboard/YearBadge";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import type { DragNode } from "@/hooks/useDragReassign";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -30,16 +31,13 @@ export interface TreeNode {
   year?: string | null;
   isAreaDirector?: boolean;
   roleColor?: RoleColor;
-  /** If true, this is a lightweight label node (e.g. "Calvin Schofield Team") not a real person */
   isLabelNode?: boolean;
-  /** If true, this is an office container node */
   isOfficeNode?: boolean;
-  /** Office ID for office nodes */
   officeId?: string;
   children: TreeNode[];
 }
 
-interface PositionedNode {
+export interface PositionedNode {
   id: string;
   name: string;
   userId: string | null;
@@ -74,7 +72,7 @@ const H_GAP = 24;
 const V_GAP = 80;
 const LABEL_HEIGHT = 48;
 const NODE_TOTAL_H = NODE_DIAMETER + LABEL_HEIGHT;
-const LABEL_NODE_HEIGHT = 24; // smaller for label nodes
+const LABEL_NODE_HEIGHT = 24;
 
 // ── Role Color Definitions ─────────────────────────────
 
@@ -105,7 +103,7 @@ const ROLE_STROKE_COLORS: Record<RoleColor, string> = {
   sr_mgmt_group: "#a855f7",
   mgmt_group: "#3b82f6",
   team_lead: "#22c55e",
-  none: "",  // will use CSS class
+  none: "",
 };
 
 const ROLE_LABEL_TEXT: Record<RoleColor, string> = {
@@ -122,7 +120,6 @@ const ROLE_LABEL_TEXT: Record<RoleColor, string> = {
 
 function countDescendants(node: TreeNode): number {
   if (node.isLabelNode) {
-    // Label nodes count their children but don't count themselves
     return node.children.reduce((sum, c) => sum + 1 + countDescendants(c), 0);
   }
   let count = node.children.length;
@@ -135,15 +132,6 @@ function countDescendants(node: TreeNode): number {
 // ── Layout Algorithm ───────────────────────────────────
 
 function computeSubtreeWidth(node: TreeNode, collapsedIds: Set<string>): number {
-  if (node.isLabelNode) {
-    // Label nodes are compact pills, not full avatar nodes
-    if (node.children.length === 0 || collapsedIds.has(node.id)) return NODE_DIAMETER + H_GAP;
-    const childrenWidth = node.children.reduce(
-      (sum, child) => sum + computeSubtreeWidth(child, collapsedIds),
-      0
-    );
-    return Math.max(NODE_DIAMETER + H_GAP, childrenWidth);
-  }
   if (node.children.length === 0 || collapsedIds.has(node.id)) return NODE_DIAMETER + H_GAP;
   const childrenWidth = node.children.reduce(
     (sum, child) => sum + computeSubtreeWidth(child, collapsedIds),
@@ -190,8 +178,6 @@ function layoutNodes(
   let childOffset = offsetX;
   const childY = (depth + 1) * (NODE_TOTAL_H + V_GAP) + NODE_RADIUS;
   const junctionY = cy + NODE_RADIUS + (V_GAP + LABEL_HEIGHT) / 2;
-
-  // Line color: use this node's role color for lines to children
   const lineColor = nodeRoleColor !== "none" ? nodeRoleColor : parentRoleColor;
 
   lines.push({ x1: cx, y1: cy + NODE_RADIUS, x2: cx, y2: junctionY, color: lineColor });
@@ -202,9 +188,7 @@ function layoutNodes(
     const childW = computeSubtreeWidth(child, collapsedIds);
     const childCx = childOffset + childW / 2;
     childPositions.push(childCx);
-
     lines.push({ x1: childCx, y1: junctionY, x2: childCx, y2: childY - NODE_RADIUS, color: lineColor });
-
     layoutNodes(child, depth + 1, childOffset, nodes, lines, collapsedIds, lineColor);
     childOffset += childW;
   });
@@ -244,6 +228,25 @@ interface VisualRecruiterTreeProps {
   onGroupByOfficeChange?: (value: boolean) => void;
   showGroupByOfficeToggle?: boolean;
   onOfficeNodeClick?: (officeId: string) => void;
+  // Drag-and-drop props
+  dragEnabled?: boolean;
+  isDragging?: boolean;
+  draggedNode?: DragNode | null;
+  dragPosition?: { x: number; y: number };
+  dropTargetId?: string | null;
+  subtreeIds?: Set<string>;
+  draggableNodeIds?: Set<string>;
+  validDropTargetIds?: Set<string>;
+  onDragTouchStart?: (node: DragNode, e: React.TouchEvent) => void;
+  onDragTouchMove?: (e: React.TouchEvent) => void;
+  onDragTouchEnd?: () => void;
+  onDragMouseDown?: (node: DragNode, e: React.MouseEvent) => void;
+  onDragMouseMove?: (e: React.MouseEvent) => void;
+  onDragMouseUp?: () => void;
+  onCancelDrag?: () => void;
+  dragWrapperRef?: React.MutableRefObject<HTMLElement | null>;
+  wasLongPress?: React.MutableRefObject<boolean>;
+  onTransformChange?: (scale: number, posX: number, posY: number) => void;
 }
 
 export const VisualRecruiterTree = ({
@@ -254,8 +257,27 @@ export const VisualRecruiterTree = ({
   onGroupByOfficeChange,
   showGroupByOfficeToggle = false,
   onOfficeNodeClick,
+  dragEnabled = false,
+  isDragging = false,
+  draggedNode = null,
+  dragPosition = { x: 0, y: 0 },
+  dropTargetId = null,
+  subtreeIds = new Set(),
+  draggableNodeIds = new Set(),
+  validDropTargetIds = new Set(),
+  onDragTouchStart,
+  onDragTouchMove,
+  onDragTouchEnd,
+  onDragMouseDown,
+  onDragMouseMove,
+  onDragMouseUp,
+  onCancelDrag,
+  dragWrapperRef,
+  wasLongPress,
+  onTransformChange,
 }: VisualRecruiterTreeProps) => {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
 
   const toggleCollapse = useCallback((nodeId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -275,32 +297,74 @@ export const VisualRecruiterTree = ({
     [roots, collapsedIds]
   );
 
+  // Expose positioned nodes for hit-testing
+  const positionedNodesRef = useRef<PositionedNode[]>([]);
+  positionedNodesRef.current = nodes;
+
+  // Report transform changes for hit-testing coordinate transforms
+  const handleTransformChange = useCallback((ref: ReactZoomPanPinchRef) => {
+    const state = ref.state;
+    onTransformChange?.(state.scale, state.positionX, state.positionY);
+  }, [onTransformChange]);
+
   const PADDING = 60;
   const svgWidth = totalWidth + PADDING * 2;
   const svgHeight = totalHeight + PADDING * 2;
 
   const handleNodeClick = useCallback(
     (node: PositionedNode) => {
-      if (node.isLabelNode) return; // don't open drawer for label nodes
+      if (node.isLabelNode) return;
+      // If long press just fired, suppress the tap
+      if (wasLongPress?.current) return;
       if (selectedNodeId === node.id) {
         onSelectNode(null);
       } else {
         onSelectNode(node);
       }
     },
-    [selectedNodeId, onSelectNode]
+    [selectedNodeId, onSelectNode, wasLongPress]
   );
+
+  const makeDragNode = useCallback((node: PositionedNode): DragNode => ({
+    id: node.id,
+    name: node.name,
+    userId: node.userId,
+    profilePhotoUrl: node.profilePhotoUrl,
+    totalDescendants: node.totalDescendants,
+    x: node.x,
+    y: node.y,
+  }), []);
 
   if (roots.length === 0) return null;
 
   return (
     <div className="relative rounded-xl border bg-card overflow-hidden">
+      {/* Drag mode indicator */}
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow-lg flex items-center gap-1.5"
+          >
+            <Move className="h-3 w-3" />
+            Drop on a person to reassign
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <TransformWrapper
+        ref={transformRef}
         initialScale={Math.min(1, 380 / svgWidth)}
         minScale={0.1}
         maxScale={2.5}
         centerOnInit
         limitToBounds={false}
+        panning={{ disabled: isDragging }}
+        pinch={{ disabled: isDragging }}
+        onTransformed={handleTransformChange}
+        onInit={handleTransformChange}
       >
         {({ zoomIn, zoomOut, resetTransform }) => (
           <>
@@ -331,6 +395,16 @@ export const VisualRecruiterTree = ({
 
             <TransformComponent
               wrapperStyle={{ width: "100%", height: "70vh", minHeight: 350 }}
+              wrapperProps={{
+                ref: (el: HTMLDivElement | null) => {
+                  if (dragWrapperRef) dragWrapperRef.current = el;
+                },
+                onTouchMove: isDragging ? onDragTouchMove : undefined,
+                onTouchEnd: isDragging ? onDragTouchEnd : undefined,
+                onMouseMove: isDragging ? onDragMouseMove : undefined,
+                onMouseUp: isDragging ? onDragMouseUp : undefined,
+                onMouseLeave: isDragging ? onCancelDrag : undefined,
+              }}
             >
               <motion.div
                 layout
@@ -358,7 +432,7 @@ export const VisualRecruiterTree = ({
                             y1: line.y1 + PADDING,
                             x2: line.x2 + PADDING,
                             y2: line.y2 + PADDING,
-                            opacity: 1,
+                            opacity: isDragging && subtreeIds.size > 0 ? 0.3 : 1,
                           }}
                           exit={{ opacity: 0 }}
                           transition={{ type: "spring", stiffness: 300, damping: 25, mass: 0.8 }}
@@ -376,7 +450,7 @@ export const VisualRecruiterTree = ({
                 <AnimatePresence>
                   {nodes.map((node) => {
                     if (node.isLabelNode) {
-                      return <LabelNodeRenderer key={node.id} node={node} PADDING={PADDING} collapsedIds={collapsedIds} toggleCollapse={toggleCollapse} onOfficeNodeClick={node.isOfficeNode ? onOfficeNodeClick : undefined} />;
+                      return <LabelNodeRenderer key={node.id} node={node} PADDING={PADDING} collapsedIds={collapsedIds} toggleCollapse={toggleCollapse} onOfficeNodeClick={node.isOfficeNode ? onOfficeNodeClick : undefined} isDimmed={isDragging} />;
                     }
 
                     const cleanName = getCleanName(node.name);
@@ -385,16 +459,29 @@ export const VisualRecruiterTree = ({
                     const isGhost = !node.userId;
                     const isCollapsed = collapsedIds.has(node.id);
                     const roleColor = node.roleColor || "none";
+                    
+                    // Drag states
+                    const isBeingDragged = isDragging && draggedNode?.id === node.id;
+                    const isInDraggedSubtree = isDragging && subtreeIds.has(node.id);
+                    const isDropTarget = isDragging && dropTargetId === node.id;
+                    const isDraggable = dragEnabled && draggableNodeIds.has(node.id);
+                    const isValidTarget = isDragging && validDropTargetIds.has(node.id) && !subtreeIds.has(node.id);
 
                     return (
                       <motion.div
                         key={node.id}
                         layout
                         initial={{ opacity: 0, scale: 0.5 }}
-                        animate={{ opacity: 1, scale: 1 }}
+                        animate={{
+                          opacity: isBeingDragged ? 0.3 : isInDraggedSubtree ? 0.4 : isDragging && !isValidTarget ? 0.5 : 1,
+                          scale: isDropTarget ? 1.15 : 1,
+                        }}
                         exit={{ opacity: 0, scale: 0.5 }}
                         transition={{ type: "spring", stiffness: 300, damping: 25, mass: 0.8 }}
-                        className="absolute flex flex-col items-center cursor-pointer group"
+                        className={cn(
+                          "absolute flex flex-col items-center cursor-pointer group",
+                          isDropTarget && "z-10",
+                        )}
                         style={{
                           left: node.x + PADDING - NODE_RADIUS - 16,
                           top: node.y + PADDING - NODE_RADIUS,
@@ -402,9 +489,28 @@ export const VisualRecruiterTree = ({
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleNodeClick(node);
+                          if (!isDragging) handleNodeClick(node);
                         }}
+                        onTouchStart={dragEnabled && isDraggable && !isGhost ? (e) => {
+                          onDragTouchStart?.(makeDragNode(node), e);
+                        } : undefined}
+                        onMouseDown={dragEnabled && isDraggable && !isGhost ? (e) => {
+                          onDragMouseDown?.(makeDragNode(node), e);
+                        } : undefined}
                       >
+                        {/* Drop target ring */}
+                        <AnimatePresence>
+                          {isDropTarget && (
+                            <motion.div
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: [1, 1.1, 1], opacity: 1 }}
+                              exit={{ scale: 0.8, opacity: 0 }}
+                              transition={{ scale: { repeat: Infinity, duration: 1.2 }, opacity: { duration: 0.2 } }}
+                              className="absolute -inset-2 rounded-full border-2 border-primary bg-primary/10 z-0"
+                            />
+                          )}
+                        </AnimatePresence>
+
                         {/* Avatar circle with year badge overlay */}
                         <div className="relative">
                           <div
@@ -412,7 +518,8 @@ export const VisualRecruiterTree = ({
                               "rounded-full border-[2.5px] transition-all duration-200 shadow-sm",
                               ROLE_RING_CLASSES[roleColor],
                               isSelected && "!border-primary !ring-4 !ring-primary/20 scale-110",
-                              isGhost && "opacity-60"
+                              isGhost && "opacity-60",
+                              isDropTarget && "!border-primary !ring-4 !ring-primary/30",
                             )}
                           >
                             <Avatar className={cn("h-[56px] w-[56px]", ROLE_BG_CLASSES[roleColor])}>
@@ -423,7 +530,7 @@ export const VisualRecruiterTree = ({
                             </Avatar>
                           </div>
 
-                          {/* Year badge - bottom right of avatar */}
+                          {/* Year badge */}
                           {node.year && (
                             <div className="absolute -bottom-1 -right-1">
                               <YearBadge year={node.year} className="!w-4 !h-4 !text-[8px] shadow-sm" />
@@ -446,7 +553,7 @@ export const VisualRecruiterTree = ({
                           </span>
                         )}
 
-                        {/* Area Director label (only for ADs, shown above org title) */}
+                        {/* Area Director label */}
                         {node.isAreaDirector && (
                           <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold leading-tight mt-0.5 truncate max-w-[92px]">
                             Area Director
@@ -490,9 +597,45 @@ export const VisualRecruiterTree = ({
           </>
         )}
       </TransformWrapper>
+
+      {/* Floating ghost node that follows finger/cursor during drag */}
+      <AnimatePresence>
+        {isDragging && draggedNode && (
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 0.9 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="fixed z-50 pointer-events-none flex flex-col items-center"
+            style={{
+              left: dragPosition.x - 32,
+              top: dragPosition.y - 48,
+            }}
+          >
+            <div className="rounded-full border-2 border-primary ring-4 ring-primary/20 shadow-2xl">
+              <Avatar className="h-14 w-14 bg-primary/10">
+                <AvatarImage src={draggedNode.profilePhotoUrl || undefined} />
+                <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
+                  {getInitials(getCleanName(draggedNode.name))}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <span className="text-[10px] font-semibold text-foreground mt-1 bg-background/90 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+              {getCleanName(draggedNode.name)}
+              {draggedNode.totalDescendants > 0 && (
+                <span className="text-muted-foreground ml-1">+{draggedNode.totalDescendants}</span>
+              )}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
+
+// ── Exported helpers ──────────────────────────────────
+
+export { type PositionedNode as PositionedNodeType };
 
 // ── Label Node Renderer ────────────────────────────────
 
@@ -502,12 +645,14 @@ function LabelNodeRenderer({
   collapsedIds,
   toggleCollapse,
   onOfficeNodeClick,
+  isDimmed = false,
 }: {
   node: PositionedNode;
   PADDING: number;
   collapsedIds: Set<string>;
   toggleCollapse: (id: string, e: React.MouseEvent) => void;
   onOfficeNodeClick?: (officeId: string) => void;
+  isDimmed?: boolean;
 }) {
   const isCollapsed = collapsedIds.has(node.id);
   const roleColor = node.roleColor || "none";
@@ -526,7 +671,7 @@ function LabelNodeRenderer({
       key={node.id}
       layout
       initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{ opacity: isDimmed ? 0.4 : 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.8 }}
       transition={{ type: "spring", stiffness: 300, damping: 25, mass: 0.8 }}
       className="absolute flex items-center justify-center"
