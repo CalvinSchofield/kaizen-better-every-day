@@ -1,46 +1,68 @@
-## Redesign RepGoalSnapshot — Clear, Simple, Beautiful
 
-### The Problem
 
-The current component is overcomplicated. Too many visual elements (segmented bar, legend, period insight card, delta pills) make it hard to instantly digest. The core question a leader asks is simple: **"Did they do what they needed to do, and where does that leave them?"**
+# Drag-and-Drop Recruiter Tree Reassignment
 
-### The Vision — Two Clean Sections
+## Overview
+Add long-press-to-drag functionality to the visual recruiter tree, allowing leaders to drag a node (person) and drop it onto another node to reassign the recruiter-recruit relationship. The dragged person and their entire downline move together. Includes haptic feedback, permission enforcement, and on-brand confirmation dialogs.
 
-**Section 1: Season Standing (YTD)**
+## User Experience Flow
 
-- Big number: `23.2 / 30 EFP` with tier badge and On Pace / At Risk / Behind pill
-- Single clean progress bar showing total progress toward goal, with a thin vertical marker at "where you should be right now" (YTD expected based on season elapsed days) *****based on planned days?
-- One line below: `77% complete · Should be at 68%` (or whatever the YTD expected % is) ******take this out. Keep it more simple
+1. **Long press** (400ms) on a person node triggers haptic feedback and enters drag mode
+2. The node lifts with a scale/shadow animation; its subtree visually detaches
+3. As the user drags, eligible drop targets pulse/highlight; ineligible ones dim
+4. **Dropping** onto a valid target shows a confirmation drawer (matching existing brand style from `ReassignRecruiterDrawer`)
+5. If the dragged node has children, show the "Branch Move" warning (already exists)
+6. On confirm, calls `update-rep-assignment` edge function (already exists)
+7. On cancel or drop on invalid target, the node animates back to its original position
 
-**Section 2: Period Verdict (the selected date range)**
+## Permission Rules (enforced client-side + server-side)
 
-- A compact, color-coded card that answers: "During [Last Month], they worked X days. They needed Y. They sold Z."
-- Layout:
-  - Left: Period label + days worked count
-  - Right: Simple fraction — `Sold 10 / Needed 8` — green if hit, amber if not
-  - Below: A single delta line — `+2.0 ahead of pace` or `3.7 short`
-- Color: green border/bg tint if hit, amber if not. No bar, no legend, no stacked segments.
+- **Cannot drag**: label nodes, office nodes, ghost reps without IDs, yourself, your upline
+- **Cannot drop onto**: yourself, someone in the dragged node's own subtree (circular), anyone outside your management scope
+- **Scope check**: A team lead can only rearrange within their downline. A MGMT group lead within their MGMT group. etc.
+- Server-side validation already exists in `update-rep-assignment` (checks `is_team_lead`, `is_mgmt_group_lead`, `has_min_role`)
 
-**Section 3: No Goals Edge Case**
+## Technical Approach
 
-- When `hasGoals` is false, instead of hiding the section entirely, show a soft card: "No goals set up yet" with a "Nudge to Set Goals" button that triggers an SMS or push to the rep.
+### 1. Create `useDragReassign` hook
+New hook in `src/hooks/useDragReassign.ts` that manages:
+- Long-press detection (reuses patterns from `useLongPress`)
+- Drag state: `isDragging`, `draggedNode`, `dragPosition`, `dropTargetId`
+- Hit-testing against positioned nodes to determine hover target
+- Permission checks (is target in user's scope? is it a valid parent?)
+- Uses `hapticMedium()` on drag start, `hapticSelection()` on valid hover
 
-### Technical Changes
+### 2. Update `VisualRecruiterTree` component
+- Accept new props: `onDragReassign?(sourceId, targetId)`, `currentUserAccessLevel`, `currentUserId`, `accessibleNodeIds`
+- Wrap each person node with touch/mouse handlers from `useDragReassign`
+- Render a floating "ghost" node during drag (the dragged avatar following the finger)
+- Highlight valid drop targets with a pulsing ring animation
+- Dim invalid targets
+- Disable `TransformWrapper` panning while dragging (prevent conflict)
 
-**File: `src/components/reports/v2/RepGoalSnapshot.tsx**` — Full rewrite
+### 3. Wire up in `OrgChart.tsx`
+- Pass `onDragReassign` callback that opens confirmation and calls the existing `update-rep-assignment` edge function
+- Build a set of "manageable node IDs" from the user's downline for permission scoping
+- Reuse the confirmation dialog pattern from `ReassignRecruiterDrawer`
+- Invalidate queries on success (same pattern as existing reassignment)
 
-- Remove the segmented prior/period bar, legend, and expected marker
-- Replace with a single YTD progress bar + expected marker line
-- Simplify period insight to a compact 2-line card
-- Use `season.plannedDaysElapsed` and `season.plannedDaysTotal` from GoalPaceData to show YTD expected position on the bar
+### 4. Confirmation UI
+- Reuse existing `AlertDialog` pattern with branch-move warning
+- Show: "Move [Name] under [Target Name]?" with downline count if applicable
+- On-brand styling matching existing confirmation dialogs
 
-**File: `src/components/reports/v2/RepDrillDownDrawer.tsx**`
+## Key Technical Details
 
-- Show the goal section even when `!hasGoals` — render a "No goals" nudge card instead
-- Pass `onSendSms` or a nudge callback so the leader can prompt the rep
+- **Drag conflicts with zoom/pan**: Disable `TransformWrapper` panning when `isDragging` is true (use `disabled` prop or `panning.disabled`)
+- **Touch coordinate transform**: Must account for the current zoom scale and pan offset from `TransformWrapper` to correctly hit-test nodes
+- **Performance**: Hit-testing uses the existing `PositionedNode[]` array with simple distance calculation, no need for spatial indexing given tree sizes (< 5000 nodes)
+- **Mobile-first**: All interactions use touch events primarily, mouse as fallback (same pattern as `useLongPress`)
 
-### Calculation Logic (unchanged)
+## Files to Create/Modify
 
-- `periodExpected = (activeGoal / season.plannedDaysTotal) * periodDaysWorked` — actual days worked, not estimates
-- YTD expected = `(activeGoal / season.plannedDaysTotal) * season.plannedDaysElapsed` — already available in GoalPaceData
-- Period delta = `periodFp - periodExpected`
+| File | Action |
+|------|--------|
+| `src/hooks/useDragReassign.ts` | **Create** - drag state management hook |
+| `src/components/mygroup/org/VisualRecruiterTree.tsx` | **Modify** - add drag handlers, ghost node, drop highlights |
+| `src/pages/OrgChart.tsx` | **Modify** - wire up drag callback, confirmation dialog, permission scoping |
+
