@@ -174,6 +174,14 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
     let dayFP = 0;
     let dayLiveFP = 0;
 
+    const getSaleValue = (sale: any): number => {
+      const salePrmr = Number(sale?.prmr) || 0;
+      if (efpModeEnabled) return salePrmr / 85;
+      if (sale?.type === 'fp') return 1;
+      if (sale?.type === 'upgrade') return salePrmr / 85;
+      return 0;
+    };
+
     for (const entry of allEntries) {
       const salesLog = entry.sales_log as any[] | null;
       let entryFP = 0;
@@ -182,11 +190,10 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
         for (const sale of salesLog) {
           if (sale.install_status === 'never_installed') continue;
           if (sale.install_status === 'pending') continue;
-          if (sale.type === 'fp') entryFP += 1;
-          else if (sale.type === 'upgrade') entryFP += (Number(sale.prmr) || 0) / 85;
+          entryFP += getSaleValue(sale);
         }
       } else {
-        entryFP = Number(entry.fp_plus) || 0;
+        entryFP = efpModeEnabled ? (Number(entry.prmr) || 0) / 85 : (Number(entry.fp_plus) || 0);
       }
 
       // Count finalized entries for YTD progress
