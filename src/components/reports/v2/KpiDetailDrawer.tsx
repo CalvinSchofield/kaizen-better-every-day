@@ -18,6 +18,7 @@ interface KpiDetailDrawerProps {
   totalValue: number;
   sparklineData?: number[];
   sparklineAvg?: number;
+  sparklineAvgLabel?: string;
   userIds: string[];
   dateRange: { start: string; end: string };
   onClose?: () => void;
