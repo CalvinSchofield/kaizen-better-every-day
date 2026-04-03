@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useReportsV2Data } from "@/hooks/useReportsV2Data";
 import { useReportsV2Comparison } from "@/hooks/useReportsV2Comparison";
@@ -33,6 +33,7 @@ import { FpDetailDrawer } from "@/components/reports/v2/FpDetailDrawer";
 import { getSparklineAvgLabel } from "@/components/reports/v2/MicroSparkline";
 import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, resolveFilteredUserIds } from "@/components/filters/UnifiedFilterDrawer";
 import { LeaderAICoachComingSoon } from '@/components/reports/LeaderAICoachComingSoon';
+import { ReportsFeaturePreview } from '@/components/reports/v2/ReportsFeaturePreview';
 import { Sparkles } from "lucide-react";
 import { useHeader } from "@/contexts/HeaderContext";
 import { Card } from "@/components/ui/card";
@@ -465,19 +466,9 @@ export const ReportsV2Page = () => {
         intradayPace={intradayPace}
       />
 
-      {/* New team onboarding hint — shows when very little data exists */}
-      {!isLoading && activeReps <= 1 && totalFP === 0 && funnelData.doors < 10 && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-primary/20 bg-primary/5 p-4"
-        >
-          <p className="text-sm font-medium text-foreground mb-1">📈 Building your baseline</p>
-          <p className="text-xs text-muted-foreground">
-            As your team logs daily entries, this dashboard will populate with performance trends, 
-            conversion rates, pacing insights, and coaching alerts. Most features activate after 3+ days of data.
-          </p>
-        </motion.div>
+      {/* Feature preview carousel — shown when not enough historical data for advanced features */}
+      {!isLoading && teamBaseline && !teamBaseline.conversions.hasEnoughData && (
+        <ReportsFeaturePreview />
       )}
 
       {/* Goal Pace Section */}
