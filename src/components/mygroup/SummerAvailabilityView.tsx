@@ -478,6 +478,28 @@ export const SummerAvailabilityView = () => {
         </button>
       )}
 
+      {/* Weekly Stats */}
+      <div className="flex items-center gap-3 px-1">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Users className="h-3.5 w-3.5" />
+          <span className="font-medium text-foreground">{weeklyStats.workingReps}</span>
+          <span>reps working</span>
+          <span className="text-muted-foreground/60">·</span>
+          <span className="font-medium text-foreground">{weeklyStats.totalWorkingDays}</span>
+          <span>rep-days</span>
+        </div>
+        {canSeePace && weeklyStats.projectedFP > 0 && (
+          <>
+            <span className="text-muted-foreground/40">|</span>
+            <div className="flex items-center gap-1.5 text-xs">
+              <TrendingUp className="h-3.5 w-3.5 text-primary" />
+              <span className="font-semibold text-primary">{weeklyStats.projectedFP.toFixed(1)}</span>
+              <span className="text-muted-foreground">FP+ projected</span>
+            </div>
+          </>
+        )}
+      </div>
+
       {/* Calendar Grid */}
       <div className="border rounded-xl overflow-hidden bg-background shadow-sm">
         {/* Day headers */}
