@@ -175,7 +175,7 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
       if (!filteredUserIds.length) return [];
       const { data } = await supabase
         .from('reps')
-        .select('id, user_id, name, year, stage, profile_photo_url')
+        .select('id, user_id, name, year, stage, profile_photo_url, efp_mode_enabled')
         .in('user_id', filteredUserIds);
       return data || [];
     },
