@@ -26,6 +26,7 @@ import {
   ActivityRingHero,
   ActivityRingLegend,
   FinalizedDayHeader,
+  FinalizedStatsGrid,
   ActivityCalendarDrawer,
   HorizontalActivityTimeline,
   GoalResultCard,
