@@ -294,7 +294,33 @@ export const SummerAvailabilityView = () => {
     return { activePeople: active, outOfRangePeople: outOfRange };
   }, [readyPeople, weekDays]);
 
-  // Check if a rep is off on a given date
+  // Weekly stats: working rep count + projected FP+
+  const weeklyStats = useMemo(() => {
+    const weekDateStrs = weekDays.map(d => format(d, 'yyyy-MM-dd'));
+    let workingReps = 0;
+    let totalWorkingDays = 0;
+    let projectedFP = 0;
+
+    activePeople.forEach(p => {
+      let repWorkingDays = 0;
+      weekDateStrs.forEach(dayStr => {
+        if (!p.personalSummerStart || !p.personalSummerEnd) return;
+        if (dayStr < p.personalSummerStart || dayStr > p.personalSummerEnd) return;
+        if (p.excludedSummerDays.includes(dayStr)) return;
+        repWorkingDays++;
+      });
+      if (repWorkingDays > 0) {
+        workingReps++;
+        totalWorkingDays += repWorkingDays;
+        const pace = paceDataMap?.get(p.userId) || 0;
+        projectedFP += pace * repWorkingDays;
+      }
+    });
+
+    return { workingReps, totalWorkingDays, projectedFP };
+  }, [activePeople, weekDays, paceDataMap]);
+
+
   const isRepOff = useCallback((person: PersonSummerInfo, dateStr: string): 'off' | 'excluded' | 'working' | 'not-started' | 'ended' => {
     if (!person.personalSummerStart || !person.personalSummerEnd) return 'off';
     if (dateStr < person.personalSummerStart) return 'not-started';
