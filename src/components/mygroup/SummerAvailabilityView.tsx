@@ -6,12 +6,14 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   Sun, AlertCircle, Calendar, ChevronLeft, ChevronRight,
   Bell, Pencil, ChevronDown, ChevronUp, Filter, Palmtree
 } from "lucide-react";
-import { format, addDays, startOfWeek, endOfWeek, isBefore, isAfter, differenceInDays } from "date-fns";
+import { format, addDays, startOfWeek } from "date-fns";
+import { getInitials } from "@/utils/nameUtils";
 import { stripEmojis } from "./recruit-detail/utils";
 import { toast } from "sonner";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
