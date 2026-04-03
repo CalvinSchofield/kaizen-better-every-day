@@ -4,6 +4,7 @@ import { App } from '@capacitor/app';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionSafe } from '@/utils/authSession';
+import { persistTokensToNative } from '@/utils/nativeTokenStorage';
 
 /**
  * Comprehensive app resume handler for Capacitor/TestFlight reliability.
