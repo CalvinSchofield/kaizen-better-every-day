@@ -142,6 +142,9 @@ export interface ReportsV2Data {
   // Team baseline
   teamBaseline?: TeamBaseline;
   
+  // Intraday pace (live view only)
+  intradayPace?: IntradayPaceResult;
+  
   // Rep-level data
   repsWithEffort: RepWithEffort[];
   
