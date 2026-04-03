@@ -63,7 +63,7 @@ const formatTime12 = (hours: number): string => {
 export const RepTimingChart = ({ days, className, useEfp = false }: RepTimingChartProps) => {
   const [showDates, setShowDates] = useState(false);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
-  const validDays = days.filter(d => d.startTime && d.endTime);
+  const validDays = days.filter(d => d.startTime && d.endTime).sort((a, b) => a.date.localeCompare(b.date));
 
   const bestDayDate = useMemo(() => {
     if (validDays.length <= 1) return null;
