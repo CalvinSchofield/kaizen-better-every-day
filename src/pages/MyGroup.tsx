@@ -98,7 +98,7 @@ const MyGroup = () => {
   // UI State
   const navigateTo = useNavigate();
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
+  const [smartFilter, setSmartFilter] = useState<UnifiedFilterState>(DEFAULT_UNIFIED_FILTER);
   const [editingSuggestion, setEditingSuggestion] = useState<RecruitSuggestion | null>(null);
   const [deletingSuggestionId, setDeletingSuggestionId] = useState<string | null>(null);
   
