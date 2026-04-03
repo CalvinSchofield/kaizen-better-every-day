@@ -1,44 +1,51 @@
 
 
-## Track Page Finalized View — What Needs Updating
+## Contextual Goal Progress in Rep Drill-Down
 
-### Current State Comparison
+### Problem
+The current Goal Progress shows "Today: 0 / 0 FP+" which is meaningless when viewing "Last Month" data. The timeframes (D/Y) are hardcoded and ignore the date context passed from Reports V2.
 
-The **Track finalized view** (lines 240-518 in `Track.tsx`) and the **redesigned RepDrillDownDrawer** share many of the same components but the Track page is now behind in terms of design language. Here's the gap:
+### World-Class Approach
+Replace the generic `UnifiedGoalProgress` compact bar with a **period-aware goal snapshot** that answers two questions:
+1. **"How did they do in this period vs pace?"** — Production during the selected range vs what goal pace demanded for those days
+2. **"Where do they stand overall?"** — Season-to-date progress bar for general context
 
-| Feature | RepDrillDownDrawer (new) | Track Finalized View (current) | Gap |
-|---|---|---|---|
-| **Stats display** | `FinalizedStatsGrid` — clean 4+3 grid | Inline stat ribbon with expandable funnel breakdown | Different pattern |
-| **Goal progress** | `UnifiedGoalProgress` compact (D/Y) | `GoalResultCard` (already wraps UnifiedGoalProgress) | Already aligned ✅ |
-| **Historical comparison** | `RepPeriodKpis` with sparklines + deltas | `MeVsMeCard` — table-based this year vs last year | Different, but MeVsMeCard is self-comparison which is appropriate for the rep's own view |
-| **Timing viz** | `RepTimingChart` — Gantt bars for period | None — just start/end in `FinalizedDayHeader` | Missing on Track page |
-| **Activity viz** | Ring/Timeline toggle | Ring/Timeline toggle | Already aligned ✅ |
-| **Coaching** | Removed from drawer | `CoachingCard` — contextual tips | Keep — appropriate for self-view |
-| **Header** | ProfileAvatar + badges | `FinalizedDayHeader` with check icon | Different but appropriate |
+Layout:
+```text
+┌─────────────────────────────────┐
+│ ◎ Goal Progress      ◉ Preseason│
+│                                 │
+│ Last Month        8.2 / 9.4 FP+ │
+│ ━━━━━━━━━━━━━━━━━━░░░  87%     │
+│                                 │
+│ Season           62.7 / 75 FP+  │
+│ ━━━━━━━━━━━━━━━━━━━━━░░░░  84% │
+│                         ↘ -14.9 │
+└─────────────────────────────────┘
+```
 
-### Recommended Changes
+The **period row** calculates: `dailyNeeded × plannedDaysInRange` = expected pace for that specific window. Compared against actual production in that range (already available from `useRepComparison` current totals).
 
-The Track finalized view is the rep's **own** end-of-day recap. It should stay personal (coaching, competitions, streak) but adopt the cleaner stats layout from the drawer redesign:
+The **season row** stays as-is from `useGoalPaceCalculatorForUser` — full season progress with pace indicator.
 
-**1. Replace inline stat ribbon with `FinalizedStatsGrid`**
-The expandable funnel view (lines 314-410) is functional but cluttered. Replace with the same `FinalizedStatsGrid` component already used in the drawer — it's cleaner, clickable for sales log, and consistent.
+### Technical Plan
 
-**2. No other changes needed**
-- `GoalResultCard` already uses `UnifiedGoalProgress` — already consistent
-- `MeVsMeCard` is self-comparison (this year vs last year) which is unique to the rep's own view — keep it
-- `CoachingCard` provides actionable tips for tomorrow — keep it (intentionally removed from the leader's drill-down but appropriate for self-view)
-- `StreakOutcomeCard`, `CompetitionsCard`, `PendingInstallAlertCard` — all personal context, keep them
-- `RepTimingChart` and `RepPeriodKpis` don't make sense for a single-day self-view
-- `FinalizedDayHeader` is appropriate — it shows "Day Complete" status which is correct for the rep's own track page
+**File: `src/components/reports/v2/RepDrillDownDrawer.tsx`**
+- Remove the `UnifiedGoalProgress` compact block (lines 360-368)
+- Replace with a new `RepGoalSnapshot` component
+- Pass: `downlineGoalPace`, `currentTotals.fp` (period FP+), `periodLabel`, `dateRangeStart`, `dateRangeEnd`
 
-### Files to Modify
+**File: `src/components/reports/v2/RepGoalSnapshot.tsx`** (new)
+- Accepts `goalPaceData` (from `useGoalPaceCalculatorForUser`), `periodFp`, `periodLabel`, `dateRangeStart`, `dateRangeEnd`
+- **Period pace calculation**: Uses `goalPaceData.dailyNeeded` × number of planned work days that fall within the date range (from `goalPaceData.season` data) to compute expected production for that window
+- If planned days data isn't granular enough, falls back to `dailyNeeded × calendarDaysInRange` as approximation
+- Renders two progress bars: period row + season row
+- Season row shows the pace severity badge (on pace / behind) from `goalPaceData.severity`
+- Uses the same tier badge (Preseason/Must/Will/Could) from `GOAL_TIER_CONFIG`
+- Matches the visual language of `UnifiedGoalProgress` (same colors, bar style) but with contextual labels
 
-| File | Change |
-|---|---|
-| `src/pages/Track.tsx` | Replace inline stat ribbon (lines 314-410) with `FinalizedStatsGrid` component. Import and wire up sales log click handlers. |
-
-### Technical Details
-- Import `FinalizedStatsGrid` from `@/components/activity-ring`
-- Pass `entry`, `salesLog`, and wire `onClosesClick`/`onFPClick`/`onPRMRClick` to open the existing `SalesLogDrawer`
-- Remove ~95 lines of inline stat ribbon code, replace with ~12 lines
+### What stays the same
+- `useGoalPaceCalculatorForUser` — no changes, already provides all season-level data
+- `useRepComparison` — already provides `currentTotals.fp` for the period
+- Tier config and severity colors — reused from existing design tokens
 
