@@ -119,7 +119,9 @@ export const SummerAvailabilityView = () => {
     if (currentUserData?.rep) {
       const stage = currentUserData.rep.stage;
       if (isStageIn(stage, SIGNED_PLUS_STAGES)) {
-        const goalData = goalsMap.get(currentUserData.rep.user_id);
+        const currentUserGoal = currentUserData.goals;
+        const teamGoalData = goalsMap.get(currentUserData.rep.user_id);
+        const hasGoals = !!(currentUserGoal?.setup_complete || (teamGoalData as any)?.setup_complete);
         list.push({
           userId: currentUserData.rep.user_id,
           name: currentUserData.rep.name,
@@ -130,7 +132,7 @@ export const SummerAvailabilityView = () => {
           isSelf: true,
           year: currentUserData.rep.year || undefined,
           stage: stage || undefined,
-          hasGoals: !!(goalData as any)?.setup_complete,
+          hasGoals,
         });
       }
     }
