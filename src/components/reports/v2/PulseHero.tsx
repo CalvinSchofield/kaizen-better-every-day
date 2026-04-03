@@ -36,7 +36,7 @@ interface PulseHeroProps {
   sparklineHistory?: SparklinePoint[];
 }
 
-type MetricKey = 'doors' | 'dms' | 'pitches' | 'presentations' | 'closes' | 'fp';
+type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'closes' | 'fp';
 
 interface StatTileProps {
   label: string;
