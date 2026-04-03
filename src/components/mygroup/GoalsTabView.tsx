@@ -790,10 +790,11 @@ export const GoalsTabView = ({ onRepClick }: GoalsTabViewProps) => {
                           <div
                             className={cn(
                               "h-full rounded-full transition-all",
-                              rep.paceStatus === 'ahead' && 'bg-emerald-500',
+                              (rep.paceStatus === 'ahead' || rep.paceStatus === 'goal-met') && 'bg-emerald-500',
                               rep.paceStatus === 'on-track' && 'bg-blue-500',
                               rep.paceStatus === 'behind' && 'bg-amber-500',
                               rep.paceStatus === 'critical' && 'bg-red-500',
+                              rep.paceStatus === 'not-started' && 'bg-muted-foreground/40',
                             )}
                             style={{ width: `${progressPercent}%` }}
                           />
