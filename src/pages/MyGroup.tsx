@@ -869,12 +869,12 @@ const MyGroup = () => {
   const [pendingNewRecruitId, setPendingNewRecruitId] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
-  // Handle recruit created - wait for data refresh then open detail drawer (leaders only)
+  // Handle recruit created - wait for data refresh then open detail drawer (full leaders only)
   const handleRecruitCreated = useCallback((notionPageId: string, name: string) => {
-    if (!isLeader) return;
+    if (!isFullLeader) return;
     // Store the pending recruit ID and wait for the query to refresh
     setPendingNewRecruitId(notionPageId);
-  }, [isLeader]);
+  }, [isFullLeader]);
 
   // Effect to open detail drawer when newly created recruit appears in data
   useEffect(() => {
