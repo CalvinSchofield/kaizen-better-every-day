@@ -4,11 +4,16 @@ import { motion } from "framer-motion";
 import { TeamBaseline } from "@/utils/baselineCalculations";
 import { ActiveRecord } from "@/utils/teamRecordDetection";
 import { RecordBanner } from "./RecordBanner";
+import { MicroSparkline } from "./MicroSparkline";
+import { ComparisonTotals, SparklinePoint } from "@/hooks/useReportsV2Comparison";
+import { IntradayPaceResult, generatePacePulseSentence } from "@/utils/intradayPaceCalculations";
+import { IntradayPaceBar } from "./IntradayPaceBar";
 
 interface PulseHeroProps {
   doors: number;
   dms: number;
   pitches: number;
+  transitions: number;
   presentations: number;
   closes: number;
   fp: number;
@@ -25,9 +30,18 @@ interface PulseHeroProps {
   onWorkingClick?: () => void;
   onAvgStartClick?: () => void;
   onFpClick?: () => void;
+  onKpiClick?: (metricKey: MetricKey) => void;
   activeRecords?: ActiveRecord[];
   onRecordBannerClick?: () => void;
+  // Comparison data
+  comparisonTotals?: ComparisonTotals | null;
+  comparisonLabel?: string;
+  sparklineHistory?: SparklinePoint[];
+  // Intraday pace (live view only)
+  intradayPace?: IntradayPaceResult;
 }
+
+type MetricKey = 'doors' | 'dms' | 'pitches' | 'transitions' | 'presentations' | 'closes' | 'fp';
 
 interface StatTileProps {
   label: string;
@@ -38,9 +52,11 @@ interface StatTileProps {
   delay?: number;
   isRecord?: boolean;
   onPace?: boolean;
+  sparklineData?: number[];
+  sparklineAvg?: number;
 }
 
-const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0, isRecord, onPace }: StatTileProps) => {
+const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0, isRecord, onPace, sparklineData, sparklineAvg }: StatTileProps) => {
   const displayValue = format === 'currency' 
     ? `$${typeof value === 'number' ? value.toLocaleString() : value}`
     : format === 'decimal' && typeof value === 'number'
@@ -59,7 +75,7 @@ const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay * 0.05, duration: 0.3 }}
       className={cn(
-        "rounded-xl p-3 flex flex-col items-center justify-center gap-1 relative",
+        "rounded-xl p-3 flex flex-col items-center justify-center gap-0.5 relative",
         "bg-card border border-border/50",
         highlight && "ring-2 ring-primary/20 bg-primary/5",
         isRecord && "ring-2 ring-amber-400/60 bg-amber-500/5",
@@ -88,55 +104,116 @@ const StatTile = ({ label, value, delta, format = 'number', highlight, delay = 0
       <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
         {label}
       </span>
-      {delta !== undefined && delta !== null && (
-        <div className={cn(
-          "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
-          getDeltaColor(delta)
-        )}>
-          {delta > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : delta < 0 ? <TrendingDown className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}
-          {delta > 0 ? '+' : ''}{delta.toFixed(0)}%
-        </div>
-      )}
+      {/* Delta row */}
+      <div className="flex items-center gap-1.5 mt-0.5">
+        {delta !== undefined && delta !== null && (
+          <div className={cn(
+            "flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] font-semibold",
+            getDeltaColor(delta)
+          )}>
+            {delta > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : delta < 0 ? <TrendingDown className="w-2.5 h-2.5" /> : <Minus className="w-2.5 h-2.5" />}
+            {delta > 0 ? '+' : ''}{delta.toFixed(0)}%
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
 
-// Generate pulse sentence based on metrics and baseline
+// Detect if a period label represents a completed (past) timeframe
+const isCompletedPeriod = (label: string): boolean => {
+  const lower = label.toLowerCase();
+  return lower.startsWith('last') || lower === 'yesterday';
+};
+
+// Detect if a period is ongoing (not live, not completed)
+const isOngoingPeriod = (label: string): boolean => {
+  const lower = label.toLowerCase();
+  return lower.startsWith('this') || lower === 'preseason' || lower === 'ytd' || lower === 'season';
+};
+
+// Generate pulse sentence based on metrics, baseline, and period context
 const generatePulseSentence = (
   fp: number,
   doors: number,
+  closes: number,
+  activeReps: number,
+  periodLabel: string,
   baseline?: TeamBaseline,
   isLiveView?: boolean,
+  comparisonTotals?: ComparisonTotals | null,
+  comparisonLabel?: string,
 ): string => {
-  if (!baseline || !isLiveView) {
+  // LIVE view with baseline — use pace comparison
+  if (isLiveView && baseline) {
+    const expectedFP = baseline.teamExpectedFPToday || 0;
+    if (expectedFP <= 0) return `${fp.toFixed(1)} FP+ produced today`;
+    const pct = (fp / expectedFP) * 100;
+    if (pct >= 110) return `Production is ${(pct - 100).toFixed(0)}% above expected pace 🔥`;
+    if (pct >= 90) return "Team is tracking on pace with baseline";
+    if (pct >= 70) return `Team is ${(100 - pct).toFixed(0)}% behind normal pace`;
+    return `Team is significantly behind expected pace — ${(100 - pct).toFixed(0)}% below baseline`;
+  }
+
+  // Non-live with comparison data — show period-over-period
+  if (comparisonTotals && comparisonTotals.fp > 0 && fp > 0) {
+    const delta = ((fp - comparisonTotals.fp) / comparisonTotals.fp) * 100;
+    const dir = delta >= 0 ? 'up' : 'down';
+    const arrow = delta >= 0 ? '↑' : '↓';
+    return `${fp.toFixed(1)} FP+ — ${arrow}${Math.abs(delta).toFixed(0)}% ${comparisonLabel || 'vs prior period'}`;
+  }
+
+  // No activity yet
+  if (fp <= 0 && doors <= 0) {
+    if (isLiveView) return "Waiting for field activity to begin";
+    if (isCompletedPeriod(periodLabel)) return `No recorded activity for ${periodLabel.toLowerCase()}`;
+    return "No activity recorded yet this period";
+  }
+
+  // COMPLETED period — past tense coaching summary
+  if (isCompletedPeriod(periodLabel)) {
+    if (fp > 0 && activeReps > 0) {
+      const perRep = (fp / activeReps).toFixed(2);
+      return `${fp.toFixed(1)} FP+ across ${activeReps} reps — ${perRep} per rep`;
+    }
+    if (fp > 0) return `${fp.toFixed(1)} FP+ produced ${periodLabel.toLowerCase()}`;
+    return `${doors} doors knocked, no closes ${periodLabel.toLowerCase()}`;
+  }
+
+  // ONGOING period — present tense with context
+  if (isOngoingPeriod(periodLabel)) {
+    if (fp > 0 && closes > 0) {
+      return `${fp.toFixed(1)} FP+ on ${closes} closes so far`;
+    }
     if (fp > 0) return `${fp.toFixed(1)} FP+ produced so far`;
+    return `${doors} doors knocked, working towards first close`;
+  }
+
+  // LIVE without baseline / fallback
+  if (isLiveView) {
+    if (fp > 0) return `${fp.toFixed(1)} FP+ produced today`;
     if (doors > 0) return `${doors} doors knocked, working towards first sale`;
     return "Waiting for field activity to begin";
   }
 
-  const expectedFP = (baseline.teamExpectedFPToday || 0);
-  if (expectedFP <= 0) return `${fp.toFixed(1)} FP+ produced today`;
-
-  const pct = ((fp / expectedFP) * 100);
-  if (pct >= 110) return `Production is ${(pct - 100).toFixed(0)}% above expected pace 🔥`;
-  if (pct >= 90) return "Team is tracking on pace with baseline";
-  if (pct >= 70) return `Team is ${(100 - pct).toFixed(0)}% behind normal pace`;
-  return `Team is significantly behind expected pace — ${(100 - pct).toFixed(0)}% below baseline`;
-};
-
-// Map metric keys to StatTile labels
-const METRIC_KEY_MAP: Record<string, string> = {
-  doors: 'Doors', dms: 'DMs', pitches: 'Pitches',
-  presentations: 'Pres', closes: 'Closes', fp: 'FP+',
+  // Custom range / generic fallback
+  if (fp > 0 && activeReps > 0) {
+    const perRep = (fp / activeReps).toFixed(2);
+    return `${fp.toFixed(1)} FP+ across ${activeReps} reps — ${perRep} per rep`;
+  }
+  if (fp > 0) return `${fp.toFixed(1)} FP+ produced in this period`;
+  return `${doors} doors knocked in this period`;
 };
 
 export const PulseHero = ({
-  doors, dms, pitches, presentations, closes, fp, prmr,
+  doors, dms, pitches, transitions, presentations, closes, fp, prmr,
   avgStartTime, avgEndTime, activeHours,
   activeReps, workingCount, isLiveView,
-  teamBaseline, periodLabel, isLoading, onWorkingClick,
+  teamBaseline, periodLabel, isLoading, onWorkingClick, onKpiClick,
   onAvgStartClick, onFpClick,
   activeRecords = [], onRecordBannerClick,
+  comparisonTotals, comparisonLabel, sparklineHistory,
+  intradayPace,
 }: PulseHeroProps) => {
   if (isLoading) {
     return (
@@ -151,10 +228,12 @@ export const PulseHero = ({
     );
   }
 
+  // Check for zero-activity state
+  const hasZeroActivity = doors === 0 && dms === 0 && pitches === 0 && fp === 0 && presentations === 0;
+
   // Build record lookup
   const recordMap = new Map<string, ActiveRecord>();
   activeRecords.forEach(r => {
-    // Only store the first (most significant) record per metric
     if (!recordMap.has(r.metricKey)) recordMap.set(r.metricKey, r);
   });
 
@@ -164,22 +243,111 @@ export const PulseHero = ({
     return { isRecord: r.isRecord, onPace: r.onPace };
   };
 
-  // Calculate deltas vs baseline
-  const calcDelta = (actual: number, expected: number | undefined) => {
-    if (!expected || expected === 0 || !isLiveView) return null;
-    return ((actual - expected) / expected) * 100;
+  // Calculate deltas from comparison data (period-over-period)
+  // In live view with intraday pace, use pace deltas instead
+  const calcDelta = (metricKey: MetricKey): number | null => {
+    // Live view with intraday pace — use pace-based deltas
+    if (isLiveView && intradayPace?.hasEnoughData) {
+      return intradayPace.deltas[metricKey as keyof typeof intradayPace.deltas] ?? null;
+    }
+    // For live view without pace, use baseline delta for FP only (existing behavior)
+    if (isLiveView && metricKey === 'fp' && teamBaseline?.teamExpectedFPToday) {
+      const expected = teamBaseline.teamExpectedFPToday;
+      if (expected > 0) return ((fp - expected) / expected) * 100;
+    }
+    // Use comparison totals for all metrics when available
+    if (!comparisonTotals) return null;
+    const currentValues: Record<MetricKey, number> = { doors, dms, pitches, transitions, presentations, closes, fp };
+    const current = currentValues[metricKey];
+    const previous = (comparisonTotals as any)[metricKey] || 0;
+    if (previous === 0 && current === 0) return null;
+    if (previous === 0) return current > 0 ? 100 : null;
+    return ((current - previous) / previous) * 100;
   };
 
-  const expectedFP = teamBaseline?.teamExpectedFPToday;
-  const fpDelta = calcDelta(fp, expectedFP);
+  // Extract sparkline data for a given metric
+  const getSparkline = (metricKey: MetricKey): number[] | undefined => {
+    if (!sparklineHistory || sparklineHistory.length < 2) return undefined;
+    return sparklineHistory.map(p => (p as any)[metricKey] || 0);
+  };
 
-  const pulseSentence = generatePulseSentence(fp, doors, teamBaseline, isLiveView);
+  // Calculate sparkline average for gold line
+  const getSparklineAvg = (metricKey: MetricKey): number | undefined => {
+    const data = getSparkline(metricKey);
+    if (!data || data.length === 0) return undefined;
+    const sum = data.reduce((a, b) => a + b, 0);
+    const avg = sum / data.length;
+    return avg > 0 ? avg : undefined;
+  };
+
+  // Use intraday pace sentence when available, otherwise fall back to existing logic
+  const paceSentence = intradayPace?.hasEnoughData 
+    ? generatePacePulseSentence(intradayPace, intradayPace.dayName)
+    : null;
+  
+  const pulseSentence = paceSentence || generatePulseSentence(
+    fp, doors, closes, activeReps, periodLabel, teamBaseline, isLiveView,
+    comparisonTotals, comparisonLabel,
+  );
 
   // Determine pulse color
+  const fpDelta = calcDelta('fp');
   const pulseColor = !fpDelta ? "text-muted-foreground" 
     : fpDelta >= 0 ? "text-green-600 dark:text-green-400" 
     : fpDelta < -15 ? "text-destructive" 
     : "text-warning";
+
+  // Empty state for zero activity
+  if (hasZeroActivity && !isLoading) {
+    const isLive = isLiveView;
+    const emptyMessage = isLive
+      ? "No field activity yet today. Once reps start their day and begin knocking, live stats will appear here."
+      : activeReps === 0
+      ? "No reps recorded activity during this period. Try selecting a different date range, or check that reps are logging their daily entries."
+      : "No activity data found for the selected period.";
+    
+    const emptyIcon = isLive ? "⏳" : "📊";
+
+    return (
+      <div className="space-y-3">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-border/50 bg-card p-6 text-center"
+        >
+          <span className="text-3xl mb-3 block">{emptyIcon}</span>
+          <p className="text-sm font-medium text-foreground mb-1">
+            {isLive ? "Waiting for activity" : "No activity found"}
+          </p>
+          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+            {emptyMessage}
+          </p>
+          {isLive && (
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[11px] text-muted-foreground">Checking for updates</span>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Still show the working reps button in live view */}
+        {isLive && onWorkingClick && (
+          <button
+            onClick={onWorkingClick}
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 active:scale-[0.99] transition-all"
+          >
+            <div className="flex items-center gap-2 text-sm">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">{workingCount || 0}</span>
+              <span className="text-muted-foreground">working now</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -195,19 +363,52 @@ export const PulseHero = ({
         </p>
       </motion.div>
 
+      {/* Comparison label */}
+      {comparisonLabel && comparisonTotals && (
+        <p className="text-[10px] text-muted-foreground/70 -mt-1 ml-6">
+          {comparisonLabel}
+        </p>
+      )}
+
+      {/* Intraday Pace Bar (live view only) */}
+      {isLiveView && intradayPace && intradayPace.hasEnoughData && (
+        <IntradayPaceBar pace={intradayPace} />
+      )}
+
       {/* Stat tiles grid - 3x2 */}
       <div className="grid grid-cols-3 gap-2">
-        <StatTile label="Doors" value={doors} delay={0} {...getRecordProps('doors')} />
-        <StatTile label="DMs" value={dms} delay={1} {...getRecordProps('dms')} />
-        <StatTile label="Pitches" value={pitches} delay={2} {...getRecordProps('pitches')} />
-        <StatTile label="Pres" value={presentations} delay={3} {...getRecordProps('presentations')} />
-        <StatTile label="Closes" value={closes} delay={4} {...getRecordProps('closes')} />
-        {onFpClick ? (
-          <button onClick={onFpClick} className="active:scale-[0.96] transition-transform">
-            <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} {...getRecordProps('fp')} />
+        {([
+          { key: 'doors' as MetricKey, label: 'Doors', value: doors, delay: 0 },
+          { key: 'dms' as MetricKey, label: 'DMs', value: dms, delay: 1 },
+          { key: 'pitches' as MetricKey, label: 'Pitches', value: pitches, delay: 2 },
+          { key: 'transitions' as MetricKey, label: 'Trans', value: transitions, delay: 3 },
+          { key: 'presentations' as MetricKey, label: 'Pres', value: presentations, delay: 4 },
+        ]).map(({ key, label, value, delay }) => {
+          const tile = (
+            <StatTile
+              key={key}
+              label={label}
+              value={value}
+              delta={calcDelta(key)}
+              sparklineData={getSparkline(key)}
+              sparklineAvg={getSparklineAvg(key)}
+              delay={delay}
+              {...getRecordProps(key)}
+            />
+          );
+          return onKpiClick ? (
+            <button key={key} onClick={() => onKpiClick(key)} className="active:scale-[0.96] transition-transform">
+              {tile}
+            </button>
+          ) : tile;
+        })}
+        {/* FP+ tile */}
+        {(onFpClick || onKpiClick) ? (
+          <button onClick={() => onFpClick ? onFpClick() : onKpiClick?.('fp')} className="active:scale-[0.96] transition-transform">
+            <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={calcDelta('fp')} sparklineData={getSparkline('fp')} sparklineAvg={getSparklineAvg('fp')} delay={5} {...getRecordProps('fp')} />
           </button>
         ) : (
-          <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={fpDelta} delay={5} {...getRecordProps('fp')} />
+          <StatTile label="FP+" value={fp} format="decimal" highlight={fp > 0} delta={calcDelta('fp')} sparklineData={getSparkline('fp')} sparklineAvg={getSparklineAvg('fp')} delay={5} {...getRecordProps('fp')} />
         )}
       </div>
 
@@ -218,26 +419,36 @@ export const PulseHero = ({
 
       {/* Secondary metrics row */}
       <div className="bg-card rounded-xl border border-border/50 px-4 py-2.5">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        <div className="flex items-center gap-x-4 text-sm">
           <div className="flex items-baseline gap-1">
             <span className="font-bold text-green-600 dark:text-green-400">${prmr.toLocaleString()}</span>
             <span className="text-muted-foreground text-xs">PRMR</span>
           </div>
-          {avgStartTime && (
+          {(avgStartTime || avgEndTime || (activeHours !== undefined && activeHours > 0)) && (
             <button
               onClick={onAvgStartClick}
-              className="flex items-center gap-1 hover:bg-muted/50 rounded px-1 -mx-1 transition-colors active:scale-[0.97]"
+              className="flex items-center gap-x-3 hover:bg-muted/50 rounded-lg px-2 py-1 -my-1 transition-colors active:scale-[0.97] ml-auto"
             >
-              <span className="font-medium">{avgStartTime}</span>
-              <span className="text-muted-foreground text-xs">Avg Start</span>
-              <Info className="w-3 h-3 text-muted-foreground/60" />
+              {avgStartTime && (
+                <div className="flex items-baseline gap-1">
+                  <span className="font-medium">{avgStartTime}</span>
+                  <span className="text-muted-foreground text-[10px]">start</span>
+                </div>
+              )}
+              {avgEndTime && (
+                <div className="flex items-baseline gap-1">
+                  <span className="font-medium">{avgEndTime}</span>
+                  <span className="text-muted-foreground text-[10px]">end</span>
+                </div>
+              )}
+              {activeHours !== undefined && activeHours > 0 && (
+                <div className="flex items-baseline gap-1">
+                  <span className="font-medium">{activeHours.toFixed(1)}h</span>
+                  <span className="text-muted-foreground text-[10px]">active</span>
+                </div>
+              )}
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
             </button>
-          )}
-          {activeHours !== undefined && activeHours > 0 && (
-            <div className="flex items-baseline gap-1">
-              <span className="font-medium">{activeHours.toFixed(1)}h</span>
-              <span className="text-muted-foreground text-xs">Active</span>
-            </div>
           )}
         </div>
       </div>

@@ -26,6 +26,7 @@ export const usePrefetchData = (userId: string | undefined) => {
       if (!session) return;
 
       // PHASE 1: Critical data for initial render (immediate)
+      // Includes team-access because it gates leader UI elements
       await Promise.allSettled([
         // Current user's rep data
         queryClient.prefetchQuery({
@@ -68,9 +69,19 @@ export const usePrefetchData = (userId: string | undefined) => {
           },
           staleTime: 15 * 60 * 1000,
         }),
+
+        // Team access (gates leader UI — moved from Phase 3 for native perf)
+        queryClient.prefetchQuery({
+          queryKey: ['team-access'],
+          queryFn: async () => {
+            const { data } = await supabase.functions.invoke('fetch-team-access');
+            return data;
+          },
+          staleTime: 15 * 60 * 1000,
+        }),
       ]);
 
-      console.log('[Prefetch] Phase 1 complete (critical data)');
+      console.log('[Prefetch] Phase 1 complete (critical data + team access)');
 
       // PHASE 2: Secondary data (500ms delay to let UI render first)
       setTimeout(async () => {
@@ -123,18 +134,8 @@ export const usePrefetchData = (userId: string | undefined) => {
         console.log('[Prefetch] Phase 2 complete (secondary data)');
       }, 500);
 
-      // PHASE 3: Edge function calls (1.5s delay - these are slower and shouldn't block)
+      // PHASE 3: Remaining edge function calls (1.5s delay - these are slower and shouldn't block)
       setTimeout(() => {
-        // Team access (needed for My Group, Reports)
-        queryClient.prefetchQuery({
-          queryKey: ['team-access'],
-          queryFn: async () => {
-            const { data } = await supabase.functions.invoke('fetch-team-access');
-            return data;
-          },
-          staleTime: 15 * 60 * 1000,
-        });
-
         // Blitzes data
         queryClient.prefetchQuery({
           queryKey: ['blitzes'],
@@ -158,7 +159,7 @@ export const usePrefetchData = (userId: string | undefined) => {
           staleTime: 15 * 60 * 1000,
         });
 
-        console.log('[Prefetch] Phase 3 initiated (edge functions)');
+        console.log('[Prefetch] Phase 3 initiated (blitzes)');
       }, 1500);
     };
 

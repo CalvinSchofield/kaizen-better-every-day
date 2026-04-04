@@ -81,7 +81,7 @@ export function InAppNotificationBanner() {
   return (
     <div 
       className="fixed left-0 right-0 z-[200] flex flex-col items-center gap-2 px-3 pointer-events-none"
-      style={{ top: 'calc(var(--effective-safe-area-top, 0px) + 0.5rem)' }}
+      style={{ top: 'calc(var(--effective-safe-area-top, env(safe-area-inset-top, 0px)) + 1.25rem)' }}
     >
       {notifications.map((notification) => (
         <div

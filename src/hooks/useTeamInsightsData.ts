@@ -33,6 +33,7 @@ interface RepInfo {
   timezone?: string;
   teamId?: string | null;
   teamName?: string;
+  mgmtGroupId?: string | null;
   mgmtGroupName?: string;
   recruiterName?: string | null;
 }
@@ -185,6 +186,7 @@ interface TeamInsightsData {
     timezone?: string;
     teamId?: string | null;
     teamName: string;
+    mgmtGroupId?: string | null;
     mgmtGroupName: string;
     recruiterName?: string | null;
     doors: number;
@@ -1085,6 +1087,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
           timezone: rep.timezone,
           teamId: rep.teamId || null,
           teamName: rep.teamName || 'No Team',
+          mgmtGroupId: rep.mgmtGroupId || null,
           mgmtGroupName: rep.mgmtGroupName || 'No Group',
           recruiterName: rep.recruiterName || null,
           doors: repTotals.doors,
@@ -1594,7 +1597,11 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [], i
         totalUpgradePRMR: totals.upgradePRMR,
         totalWorkMinutes: totals.totalMinutes,
         daysWorked: totals.daysWorked,
-        uniqueRepsWorked: new Set(entries.map(e => e.user_id)).size,
+        uniqueRepsWorked: new Set(
+          entries
+            .filter(e => (e.doors_knocked || 0) > 0 || (e.decision_makers || 0) > 0 || (e.pitches || 0) > 0 || (e.transitions || 0) > 0 || (e.presentations || 0) > 0 || (e.closes || 0) > 0 || (e.fp_plus || 0) > 0 || (Array.isArray(e.sales_log) && (e.sales_log as any[]).length > 0))
+            .map(e => e.user_id)
+        ).size,
         // FP+ Breakdown from sales_log
         fpCount: totals.fpCount,
         upgradeCount: totals.upgradeCount,

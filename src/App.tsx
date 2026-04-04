@@ -8,15 +8,17 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import { useSafeAreaFallback } from "./hooks/useSafeAreaFallback";
 import { useKeyboardViewport } from "./hooks/useKeyboardViewport";
-import { useAppResume } from "./hooks/useAppResume";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import OfflineIndicator from "./components/OfflineIndicator";
+import { InAppNotificationBanner } from "./components/InAppNotificationBanner";
+import { BadgeCelebrationOverlay } from "./components/badges/BadgeCelebrationOverlay";
 import { NativeAppPromo } from "./components/NativeAppPromo";
 import TrackWithLayout from "./components/TrackWithLayout";
 import SetupFlow from "./components/SetupFlow";
 import { ChallengeWinListener } from "./components/ChallengeWinListener";
 import { HydrationGate } from "./components/HydrationGate";
+import { useAppResume } from "./hooks/useAppResume";
 import { HeaderProvider } from "./contexts/HeaderContext";
 import Home from "./pages/Home";
 import Training from "./pages/Training";
@@ -40,6 +42,7 @@ import Objections from "./pages/Objections";
 import RampToBlitz from "./pages/RampToBlitz";
 import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
 import PackageBuilder from "./pages/PackageBuilder";
+import Blitzes from "./pages/Blitzes";
 
 import ProductKnowledge from "./pages/ProductKnowledge";
 import AdminBlitzes from "./pages/AdminBlitzes";
@@ -50,26 +53,34 @@ import AddRecruit from "./pages/AddRecruit";
 import ReportsV2 from "./pages/ReportsV2";
 import LogSale from "./pages/LogSale";
 import Profile from "./pages/Profile";
+import DebugNotifications from "./pages/DebugNotifications";
+import Admin from "./pages/Admin";
+import OrgChart from "./pages/OrgChart";
 import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 15 * 60 * 1000,
+      staleTime: 5 * 60 * 1000,
       gcTime: 60 * 60 * 1000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
+      retry: 2,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
       refetchOnReconnect: true,
       networkMode: 'offlineFirst',
     },
   },
 });
 
+/** Thin component that lives inside QueryClientProvider so useQueryClient works */
+function AppResumeHandler() {
+  useAppResume();
+  return null;
+}
+
 const App = () => {
   useSafeAreaFallback();
   useKeyboardViewport();
-  useAppResume();
 
   return (
     <PersistQueryClientProvider 
@@ -80,6 +91,7 @@ const App = () => {
         buster: 'v3',
       }}
     >
+      <AppResumeHandler />
       <HydrationGate>
         <HeaderProvider>
           <TooltipProvider>
@@ -88,7 +100,9 @@ const App = () => {
             <OfflineIndicator />
             <NativeAppPromo />
             <ChallengeWinListener />
+            <BadgeCelebrationOverlay />
             <BrowserRouter>
+              <InAppNotificationBanner />
               <ScrollToTop />
               <Routes>
                 {/* Auth routes - no Layout */}
@@ -116,6 +130,7 @@ const App = () => {
                 <Route path="/product-knowledge" element={<ProtectedRoute><Layout><ProductKnowledge /></Layout></ProtectedRoute>} />
                 <Route path="/tools/upgrades" element={<ProtectedRoute><Layout><UpgradeCheatSheet /></Layout></ProtectedRoute>} />
                 <Route path="/tools/package-builder" element={<ProtectedRoute><Layout><PackageBuilder /></Layout></ProtectedRoute>} />
+                <Route path="/blitzes" element={<ProtectedRoute><Layout><Blitzes /></Layout></ProtectedRoute>} />
                 <Route path="/insights" element={<ProtectedRoute><Layout><Insights /></Layout></ProtectedRoute>} />
                 <Route path="/team-reports" element={<ProtectedRoute><Layout><TeamReports /></Layout></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
@@ -130,6 +145,10 @@ const App = () => {
                 <Route path="/add-recruit" element={<ProtectedRoute><Layout><AddRecruit /></Layout></ProtectedRoute>} />
                 <Route path="/reports-v2" element={<ProtectedRoute><Layout><ReportsV2 /></Layout></ProtectedRoute>} />
                 <Route path="/log-sale" element={<ProtectedRoute><Layout><LogSale /></Layout></ProtectedRoute>} />
+                <Route path="/debug-notifications" element={<ProtectedRoute><Layout><DebugNotifications /></Layout></ProtectedRoute>} />
+                <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+                <Route path="/org-chart" element={<ProtectedRoute><Layout><OrgChart /></Layout></ProtectedRoute>} />
+
 
                 {/* Catch-all */}
                 <Route path="*" element={<NotFound />} />

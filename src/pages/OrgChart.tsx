@@ -1,43 +1,74 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, GitBranch } from "lucide-react";
+import { Users, GitBranch, RefreshCw, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { getCleanName } from "@/utils/nameUtils";
 import { VisualRecruiterTree, type TreeNode, type RoleColor } from "@/components/mygroup/org/VisualRecruiterTree";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrgStructureTree } from "@/components/org/OrgStructureTree";
+import { OfficeDetailDrawer } from "@/components/org/OfficeDetailDrawer";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { SIGNED_PLUS_STAGES, STAGES } from "@/utils/stageConstants";
 import type { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { getOrgChartTourSteps } from "@/config/pageTours";
+import { useDragReassign, type DragNode } from "@/hooks/useDragReassign";
+import { getSessionSafe } from "@/utils/authSession";
+import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
+
+const OFFICE_GROUPED_ACCESS_LEVELS = new Set([
+  "area_director", "corporate", "regional", "sr_regional", "partner", "divisional",
+  "mgmt_group_lead", "senior_manager",
+]);
 
 const OrgChart = () => {
   const queryClient = useQueryClient();
-  const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
-  const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
+  const { data: teamAccess, isLoading: accessLoading, isError: accessError } = useTeamAccess();
+  const { userId: currentAuthUserId } = useCurrentUserId();
+  const [groupByOffice, setGroupByOffice] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("tree");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const fromOnboarding = (location.state as any)?.fromOnboarding === true;
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => { const data = { user: session?.user ?? null };
-      setCurrentAuthUserId(data.user?.id || null);
-    });
-  }, []);
+  // Tour
+  const { showTour, completeTour, skipTour } = usePageTour({ 
+    page: 'org-chart',
+    enabled: fromOnboarding || undefined,
+  });
 
 
   const accessLevel = teamAccess?.accessLevel;
 
-  const { data: treeData, isLoading } = useQuery({
+  const { data: treeData, isLoading, isError: treeError, refetch: refetchTree } = useQuery({
     queryKey: ["org-chart-full-tree"],
     queryFn: async () => {
-      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes, officesRes] = await Promise.all([
+      const [recruitsRes, repsRes, teamsRes, mgmtGroupsRes, teamMgmtRes, officeStaffRes, officesRes, srMgmtGroupsRes] = await Promise.all([
         supabase.from("recruits").select("id, name, recruiter_user_id, stage, team_id, year, phone, email, location, recruitment_source, last_contact, next_action, next_action_due, created_at, mgmt_group_id, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, blitz_ready, spouse_name, significant_other_name, caution_notes, watch_out_notes").limit(5000),
-        supabase.from("reps").select("user_id, name, profile_photo_url, year, stage, phone, email").limit(5000),
+        supabase.from("reps").select("id, user_id, name, profile_photo_url, year, stage, phone, email").limit(5000),
         supabase.from("teams").select("id, name, lead_user_id").limit(500),
-        supabase.from("mgmt_groups").select("id, name, lead_user_id, office_id").limit(500),
+        supabase.from("mgmt_groups").select("id, name, lead_user_id, office_id, sr_mgmt_group_id").limit(500),
         supabase.from("team_mgmt_groups").select("team_id, mgmt_group_id").limit(500),
         supabase.from("office_staff").select("user_id, role, office_id").limit(500),
         supabase.from("offices").select("id, name").limit(500),
+        supabase.from("sr_mgmt_groups").select("id, name, lead_user_id, office_id").limit(500),
       ]);
       return {
         recruits: recruitsRes.data || [],
@@ -47,6 +78,7 @@ const OrgChart = () => {
         teamMgmt: teamMgmtRes.data || [],
         officeStaff: officeStaffRes.data || [],
         offices: officesRes.data || [],
+        srMgmtGroups: srMgmtGroupsRes.data || [],
       };
     },
     staleTime: 1000 * 60 * 2,
@@ -65,6 +97,9 @@ const OrgChart = () => {
     });
     treeData.mgmtGroups.forEach((mg) => {
       if (mg.lead_user_id) map.set(mg.lead_user_id, { title: "MGMT Group Lead", color: "mgmt_group" });
+    });
+    treeData.srMgmtGroups.forEach((smg: any) => {
+      if (smg.lead_user_id) map.set(smg.lead_user_id, { title: "Sr MGMT Group Leader", color: "sr_mgmt_group" });
     });
     treeData.officeStaff.forEach((s) => {
       if (s.role === "area_director") {
@@ -98,24 +133,83 @@ const OrgChart = () => {
   const fullTree = useMemo(() => {
     if (!treeData || !currentAuthUserId) return null;
 
-    const { recruits, reps } = treeData;
-    const repMap = new Map(reps.map((r) => [r.user_id, r]));
-    const recruitsByRecruiter = new Map<string, typeof recruits>();
+    const { recruits, reps, teams, mgmtGroups, teamMgmt, officeStaff, srMgmtGroups } = treeData;
+
+    const repMap = new Map<string, (typeof reps)[number]>();
+    reps.forEach((rep) => {
+      if (rep.user_id) repMap.set(rep.user_id, rep);
+    });
+
+    const repById = new Map(reps.map((r: any) => [r.id, r]));
+    const teamByLeadUserId = new Map<string, (typeof teams)[number]>();
+    teams.forEach((team) => {
+      if (team.lead_user_id) teamByLeadUserId.set(team.lead_user_id, team);
+    });
+
+    const teamToMgmtGroup = new Map<string, string>();
+    teamMgmt.forEach((tm) => teamToMgmtGroup.set(tm.team_id, tm.mgmt_group_id));
+
+    const mgmtGroupMap = new Map(mgmtGroups.map((mg) => [mg.id, mg]));
+    const srMgmtGroupMap = new Map(srMgmtGroups.map((smg: any) => [smg.id, smg]));
+
     // Team leads also see pipeline stages (Reached Out, Evaluating)
     const visibleStages = accessLevel === "team_lead"
       ? [...SIGNED_PLUS_STAGES, STAGES.REACHED_OUT, STAGES.EVALUATING]
       : [...SIGNED_PLUS_STAGES];
-    const activeRecruits = recruits.filter(r => 
-      r.stage && visibleStages.some(s => s.toLowerCase() === r.stage!.toLowerCase())
+
+    const activeRecruits = recruits.filter((r) =>
+      r.stage && visibleStages.some((s) => s.toLowerCase() === r.stage!.toLowerCase())
     );
 
+    const recruitById = new Map(activeRecruits.map((r) => [r.id, r]));
+    const recruitByName = new Map<string, (typeof activeRecruits)[number]>();
     activeRecruits.forEach((r) => {
-      if (r.recruiter_user_id) {
-        const existing = recruitsByRecruiter.get(r.recruiter_user_id) || [];
-        existing.push(r);
-        recruitsByRecruiter.set(r.recruiter_user_id, existing);
-      }
+      const cleanName = getCleanName(r.name).toLowerCase();
+      if (cleanName && !recruitByName.has(cleanName)) recruitByName.set(cleanName, r);
     });
+
+    const recruitsByRecruiter = new Map<string, typeof activeRecruits>();
+    activeRecruits.forEach((r) => {
+      if (!r.recruiter_user_id) return;
+      const existing = recruitsByRecruiter.get(r.recruiter_user_id) || [];
+      existing.push(r);
+      recruitsByRecruiter.set(r.recruiter_user_id, existing);
+    });
+
+    // Match recruit → rep: try by id first (rep.id === recruit.id), then by name
+    const findRepForRecruit = (recruit: typeof activeRecruits[number]) => {
+      const byId = repById.get(recruit.id);
+      if (byId?.user_id) return byId;
+      return reps.find(
+        (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(recruit.name).toLowerCase()
+      );
+    };
+
+    const getRecruitForRep = (rep: (typeof reps)[number] | undefined) => {
+      if (!rep) return undefined;
+      return recruitById.get(rep.id) || recruitByName.get(getCleanName(rep.name).toLowerCase());
+    };
+
+    const resolveMgmtGroupId = (userId: string): string | null => {
+      const ledGroup = mgmtGroups.find((group) => group.lead_user_id === userId);
+      if (ledGroup) return ledGroup.id;
+
+      const ledTeam = teamByLeadUserId.get(userId);
+      if (ledTeam) {
+        const mgmtGroupId = teamToMgmtGroup.get(ledTeam.id);
+        if (mgmtGroupId) return mgmtGroupId;
+      }
+
+      const rep = repMap.get(userId);
+      const recruit = getRecruitForRep(rep);
+      if (recruit?.team_id) {
+        const mgmtGroupId = teamToMgmtGroup.get(recruit.team_id);
+        if (mgmtGroupId) return mgmtGroupId;
+      }
+      if (recruit?.mgmt_group_id) return recruit.mgmt_group_id;
+
+      return null;
+    };
 
     const buildNode = (userId: string, visited = new Set<string>()): TreeNode | null => {
       if (visited.has(userId)) return null;
@@ -124,15 +218,13 @@ const OrgChart = () => {
       const rep = repMap.get(userId);
       const recruiterRecruits = recruitsByRecruiter.get(userId) || [];
       const repName = rep?.name || "";
-      const recruitByName = new Map(recruits.map((r) => [getCleanName(r.name).toLowerCase(), r]));
-      const recruitRecord = recruitByName.get(getCleanName(repName).toLowerCase());
+      const recruitRecord = ((rep as any)?.id ? activeRecruits.find((rec) => rec.id === (rep as any).id) : null)
+        || recruitByName.get(getCleanName(repName).toLowerCase());
 
       let children: TreeNode[] = [];
 
       recruiterRecruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+        const recruitRep = findRepForRecruit(r);
         if (recruitRep?.user_id) {
           const child = buildNode(recruitRep.user_id, new Set(visited));
           if (child) children.push(child);
@@ -140,9 +232,7 @@ const OrgChart = () => {
       });
 
       recruiterRecruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+        const recruitRep = findRepForRecruit(r);
         if (!recruitRep?.user_id) {
           children.push({
             id: r.id,
@@ -159,14 +249,13 @@ const OrgChart = () => {
         }
       });
 
-      // Insert a label node if this leader has both sub-leaders and non-leader direct recruits
       const roleInfo = roleMap.get(userId);
       const hasRole = !!roleInfo;
-      
+
       if (hasRole && children.length > 1) {
         const leaderChildren: TreeNode[] = [];
         const plainChildren: TreeNode[] = [];
-        
+
         children.forEach((c) => {
           const childIsLeader = c.userId && teamLeadUserIds.has(c.userId);
           if (childIsLeader) {
@@ -175,14 +264,13 @@ const OrgChart = () => {
             plainChildren.push(c);
           }
         });
-        
+
         if (leaderChildren.length > 0 && plainChildren.length > 0) {
-          // Get the team name this person leads, or fallback
           const teamName = userTeamNameMap.get(userId);
-          const labelName = teamName 
-            ? `${teamName} Team` 
+          const labelName = teamName
+            ? `${teamName} Team`
             : `${getCleanName(rep?.name || "Unknown")} Team`;
-          
+
           const labelNode: TreeNode = {
             id: `label-${userId}`,
             name: labelName,
@@ -196,11 +284,13 @@ const OrgChart = () => {
             isLabelNode: true,
             children: plainChildren,
           };
-          
+
           children = [...leaderChildren, labelNode];
-          children.sort((a, b) => b.children.length - a.children.length);
         }
       }
+
+      // Sort all children by downline size: nodes with recruits first (biggest to smallest), leaf nodes last
+      children = sortByDownlineSize(children);
 
       return {
         id: recruitRecord?.id || userId,
@@ -216,29 +306,146 @@ const OrgChart = () => {
       };
     };
 
-    const rootNodes: TreeNode[] = [];
+    /** Count total descendants (recursive) for sorting by downline size */
+    const countDescendants = (node: TreeNode): number => {
+      let count = node.children.length;
+      for (const child of node.children) {
+        count += countDescendants(child);
+      }
+      return count;
+    };
 
-    if (
-      accessLevel === "corporate" ||
-      accessLevel === "regional" ||
-      accessLevel === "sr_regional" ||
-      accessLevel === "partner" ||
-      accessLevel === "divisional"
-    ) {
-      // Global viewers: show all root recruiters
+    /** Sort nodes by total downline size (biggest first), leaf nodes last */
+    const sortByDownlineSize = (nodes: TreeNode[]): TreeNode[] => {
+      return [...nodes].sort((a, b) => countDescendants(b) - countDescendants(a));
+    };
+
+    const collectChildUserIds = (nodes: TreeNode[], set: Set<string>) => {
+      for (const node of nodes) {
+        if (node.userId) set.add(node.userId);
+        collectChildUserIds(node.children, set);
+      }
+    };
+
+    const dedupeRootNodes = (nodes: TreeNode[]): TreeNode[] => {
+      const descendantIds = new Set<string>();
+      nodes.forEach((node) => collectChildUserIds(node.children, descendantIds));
+      return nodes.filter((node) => !node.userId || !descendantIds.has(node.userId));
+    };
+
+    /**
+     * Creates a MGMT Group container node with leader promotion.
+     * If the leader has an account and appears as one of the children,
+     * promote that child to BE the container (person node with roleColor).
+     */
+    const createMgmtLabelNode = (mgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
+      const mgmtGroup = mgmtGroupMap.get(mgmtGroupId);
+      const leadUserId = mgmtGroup?.lead_user_id || null;
+
+      // Try to find the leader among the children
+      if (leadUserId) {
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId);
+        if (leaderIdx !== -1) {
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `mgmt-${mgmtGroupId}`,
+            roleColor: "mgmt_group",
+            role: "MGMT Group Leader",
+            children: sortByDownlineSize([...leaderNode.children, ...siblings]),
+          };
+        }
+      }
+
+      // Fallback: lightweight label pill
+      return {
+        id: `mgmt-${mgmtGroupId}`,
+        name: mgmtGroup?.name || "MGMT Group",
+        userId: leadUserId,
+        stage: null,
+        profilePhotoUrl: leadUserId ? repMap.get(leadUserId)?.profile_photo_url : null,
+        role: null,
+        year: null,
+        isAreaDirector: false,
+        roleColor: "mgmt_group",
+        isLabelNode: true,
+        children: sortByDownlineSize([...children]),
+      };
+    };
+
+    /**
+     * Creates a Sr MGMT Group container node with leader promotion.
+     */
+    const createSrMgmtLabelNode = (srMgmtGroupId: string, children: TreeNode[] = []): TreeNode => {
+      const srMgmtGroup = srMgmtGroupMap.get(srMgmtGroupId);
+      const leadUserId = srMgmtGroup?.lead_user_id || null;
+
+      if (leadUserId) {
+        // Try to find the leader among the children (promoted leader pattern)
+        const leaderIdx = children.findIndex((c) => c.userId === leadUserId && !c.isLabelNode);
+        if (leaderIdx !== -1) {
+          const leaderNode = children[leaderIdx];
+          const siblings = children.filter((_, i) => i !== leaderIdx);
+          return {
+            ...leaderNode,
+            id: `sr-mgmt-${srMgmtGroupId}`,
+            roleColor: "sr_mgmt_group",
+            role: "Sr MGMT Group Leader",
+            children: sortByDownlineSize([...leaderNode.children, ...siblings]),
+          };
+        }
+
+        // Leader not among children — create a person node if rep data exists
+        const leaderRep = repMap.get(leadUserId);
+        if (leaderRep) {
+          const leaderRecruit = getRecruitForRep(leaderRep);
+          return {
+            id: `sr-mgmt-${srMgmtGroupId}`,
+            name: leaderRep.name || srMgmtGroup?.name || "Sr MGMT Group",
+            userId: leadUserId,
+            stage: leaderRecruit?.stage || leaderRep.stage || null,
+            profilePhotoUrl: leaderRep.profile_photo_url,
+            role: "Sr MGMT Group Leader",
+            year: leaderRep.year || leaderRecruit?.year || null,
+            isAreaDirector: areaDirectorSet.has(leadUserId),
+            roleColor: "sr_mgmt_group",
+            children: sortByDownlineSize([...children]),
+          };
+        }
+      }
+
+      return {
+        id: `sr-mgmt-${srMgmtGroupId}`,
+        name: srMgmtGroup?.name || "Sr MGMT Group",
+        userId: leadUserId,
+        stage: null,
+        profilePhotoUrl: leadUserId ? repMap.get(leadUserId)?.profile_photo_url : null,
+        role: null,
+        year: null,
+        isAreaDirector: false,
+        roleColor: "sr_mgmt_group",
+        isLabelNode: true,
+        children: sortByDownlineSize([...children]),
+      };
+    };
+
+    const rootNodes: TreeNode[] = [];
+    const globalAccessLevels = new Set(["corporate", "regional", "sr_regional", "partner", "divisional"]);
+
+    if (globalAccessLevels.has(accessLevel || "")) {
       const recruitedUserIds = new Set<string>();
-      recruits.forEach((r) => {
-        const recruitRep = reps.find(
-          (rep) => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
-        );
+      activeRecruits.forEach((r) => {
+        const recruitRep = findRepForRecruit(r);
         if (recruitRep?.user_id && r.recruiter_user_id && r.recruiter_user_id !== recruitRep.user_id) {
           recruitedUserIds.add(recruitRep.user_id);
         }
       });
 
       const allRecruiterIds = new Set(
-        recruits.map((r) => r.recruiter_user_id).filter(Boolean) as string[]
+        activeRecruits.map((r) => r.recruiter_user_id).filter(Boolean) as string[]
       );
+
       allRecruiterIds.forEach((recruiterId) => {
         if (!recruitedUserIds.has(recruiterId)) {
           const node = buildNode(recruiterId);
@@ -246,73 +453,212 @@ const OrgChart = () => {
         }
       });
     } else if (currentAuthUserId) {
-      // Personal downline first
       const node = buildNode(currentAuthUserId);
       if (node && node.children.length > 0) {
         rootNodes.push(node);
       }
 
-      // Area Directors: also show office-scoped reps not in their downline
       if (accessLevel === "area_director") {
-        // Find offices this AD is assigned to
         const adOfficeIds = new Set(
-          treeData.officeStaff
-            .filter(s => s.user_id === currentAuthUserId && s.role === "area_director")
-            .map(s => s.office_id)
+          officeStaff
+            .filter((s) => s.user_id === currentAuthUserId && s.role === "area_director")
+            .map((s) => s.office_id)
         );
 
         if (adOfficeIds.size > 0) {
-          // Find MGMT groups in those offices
           const officeMgmtGroupIds = new Set(
-            treeData.mgmtGroups
-              .filter(mg => mg.office_id && adOfficeIds.has(mg.office_id))
-              .map(mg => mg.id)
+            mgmtGroups
+              .filter((mg) => mg.office_id && adOfficeIds.has(mg.office_id))
+              .map((mg) => mg.id)
           );
 
-          // Find teams in those MGMT groups
           const officeTeamIds = new Set(
-            treeData.teamMgmt
-              .filter(tm => officeMgmtGroupIds.has(tm.mgmt_group_id))
-              .map(tm => tm.team_id)
+            teamMgmt
+              .filter((tm) => officeMgmtGroupIds.has(tm.mgmt_group_id))
+              .map((tm) => tm.team_id)
           );
 
-          // Collect all user IDs already in the downline tree
           const downlineUserIds = new Set<string>();
-          const collectUserIds = (n: TreeNode) => {
-            if (n.userId) downlineUserIds.add(n.userId);
-            n.children.forEach(collectUserIds);
-          };
-          rootNodes.forEach(collectUserIds);
+          rootNodes.forEach((root) => {
+            if (root.userId) downlineUserIds.add(root.userId);
+            collectChildUserIds(root.children, downlineUserIds);
+          });
 
-          // Find office MGMT group leads not already in downline
           const officeLeaderUserIds = new Set<string>();
-          treeData.mgmtGroups.forEach(mg => {
+          mgmtGroups.forEach((mg) => {
             if (mg.lead_user_id && officeMgmtGroupIds.has(mg.id) && !downlineUserIds.has(mg.lead_user_id)) {
               officeLeaderUserIds.add(mg.lead_user_id);
             }
           });
-          // Find office team leads not already in downline
-          treeData.teams.forEach(t => {
-            if (t.lead_user_id && officeTeamIds.has(t.id) && !downlineUserIds.has(t.lead_user_id)) {
-              officeLeaderUserIds.add(t.lead_user_id);
+          teams.forEach((team) => {
+            if (team.lead_user_id && officeTeamIds.has(team.id) && !downlineUserIds.has(team.lead_user_id)) {
+              officeLeaderUserIds.add(team.lead_user_id);
             }
           });
 
-          // Build trees for each office leader not already in downline
-          officeLeaderUserIds.forEach(leaderId => {
-            if (!downlineUserIds.has(leaderId)) {
-              const officeNode = buildNode(leaderId);
-              if (officeNode && officeNode.children.length > 0) {
-                rootNodes.push(officeNode);
-              }
-            }
+          officeLeaderUserIds.forEach((leaderId) => {
+            const officeNode = buildNode(leaderId);
+            if (officeNode) rootNodes.push(officeNode);
           });
         }
       }
     }
 
-    return rootNodes.sort((a, b) => b.children.length - a.children.length);
-  }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap]);
+    const dedupedRoots = dedupeRootNodes(rootNodes);
+
+    if (accessLevel !== "team_lead") {
+      const visibleMgmtGroupIds = new Set<string>();
+
+      if (globalAccessLevels.has(accessLevel || "")) {
+        mgmtGroups.forEach((mg) => visibleMgmtGroupIds.add(mg.id));
+      } else if (accessLevel === "area_director" && currentAuthUserId) {
+        const adOfficeIds = new Set(
+          officeStaff
+            .filter((s) => s.user_id === currentAuthUserId && s.role === "area_director")
+            .map((s) => s.office_id)
+        );
+        mgmtGroups
+          .filter((mg) => mg.office_id && adOfficeIds.has(mg.office_id))
+          .forEach((mg) => visibleMgmtGroupIds.add(mg.id));
+      } else {
+        dedupedRoots.forEach((root) => {
+          if (!root.userId) return;
+          const mgmtGroupId = resolveMgmtGroupId(root.userId);
+          if (mgmtGroupId) visibleMgmtGroupIds.add(mgmtGroupId);
+        });
+      }
+
+      const mgmtNodes = new Map<string, TreeNode>();
+      const ungroupedRoots: TreeNode[] = [];
+
+      dedupedRoots.forEach((root) => {
+        const mgmtGroupId = root.userId ? resolveMgmtGroupId(root.userId) : null;
+        if (!mgmtGroupId || !visibleMgmtGroupIds.has(mgmtGroupId)) {
+          ungroupedRoots.push(root);
+          return;
+        }
+
+        if (!mgmtNodes.has(mgmtGroupId)) {
+          mgmtNodes.set(mgmtGroupId, createMgmtLabelNode(mgmtGroupId));
+        }
+        mgmtNodes.get(mgmtGroupId)!.children.push(root);
+      });
+
+      const allVisibleUserIds = new Set<string>();
+      mgmtNodes.forEach((node) => collectChildUserIds(node.children, allVisibleUserIds));
+      dedupedRoots.forEach((node) => {
+        if (node.userId) allVisibleUserIds.add(node.userId);
+      });
+
+      reps.forEach((rep) => {
+        if (!rep.user_id || allVisibleUserIds.has(rep.user_id)) return;
+
+        const recruit = getRecruitForRep(rep);
+        if (!recruit || recruit.recruiter_user_id) return;
+
+        const mgmtGroupId = resolveMgmtGroupId(rep.user_id);
+        if (!mgmtGroupId || !visibleMgmtGroupIds.has(mgmtGroupId)) return;
+
+        const orphanNode = buildNode(rep.user_id) || {
+          id: recruit.id,
+          name: rep.name,
+          userId: rep.user_id,
+          stage: recruit.stage,
+          profilePhotoUrl: rep.profile_photo_url,
+          role: roleMap.get(rep.user_id)?.title || null,
+          year: rep.year || recruit.year || null,
+          isAreaDirector: areaDirectorSet.has(rep.user_id),
+          roleColor: roleMap.get(rep.user_id)?.color || "none",
+          children: [],
+        };
+
+        if (!mgmtNodes.has(mgmtGroupId)) {
+          mgmtNodes.set(mgmtGroupId, createMgmtLabelNode(mgmtGroupId));
+        }
+        mgmtNodes.get(mgmtGroupId)!.children.push(orphanNode);
+        allVisibleUserIds.add(rep.user_id);
+      });
+
+      const groupedRoots = Array.from(mgmtNodes.entries())
+        .map(([mgmtGroupId, node]) => createMgmtLabelNode(mgmtGroupId, dedupeRootNodes(node.children)))
+        .filter((node) => node.children.length > 0)
+        .sort((a, b) => countDescendants(b) - countDescendants(a));
+
+      // When grouping by office, wrap MGMT groups under office containers instead of Sr MGMT
+      if (groupByOffice) {
+        const officeChildren = new Map<string, TreeNode[]>();
+        const noOfficeNodes: TreeNode[] = [];
+
+        groupedRoots.forEach((mgmtNode) => {
+          const mgmtGroupId = mgmtNode.id.startsWith("mgmt-") ? mgmtNode.id.replace("mgmt-", "") : null;
+          const mg = mgmtGroupId ? mgmtGroupMap.get(mgmtGroupId) : null;
+          const officeId = mg?.office_id;
+
+          if (officeId) {
+            if (!officeChildren.has(officeId)) officeChildren.set(officeId, []);
+            officeChildren.get(officeId)!.push(mgmtNode);
+          } else {
+            noOfficeNodes.push(mgmtNode);
+          }
+        });
+
+        const officeNodes: TreeNode[] = [];
+        officeChildren.forEach((children, officeId) => {
+          const office = treeData.offices.find((o: any) => o.id === officeId);
+          officeNodes.push({
+            id: `office-${officeId}`,
+            name: office?.name || "Office",
+            userId: null,
+            stage: null,
+            profilePhotoUrl: null,
+            role: null,
+            year: null,
+            isAreaDirector: false,
+            roleColor: "area_director",
+            isLabelNode: true,
+            isOfficeNode: true,
+            officeId,
+            children: sortByDownlineSize(children),
+          });
+        });
+
+        const finalGrouped = sortByDownlineSize([...officeNodes, ...noOfficeNodes]);
+        return sortByDownlineSize([...finalGrouped, ...ungroupedRoots]);
+      }
+
+      // Default: group by Sr MGMT
+      const mgmtGroupToSrMgmt = new Map<string, string>();
+      mgmtGroups.forEach((mg) => {
+        if (mg.sr_mgmt_group_id) mgmtGroupToSrMgmt.set(mg.id, mg.sr_mgmt_group_id);
+      });
+
+      const srMgmtChildren = new Map<string, TreeNode[]>();
+      const standaloneMgmtNodes: TreeNode[] = [];
+
+      groupedRoots.forEach((mgmtNode) => {
+        const mgmtGroupId = mgmtNode.id.startsWith("mgmt-") ? mgmtNode.id.replace("mgmt-", "") : null;
+        const srMgmtId = mgmtGroupId ? mgmtGroupToSrMgmt.get(mgmtGroupId) : null;
+
+        if (srMgmtId) {
+          if (!srMgmtChildren.has(srMgmtId)) srMgmtChildren.set(srMgmtId, []);
+          srMgmtChildren.get(srMgmtId)!.push(mgmtNode);
+        } else {
+          standaloneMgmtNodes.push(mgmtNode);
+        }
+      });
+
+      const srMgmtNodes: TreeNode[] = [];
+      srMgmtChildren.forEach((children, srMgmtId) => {
+        srMgmtNodes.push(createSrMgmtLabelNode(srMgmtId, children));
+      });
+
+      const finalGrouped = sortByDownlineSize([...srMgmtNodes, ...standaloneMgmtNodes]);
+
+      return sortByDownlineSize([...finalGrouped, ...ungroupedRoots]);
+    }
+
+    return sortByDownlineSize(dedupedRoots);
+  }, [treeData, teamAccess, currentAuthUserId, accessLevel, roleMap, areaDirectorSet, teamLeadUserIds, userTeamNameMap, groupByOffice]);
 
 
   // Build a lookup for full recruit data — cross-references current org structure
@@ -332,8 +678,9 @@ const OrgChart = () => {
     const teamToMgmt = new Map<string, string>();
     teamMgmt.forEach(tm => teamToMgmt.set(tm.team_id, tm.mgmt_group_id));
 
+    const repByIdLookup = new Map(reps.map((rep: any) => [rep.id, rep]));
     recruits.forEach((r) => {
-      const recruitRep = reps.find(
+      const recruitRep = repByIdLookup.get(r.id) || reps.find(
         rep => getCleanName(rep.name).toLowerCase() === getCleanName(r.name).toLowerCase()
       );
       const recruiterRep = r.recruiter_user_id ? repMap.get(r.recruiter_user_id) : null;
@@ -401,10 +748,207 @@ const OrgChart = () => {
     return map;
   }, [treeData]);
 
+  // ── Drag-and-drop infrastructure ──────────────────────
+  const [dragConfirm, setDragConfirm] = useState<{
+    source: DragNode;
+    targetId: string;
+    targetName: string;
+  } | null>(null);
+  const [dragSaving, setDragSaving] = useState(false);
+
+  // Collect all node IDs from tree + build subtree lookup
+  const { allNodeIds, nodeParentMap, nodeNameMap, nodeChildCountMap } = useMemo(() => {
+    const ids = new Set<string>();
+    const parentMap = new Map<string, string | null>();
+    const nameMap = new Map<string, string>();
+    const childCountMap = new Map<string, number>();
+    
+    const walk = (node: TreeNode, parentId: string | null) => {
+      if (!node.isLabelNode) {
+        ids.add(node.id);
+        parentMap.set(node.id, parentId);
+        nameMap.set(node.id, node.name);
+        childCountMap.set(node.id, node.children.filter(c => !c.isLabelNode).length);
+      }
+      for (const child of node.children) {
+        walk(child, node.isLabelNode ? parentId : node.id);
+      }
+    };
+    (fullTree || []).forEach(r => walk(r, null));
+    return { allNodeIds: ids, nodeParentMap: parentMap, nodeNameMap: nameMap, nodeChildCountMap: childCountMap };
+  }, [fullTree]);
+
+  // Build set of IDs the current user can manage (their downline)
+  const draggableNodeIds = useMemo(() => {
+    if (!fullTree || !currentAuthUserId) return new Set<string>();
+    const ids = new Set<string>();
+    
+    const collectDownline = (nodes: TreeNode[], collecting: boolean) => {
+      for (const node of nodes) {
+        if (node.isLabelNode) {
+          collectDownline(node.children, collecting);
+          continue;
+        }
+        if (node.userId === currentAuthUserId) {
+          // Don't add self, but collect children
+          collectDownline(node.children, true);
+          continue;
+        }
+        if (collecting) {
+          ids.add(node.id);
+          collectDownline(node.children, true);
+        } else {
+          collectDownline(node.children, false);
+        }
+      }
+    };
+    collectDownline(fullTree, false);
+    return ids;
+  }, [fullTree, currentAuthUserId]);
+
+  // Valid drop targets = all person nodes that the user can see (excluding label nodes)
+  const validDropTargetIds = useMemo(() => {
+    // For now, all non-label person nodes are valid targets except for those in the dragged subtree
+    // (subtree exclusion is handled in the hook itself)
+    return allNodeIds;
+  }, [allNodeIds]);
+
+  // Get all IDs in a node's subtree
+  const getSubtreeIds = useCallback((nodeId: string): Set<string> => {
+    const ids = new Set<string>();
+    const walk = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (node.isLabelNode) {
+          walk(node.children);
+          continue;
+        }
+        if (node.id === nodeId) {
+          // Collect all descendants
+          const collectAll = (children: TreeNode[]) => {
+            for (const c of children) {
+              if (!c.isLabelNode) ids.add(c.id);
+              collectAll(c.children);
+            }
+          };
+          collectAll(node.children);
+          return;
+        }
+        walk(node.children);
+      }
+    };
+    walk(fullTree || []);
+    return ids;
+  }, [fullTree]);
+
+  // Positioned nodes for hit-testing (shared ref updated by VisualRecruiterTree)
+  const [transformState, setTransformState] = useState({ scale: 1, posX: 0, posY: 0 });
+  const handleTransformChange = useCallback((scale: number, posX: number, posY: number) => {
+    setTransformState({ scale, posX, posY });
+  }, []);
+
+  // Handle confirmed drop
+  const handleDragDrop = useCallback((source: DragNode, targetId: string) => {
+    const targetName = nodeNameMap.get(targetId) || "Unknown";
+    setDragConfirm({ source, targetId, targetName });
+  }, [nodeNameMap]);
+
+  const executeDragReassignment = useCallback(async () => {
+    if (!dragConfirm) return;
+    setDragSaving(true);
+    try {
+      const { session } = await getSessionSafe();
+      if (!session) throw new Error("Not authenticated");
+
+      const { error } = await supabase.functions.invoke("update-rep-assignment", {
+        body: {
+          repId: dragConfirm.source.id,
+          recruiterUserId: (() => {
+            // Find the userId for the target node
+            const walk = (nodes: TreeNode[]): string | null => {
+              for (const n of nodes) {
+                if (n.id === dragConfirm.targetId && !n.isLabelNode) return n.userId;
+                const found = walk(n.children);
+                if (found) return found;
+              }
+              return null;
+            };
+            return walk(fullTree || []);
+          })(),
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Reassigned successfully",
+        description: `${getCleanName(dragConfirm.source.name)} moved under ${getCleanName(dragConfirm.targetName)}`,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["org-chart-full-tree"] });
+      queryClient.invalidateQueries({ queryKey: ["recruiter-tree-data"] });
+      queryClient.invalidateQueries({ queryKey: ["team-access"] });
+      queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
+      queryClient.invalidateQueries({ queryKey: ["org-structure"] });
+    } catch (err) {
+      console.error("Drag reassignment error:", err);
+      toast({
+        title: "Error reassigning",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setDragSaving(false);
+      setDragConfirm(null);
+    }
+  }, [dragConfirm, fullTree, queryClient]);
+
+  // Check if current user has management rights (team_lead+ can drag)
+  const canDrag = useMemo(() => {
+    const managementLevels = new Set([
+      "team_lead", "mgmt_group_lead", "senior_manager", "area_director",
+      "regional", "sr_regional", "partner", "divisional", "corporate",
+    ]);
+    return managementLevels.has(accessLevel || "");
+  }, [accessLevel]);
+
+  // The drag hook
+  const {
+    isDragging,
+    draggedNode,
+    dragPosition,
+    dropTargetId,
+    subtreeIds,
+    wrapperRef: dragWrapperRef,
+    onTouchStart: dragTouchStart,
+    onTouchMove: dragTouchMove,
+    onTouchEnd: dragTouchEnd,
+    onMouseDown: dragMouseDown,
+    onMouseMove: dragMouseMove,
+    onMouseUp: dragMouseUp,
+    cancelDrag,
+    wasLongPress,
+  } = useDragReassign({
+    draggableNodeIds,
+    validDropTargetIds,
+    positionedNodes: [], // hit testing uses tree-space coords from the hook itself
+    scale: transformState.scale,
+    panOffset: { x: transformState.posX, y: transformState.posY },
+    padding: 60,
+    onDrop: handleDragDrop,
+    getSubtreeIds,
+    currentUserId: currentAuthUserId,
+  });
+
   // Drawer state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [drawerRecruit, setDrawerRecruit] = useState<Recruit | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [officeDetailId, setOfficeDetailId] = useState<string | null>(null);
+
+  const handleOfficeNodeClick = useCallback((officeId: string) => {
+    setOfficeDetailId(officeId);
+  }, []);
 
   const handleSelectNode = useCallback(
     (node: { id: string; name: string; userId: string | null; stage: string | null } | null) => {
@@ -446,7 +990,13 @@ const OrgChart = () => {
     [recruitLookup]
   );
 
-
+  const handleTourAction = useCallback((action: string) => {
+    if (action === 'switchToStructureTab') {
+      setActiveTab('structure');
+    } else if (action === 'switchToTreeTab') {
+      setActiveTab('tree');
+    }
+  }, []);
 
   if (accessLoading || isLoading) {
     return (
@@ -457,38 +1007,84 @@ const OrgChart = () => {
     );
   }
 
+  if (accessError || treeError) {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center gap-4 pt-20">
+        <GitBranch className="h-12 w-12 text-muted-foreground opacity-50" />
+        <p className="text-muted-foreground text-center">Couldn't load org data. This can happen on a slow connection.</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetchTree()}
+          className="gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 space-y-4 pb-24">
-      <Tabs defaultValue="tree" className="w-full">
-        <TabsList className="w-full">
-          <TabsTrigger value="tree" className="flex-1 gap-1.5">
-            <GitBranch className="h-3.5 w-3.5" />
-            Recruiter Tree
-          </TabsTrigger>
-          <TabsTrigger value="structure" className="flex-1 gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            Structure
-          </TabsTrigger>
-        </TabsList>
+    <div className="p-4 landscape:p-2 space-y-4 landscape:space-y-2 pb-24" data-tour="org-chart-page">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div data-tour="org-chart-tabs">
+          <TabsList className="w-full">
+            <TabsTrigger value="tree" className="flex-1 gap-1.5">
+              <GitBranch className="h-3.5 w-3.5" />
+              Recruiter Tree
+            </TabsTrigger>
+            <TabsTrigger value="structure" className="flex-1 gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              Structure
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="tree" className="mt-3 space-y-3">
-          {!fullTree || fullTree.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <GitBranch className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No recruiter tree found</p>
-              <p className="text-sm">Recruiting relationships will appear here</p>
-            </div>
-          ) : (
-            <VisualRecruiterTree
-              roots={fullTree}
-              selectedNodeId={selectedNodeId}
-              onSelectNode={handleSelectNode}
-            />
-          )}
+          <div data-tour="org-chart-recruiter-tree">
+            {!fullTree || fullTree.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <GitBranch className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No recruiter tree found</p>
+                <p className="text-sm">Recruiting relationships will appear here</p>
+              </div>
+            ) : (
+              <VisualRecruiterTree
+                roots={fullTree}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={handleSelectNode}
+                groupByOffice={groupByOffice}
+                onGroupByOfficeChange={setGroupByOffice}
+                showGroupByOfficeToggle={OFFICE_GROUPED_ACCESS_LEVELS.has(teamAccess?.accessLevel || '')}
+                onOfficeNodeClick={handleOfficeNodeClick}
+                dragEnabled={canDrag}
+                isDragging={isDragging}
+                draggedNode={draggedNode}
+                dragPosition={dragPosition}
+                dropTargetId={dropTargetId}
+                subtreeIds={subtreeIds}
+                draggableNodeIds={draggableNodeIds}
+                validDropTargetIds={validDropTargetIds}
+                onDragTouchStart={dragTouchStart}
+                onDragTouchMove={dragTouchMove}
+                onDragTouchEnd={dragTouchEnd}
+                onDragMouseDown={dragMouseDown}
+                onDragMouseMove={dragMouseMove}
+                onDragMouseUp={dragMouseUp}
+                onCancelDrag={cancelDrag}
+                dragWrapperRef={dragWrapperRef}
+                wasLongPress={wasLongPress}
+                onTransformChange={handleTransformChange}
+              />
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="structure" className="mt-3">
-          <OrgStructureTree accessLevel={teamAccess?.accessLevel} />
+          <div data-tour="org-chart-structure-content">
+            <OrgStructureTree accessLevel={teamAccess?.accessLevel} />
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -502,12 +1098,77 @@ const OrgChart = () => {
           if (!open) {
             setSelectedNodeId(null);
             setDrawerRecruit(null);
-            // Refetch tree data to reflect any changes (recruiter reassignment, stage change, etc.)
             queryClient.invalidateQueries({ queryKey: ["org-chart-full-tree"] });
           }
         }}
         initialTab="details"
       />
+
+      {/* Office Detail Drawer */}
+      <OfficeDetailDrawer
+        open={!!officeDetailId}
+        onOpenChange={(open) => !open && setOfficeDetailId(null)}
+        office={officeDetailId && treeData ? (treeData.offices.find((o: any) => o.id === officeDetailId) || null) : null}
+        orgData={treeData ? {
+          officeStaff: treeData.officeStaff,
+          mgmtGroups: treeData.mgmtGroups,
+          srMgmtGroups: treeData.srMgmtGroups,
+          teams: treeData.teams,
+          teamMgmt: treeData.teamMgmt,
+          reps: treeData.reps,
+          recruits: treeData.recruits,
+        } : undefined}
+      />
+
+      {/* Org Chart Tour */}
+      <PageTour
+        steps={getOrgChartTourSteps(teamAccess?.accessLevel)}
+        isOpen={showTour}
+        onComplete={async () => {
+          await completeTour();
+          if (fromOnboarding) {
+            navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
+          }
+        }}
+        onSkip={async () => {
+          await skipTour();
+          if (fromOnboarding) {
+            navigate('/my-group?tab=structure', { state: { fromOnboarding: true } });
+          }
+        }}
+        onStepAction={handleTourAction}
+      />
+
+      {/* Drag reassignment confirmation */}
+      <AlertDialog open={!!dragConfirm} onOpenChange={(open) => !open && setDragConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {dragConfirm && dragConfirm.source.totalDescendants > 0 && (
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              )}
+              {dragConfirm && dragConfirm.source.totalDescendants > 0 ? "Branch Move" : "Reassign Recruiter"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {dragConfirm && (
+                <>
+                  Move <strong>{getCleanName(dragConfirm.source.name)}</strong>
+                  {dragConfirm.source.totalDescendants > 0 && (
+                    <> and their <strong>{dragConfirm.source.totalDescendants} recruit{dragConfirm.source.totalDescendants !== 1 ? "s" : ""}</strong></>
+                  )}
+                  {" "}under <strong>{getCleanName(dragConfirm.targetName)}</strong>?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={dragSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={dragSaving} onClick={executeDragReassignment}>
+              {dragSaving ? "Moving..." : dragConfirm?.source.totalDescendants ? "Move Branch" : "Move"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

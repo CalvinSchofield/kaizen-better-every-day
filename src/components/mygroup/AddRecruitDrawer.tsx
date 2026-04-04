@@ -3,6 +3,7 @@ import { useSubmitSuggestion, useMySuggestions } from "@/hooks/useGroupRecruits"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
+import { withTimeout } from "@/utils/withTimeout";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -237,7 +238,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   const { data: teamAccess } = useTeamAccess();
   
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
-  const isMgmtOrAbove = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director';
+  const isMgmtOrAbove = teamAccess?.accessLevel && !['none', 'team_lead', 'recruiter'].includes(teamAccess.accessLevel);
   const totalSteps = isLeader ? 5 : 3; // Leaders have 5 steps, reps have 3
 
   // Fetch property options
@@ -329,12 +330,13 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       if (currentUserId && r.userId === currentUserId) return true;
 
       const stageLower = (r.stage || '').toLowerCase();
+      // Exclude inactive/exited reps
       const excludePatterns = [
         'not interested', 'left', 'potential', 'follow up',
-        '100 list', '100_list', 'reached out', 'reached_out', 'evaluating',
+        '100 list', '100_list', 'reached out', 'reached_out',
       ];
       if (excludePatterns.some((p) => stageLower.includes(p))) return false;
-      return stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold');
+      return stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold') || stageLower.includes('evaluating');
     });
 
     const byId = new Map<string, any>();
@@ -350,17 +352,10 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     return Array.from(byId.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [teamAccess?.accessibleReps, currentRep?.authUserId, currentRep?.id, suggestionPrefill?.suggestedByNotionId, selectedRecruiter]);
 
-  // Filter teams based on selected recruiter
-  const filteredTeams = useMemo(() => {
-    if (!teamAccess?.teams) return [];
-    if (!selectedRecruiter) return teamAccess.teams;
-    
-    const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
-    if (recruiterData?.teamId) {
-      return teamAccess.teams.filter(t => t.id === recruiterData.teamId);
-    }
-    return teamAccess.teams;
-  }, [teamAccess?.teams, selectedRecruiter, allRecruiters]);
+  // All downline teams
+  const allTeams = useMemo(() => {
+    return teamAccess?.teams || [];
+  }, [teamAccess?.teams]);
 
   // Filter recruiters by selected team (only show recruiters on that team)
   const filteredRecruiters = useMemo(() => {
@@ -449,6 +444,18 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     })();
   };
 
+  // When team changes, reset recruiter if it doesn't belong to the new team
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeam(teamId);
+    hapticLight();
+    if (selectedRecruiter) {
+      const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
+      if (recruiterData && recruiterData.teamId !== teamId && recruiterData.id !== currentRep?.id) {
+        setSelectedRecruiter('');
+      }
+    }
+  };
+
   // Create recruit mutation
   const createRecruitMutation = useMutation({
     mutationFn: async (recruitData: {
@@ -466,10 +473,14 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       const { session } = await getSessionSafe();
       if (!session) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase.functions.invoke('create-recruit', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: recruitData,
-      });
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('create-recruit', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: recruitData,
+        }),
+        30000,
+        'Request timed out — please check your connection and try again'
+      );
 
       if (error) throw error;
       if (data?.duplicateEmail) throw new Error(data.error);
@@ -560,17 +571,21 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       return;
     }
 
-    await createRecruitMutation.mutateAsync({
-      name: name.trim(),
-      phone: cleanPhone ? `+1${cleanPhone}` : '',
-      email: email.trim() || undefined,
-      location,
-      recruitmentSource,
-      teamId: selectedTeam || undefined,
-      stage: selectedStage,
-      spouseName: spouseName.trim() || undefined,
-      cautionNotes: cautionNotes.trim() || undefined,
-    });
+    try {
+      await createRecruitMutation.mutateAsync({
+        name: name.trim(),
+        phone: cleanPhone ? `+1${cleanPhone}` : '',
+        email: email.trim() || undefined,
+        location,
+        recruitmentSource,
+        teamId: selectedTeam || undefined,
+        stage: selectedStage,
+        spouseName: spouseName.trim() || undefined,
+        cautionNotes: cautionNotes.trim() || undefined,
+      });
+    } catch (e) {
+      console.error('handleLeaderSubmit error caught:', e);
+    }
   };
 
   const handleRepSubmit = async () => {
@@ -627,9 +642,9 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
   // Get team display name
   const teamName = useMemo(() => {
-    const team = filteredTeams.find(t => t.id === selectedTeam);
+    const team = allTeams.find(t => t.id === selectedTeam);
     return getCleanName(team?.name) || '';
-  }, [selectedTeam, filteredTeams]);
+  }, [selectedTeam, allTeams]);
 
   // Render step content for leaders
   const renderLeaderStep = () => {
@@ -799,6 +814,25 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
             </div>
 
             <div className="space-y-4">
+              {/* Team selection first for MGMT leads */}
+              {isMgmtOrAbove && allTeams.length > 0 && (
+                <div>
+                  <Label>Team</Label>
+                  <Select value={selectedTeam} onValueChange={handleTeamChange}>
+                    <SelectTrigger className="h-12 mt-1">
+                      <SelectValue placeholder="Select team" />
+                    </SelectTrigger>
+                    <SelectContent modal={false}>
+                      {allTeams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {getCleanName(team.name)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Recruiter */}
               <div>
                 <Label>Recruiter</Label>
@@ -820,25 +854,6 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Team selection for MGMT leads */}
-              {isMgmtOrAbove && filteredTeams.length > 0 && (
-                <div>
-                  <Label>Team</Label>
-                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                    <SelectTrigger className="h-12 mt-1">
-                      <SelectValue placeholder="Select team" />
-                    </SelectTrigger>
-                    <SelectContent modal={false}>
-                      {filteredTeams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          {getCleanName(team.name)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               {/* Spouse Name */}
               <div>

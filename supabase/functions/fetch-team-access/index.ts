@@ -91,12 +91,22 @@ Deno.serve(async (req) => {
     // Fetch all mgmt_groups
     const { data: mgmtGroupsRaw } = await supabase
       .from('mgmt_groups')
-      .select('id, name, lead_user_id');
+      .select('id, name, lead_user_id, office_id, sr_mgmt_group_id');
 
     // Fetch all teams
     const { data: teamsRaw } = await supabase
       .from('teams')
-      .select('id, name, lead_user_id');
+      .select('id, name, lead_user_id, office_id');
+
+    // Fetch all offices
+    const { data: officesRaw } = await supabase
+      .from('offices')
+      .select('id, name, location');
+
+    // Fetch all sr_mgmt_groups (full data for hierarchy)
+    const { data: allSrMgmtGroupsRaw } = await supabase
+      .from('sr_mgmt_groups')
+      .select('id, name, lead_user_id, office_id, region_id');
 
     // Fetch team-mgmt_group relationships
     const { data: teamMgmtGroupsRaw } = await supabase
@@ -118,6 +128,85 @@ Deno.serve(async (req) => {
     const teamMgmtGroups = teamMgmtGroupsRaw || [];
     const repsData = allReps || [];
     const recruitsData = allRecruits || [];
+    const officesData = officesRaw || [];
+    const allSrMgmtGroupsData = allSrMgmtGroupsRaw || [];
+
+    // Structural lead checks
+    const isTeamLeadStructural = teamsData.some(t => t.lead_user_id === user.id);
+    const isMgmtGroupLeadStructural = mgmtGroupsData.some(g => g.lead_user_id === user.id);
+    const isSrMgmtGroupLead = allSrMgmtGroupsData.some(g => g.lead_user_id === user.id);
+
+    // Check for regional/sr_regional/partner/divisional lead
+    const { data: regionsLed } = await supabase
+      .from('regions')
+      .select('id')
+      .eq('lead_user_id', user.id)
+      .limit(1);
+    const isRegionalLead = (regionsLed || []).length > 0;
+
+    const { data: srRegionsLed } = await supabase
+      .from('sr_regions')
+      .select('id')
+      .eq('lead_user_id', user.id)
+      .limit(1);
+    const isSrRegionalLead = (srRegionsLed || []).length > 0;
+
+    const { data: partnersLed } = await supabase
+      .from('partners')
+      .select('id')
+      .eq('lead_user_id', user.id)
+      .limit(1);
+    const isPartnerLead = (partnersLed || []).length > 0;
+
+    const { data: divisionsLed } = await supabase
+      .from('divisions')
+      .select('id')
+      .eq('lead_user_id', user.id)
+      .limit(1);
+    const isDivisionalLead = (divisionsLed || []).length > 0;
+
+    // Compute effective access level — highest of explicit role, structural role, and flags wins
+    let accessLevel = highestExplicitRole;
+
+    // Structural lead roles
+    if (isTeamLeadStructural && (ROLE_WEIGHT['team_lead'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'team_lead';
+    }
+    if (isMgmtGroupLeadStructural && (ROLE_WEIGHT['mgmt_group_lead'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'mgmt_group_lead';
+    }
+    if (isSrMgmtGroupLead && (ROLE_WEIGHT['senior_manager'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'senior_manager';
+    }
+    if (isRegionalLead && (ROLE_WEIGHT['regional'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'regional';
+    }
+    if (isSrRegionalLead && (ROLE_WEIGHT['sr_regional'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'sr_regional';
+    }
+    if (isPartnerLead && (ROLE_WEIGHT['partner'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'partner';
+    }
+    if (isDivisionalLead && (ROLE_WEIGHT['divisional'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'divisional';
+    }
+
+    // DB function flags
+    if (isAreaDirector && (ROLE_WEIGHT['area_director'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'area_director';
+    }
+    if (isCorporate && (ROLE_WEIGHT['corporate'] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
+      accessLevel = 'corporate';
+    }
+
+    // If still 'none' but has recruits AND is not a rookie, they're a recruiter
+    if (accessLevel === 'none') {
+      const hasRecruits = recruitsData.some(r => r.recruiter_user_id === user.id);
+      const isRookie = repData.year === 'Rookie';
+      if (hasRecruits && !isRookie) accessLevel = 'recruiter';
+    }
+
+    console.log(`[fetch-team-access] User ${user.id} accessLevel=${accessLevel} (explicit=${highestExplicitRole}, teamLead=${isTeamLeadStructural}, mgmtLead=${isMgmtGroupLeadStructural}, AD=${isAreaDirector}, corp=${isCorporate})`);
 
     // HELPER: Get recursive downline recruits
     const getDownlineRecruits = (recruiterId: string, alreadyAddedIds: Set<string>, depth: number = 0): any[] => {
@@ -155,76 +244,10 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Build name-to-team mapping
-    const normalizeFirstToken = (name: string | null | undefined) => {
-      if (!name) return null;
-      const cleanName = name.replace(/^[^\p{L}]*/u, '').trim();
-      const firstToken = cleanName.split(/\s+/)[0]?.toLowerCase();
-      return firstToken || null;
-    };
-
-    const normalizeFullName = (name: string | null | undefined) => {
-      if (!name) return null;
-      const clean = name.replace(/^[^\p{L}]*/u, '').trim();
-      return clean.toLowerCase();
-    };
-
-    const teamKeyToTeam = new Map<string, typeof teamsData[0]>();
-
-    for (const team of teamsData) {
-      const key = normalizeFirstToken(team.name);
-      if (!key) continue;
-      if (!teamKeyToTeam.has(key)) {
-        teamKeyToTeam.set(key, team);
-      }
-    }
-
-    for (const team of teamsData) {
-      if (!team.lead_user_id) continue;
-      const leadRep = repsData.find(r => r.user_id === team.lead_user_id);
-      const key = normalizeFirstToken(leadRep?.name);
-      if (!key) continue;
-      if (!teamKeyToTeam.has(key)) {
-        teamKeyToTeam.set(key, team);
-      }
-    }
-
-    // Special handling: Levi's group downline
-    const leviTeam = teamKeyToTeam.get('levi');
-    const leviDownlineIds = new Set<string>();
-
-    if (leviTeam) {
-      const rootKey = 'levi tingey';
-      const nameToId = new Map<string, string>();
-
-      for (const rep of repsData) {
-        const key = normalizeFullName(rep.name);
-        if (key && rep.id) {
-          if (!nameToId.has(key)) nameToId.set(key, rep.id);
-        }
-      }
-
-      const rootId = nameToId.get(rootKey);
-      if (rootId) {
-        leviDownlineIds.add(rootId);
-        const knownNames = new Set<string>([rootKey]);
-        let frontier = new Set<string>([rootKey]);
-
-        for (let depth = 0; depth < 6; depth++) {
-          const nextFrontier = new Set<string>();
-          for (const rep of repsData) {
-            const recruiterKey = normalizeFullName(rep.recruiter);
-            if (!recruiterKey || !frontier.has(recruiterKey)) continue;
-            const repKey = normalizeFullName(rep.name);
-            if (!repKey || knownNames.has(repKey)) continue;
-            knownNames.add(repKey);
-            nextFrontier.add(repKey);
-            if (rep.id) leviDownlineIds.add(rep.id);
-          }
-          if (nextFrontier.size === 0) break;
-          frontier = nextFrontier;
-        }
-      }
+    // Build rep.id → recruit map for formal team/group assignments
+    const repIdToRecruit = new Map<string, typeof recruitsData[0]>();
+    for (const recruit of recruitsData) {
+      repIdToRecruit.set(recruit.id, recruit);
     }
 
     // Build teams list
@@ -243,47 +266,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // === DETERMINE ACCESS LEVEL ===
-    let accessLevel = 'none';
-
-    // 4. Check structural roles (mgmt group lead, team lead)
-    const isMgmtGroupLead = mgmtGroupsData.some(g => g.lead_user_id === user.id);
-    if (isMgmtGroupLead) accessLevel = 'mgmt_group_lead';
-
-    const isTeamLead = teamsData.some(t => t.lead_user_id === user.id);
-    if (isTeamLead && accessLevel === 'none') accessLevel = 'team_lead';
-
-    // 5. Apply explicit roles if higher
-    if ((ROLE_WEIGHT[highestExplicitRole] || 0) > (ROLE_WEIGHT[accessLevel] || 0)) {
-      accessLevel = highestExplicitRole;
-    }
-
-    // 6. Corporate overrides everything
-    if (isCorporate) accessLevel = 'corporate';
-    // Area director overrides team/mgmt roles (but not regional+)
-    else if ((isAreaDirector || officeIds.length > 0) && (ROLE_WEIGHT[accessLevel] || 0) < ROLE_WEIGHT['area_director']) {
-      accessLevel = 'area_director';
-    }
-
-    // 7. Check recruiter status (dynamic, if no formal role yet)
-    // assistant_manager is now assigned explicitly via the admin panel, not auto-promoted
-    if (accessLevel === 'none') {
-      const directRecruits = recruitsData.filter(r => r.recruiter_user_id === user.id);
-      if (directRecruits.length > 0) {
-        accessLevel = 'recruiter';
-        console.log(`User ${user.email} granted recruiter access (${directRecruits.length} recruits)`);
-      }
-    }
-
-    console.log(`User ${user.email} has accessLevel: ${accessLevel}`);
-
-    // === REP TEAM INFO HELPER ===
+    // === REP TEAM INFO — formal table lookups only (no name heuristics) ===
     const getRepTeamInfo = (rep: any) => {
+      // 1. Team lead?
       if (rep.user_id) {
         const teamsAsLead = userIdToTeams.get(rep.user_id);
         if (teamsAsLead && teamsAsLead.length > 0) {
-          const repNameKey = normalizeFirstToken(rep.name);
-          const primaryTeam = teamsAsLead.find(t => normalizeFirstToken(t.name) === repNameKey) || teamsAsLead[0];
+          const primaryTeam = teamsAsLead[0];
           const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(primaryTeam.id));
           return {
             isTeamLead: true,
@@ -295,134 +284,58 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (leviTeam && rep.id && leviDownlineIds.has(rep.id)) {
-        const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(leviTeam.id));
-        return {
-          isTeamLead: false,
-          teamId: leviTeam.id,
-          teamName: leviTeam.name,
-          mgmtGroupId: mgmtGroup?.id || null,
-          mgmtGroupName: mgmtGroup?.name || null,
-        };
-      }
-
-      if (rep.team_leader) {
-        const leaderName = rep.team_leader.toLowerCase().trim();
-        const cleanLeaderName = leaderName.replace(/^[^\p{L}]*/u, '').trim();
-        const firstToken = cleanLeaderName.split(/\s+/)[0];
-        
-        const team = teamKeyToTeam.get(firstToken);
-        if (team) {
-          const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(team.id));
+      // 2. MGMT group lead?
+      if (rep.user_id) {
+        const ledGroup = mgmtGroupsData.find(g => g.lead_user_id === rep.user_id);
+        if (ledGroup) {
           return {
             isTeamLead: false,
-            teamId: team.id,
-            teamName: team.name,
-            mgmtGroupId: mgmtGroup?.id || null,
-            mgmtGroupName: mgmtGroup?.name || null,
+            teamId: null,
+            teamName: null,
+            mgmtGroupId: ledGroup.id,
+            mgmtGroupName: ledGroup.name,
           };
-        }
-
-        // Trace up team_leader chain
-        const teamLeaderFullName = normalizeFullName(rep.team_leader);
-        if (teamLeaderFullName) {
-          let current = repsData.find(r => normalizeFullName(r.name) === teamLeaderFullName);
-          for (let depth = 0; depth < 6 && current; depth++) {
-            if (current.team_leader) {
-              const currentLeaderClean = current.team_leader.toLowerCase().replace(/^[^\p{L}]*/u, '').trim();
-              const currentFirstToken = currentLeaderClean.split(/\s+/)[0];
-              const currentTeam = teamKeyToTeam.get(currentFirstToken);
-              if (currentTeam) {
-                const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(currentTeam.id));
-                return {
-                  isTeamLead: false,
-                  teamId: currentTeam.id,
-                  teamName: currentTeam.name,
-                  mgmtGroupId: mgmtGroup?.id || null,
-                  mgmtGroupName: mgmtGroup?.name || null,
-                };
-              }
-            }
-
-            if (current.user_id) {
-              const currentTeamsAsLead = userIdToTeams.get(current.user_id);
-              if (currentTeamsAsLead && currentTeamsAsLead.length > 0) {
-                const currentTeam = currentTeamsAsLead[0];
-                const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(currentTeam.id));
-                return {
-                  isTeamLead: false,
-                  teamId: currentTeam.id,
-                  teamName: currentTeam.name,
-                  mgmtGroupId: mgmtGroup?.id || null,
-                  mgmtGroupName: mgmtGroup?.name || null,
-                };
-              }
-            }
-
-            const nextKey = normalizeFullName(current.team_leader);
-            current = nextKey ? repsData.find(r => normalizeFullName(r.name) === nextKey) : undefined;
-          }
-        }
-
-        // Fallback: recruiter chain
-        const recruiterKey = normalizeFullName(rep.recruiter);
-        if (recruiterKey) {
-          let current = repsData.find(r => normalizeFullName(r.name) === recruiterKey);
-          for (let depth = 0; depth < 6 && current; depth++) {
-            if (current.team_leader) {
-              const currentLeaderClean = current.team_leader.toLowerCase().replace(/^[^\p{L}]*/u, '').trim();
-              const currentFirstToken = currentLeaderClean.split(/\s+/)[0];
-              const currentTeam = teamKeyToTeam.get(currentFirstToken);
-              if (currentTeam) {
-                const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(currentTeam.id));
-                return {
-                  isTeamLead: false,
-                  teamId: currentTeam.id,
-                  teamName: currentTeam.name,
-                  mgmtGroupId: mgmtGroup?.id || null,
-                  mgmtGroupName: mgmtGroup?.name || null,
-                };
-              }
-            }
-
-            if (current.user_id) {
-              const currentTeamsAsLead = userIdToTeams.get(current.user_id);
-              if (currentTeamsAsLead && currentTeamsAsLead.length > 0) {
-                const currentTeam = currentTeamsAsLead[0];
-                const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(currentTeam.id));
-                return {
-                  isTeamLead: false,
-                  teamId: currentTeam.id,
-                  teamName: currentTeam.name,
-                  mgmtGroupId: mgmtGroup?.id || null,
-                  mgmtGroupName: mgmtGroup?.name || null,
-                };
-              }
-            }
-
-            const nextKey = normalizeFullName(current.recruiter);
-            current = nextKey ? repsData.find(r => normalizeFullName(r.name) === nextKey) : undefined;
-          }
         }
       }
 
-      return {
-        isTeamLead: false,
-        teamId: null,
-        teamName: null,
-        mgmtGroupId: null,
-        mgmtGroupName: null,
-      };
+      // 3. Formal recruit record (rep.id = recruit.id)
+      const recruit = repIdToRecruit.get(rep.id);
+      if (recruit) {
+        let teamId = recruit.team_id || null;
+        let teamName: string | null = null;
+        let mgmtGroupId = recruit.mgmt_group_id || null;
+        let mgmtGroupName: string | null = null;
+
+        if (teamId) {
+          const team = teamsData.find(t => t.id === teamId);
+          teamName = team?.name || null;
+          if (!mgmtGroupId) {
+            const tmg = teamMgmtGroups.find(t => t.team_id === teamId);
+            mgmtGroupId = tmg?.mgmt_group_id || null;
+          }
+        }
+
+        if (mgmtGroupId) {
+          const mg = mgmtGroupsData.find(g => g.id === mgmtGroupId);
+          mgmtGroupName = mg?.name || null;
+        }
+
+        return { isTeamLead: false, teamId, teamName, mgmtGroupId, mgmtGroupName };
+      }
+
+      // 4. No formal assignment
+      return { isTeamLead: false, teamId: null, teamName: null, mgmtGroupId: null, mgmtGroupName: null };
     };
 
-    // Helper: get recruiter name
+    // Helper: get recruiter name — canonical recruits.recruiter_user_id takes priority
     const getRecruiterName = (rep: any): string | null => {
-      if (rep.recruiter) return rep.recruiter;
       const recruit = recruitsData.find(r => r.id === rep.id);
       if (recruit?.recruiter_user_id) {
         const recruiterRep = repsData.find(r => r.user_id === recruit.recruiter_user_id);
         if (recruiterRep) return recruiterRep.name;
       }
+      // Fallback to stale text field only if no canonical link exists
+      if (rep.recruiter) return rep.recruiter;
       return null;
     };
 
@@ -569,7 +482,79 @@ Deno.serve(async (req) => {
       
       console.log(`Area director has access to ${accessibleReps.length} reps (${officeIds.length} offices)`);
 
-    } else if (accessLevel === 'mgmt_group_lead') {
+    } else if (accessLevel === 'senior_manager') {
+      // Sr. MGMT Group Lead: see reps across child MGMT groups + downline
+      const { data: userSrMgmtGroups } = await supabase
+        .from('sr_mgmt_groups')
+        .select('id')
+        .eq('lead_user_id', user.id);
+      const srMgmtGroupIds = (userSrMgmtGroups || []).map(g => g.id);
+      
+      // Get child MGMT groups under these Sr. MGMT groups
+      const childMgmtGroupIds = new Set<string>();
+      for (const mg of mgmtGroupsData) {
+        if (mg.sr_mgmt_group_id && srMgmtGroupIds.includes(mg.sr_mgmt_group_id)) {
+          childMgmtGroupIds.add(mg.id);
+        }
+      }
+      // Also include any MGMT groups directly led by this user
+      for (const mg of mgmtGroupsData) {
+        if (mg.lead_user_id === user.id) {
+          childMgmtGroupIds.add(mg.id);
+        }
+      }
+      
+      // Get all teams in those MGMT groups
+      const accessibleTeamIds: string[] = [];
+      for (const tmg of teamMgmtGroups) {
+        if (childMgmtGroupIds.has(tmg.mgmt_group_id)) {
+          accessibleTeamIds.push(tmg.team_id);
+        }
+      }
+      
+      const addedIds = new Set<string>();
+      addedIds.add(currentUserRepId);
+      if (repData.user_id) accessibleUserIds.push(repData.user_id);
+      accessibleReps.push({ ...buildRepData(repData), isDirectRecruit: false });
+      
+      for (const rep of repsData) {
+        if (rep.id === currentUserRepId) continue;
+        const teamInfo = getRepTeamInfo(rep);
+        if ((teamInfo.teamId && accessibleTeamIds.includes(teamInfo.teamId)) ||
+            (teamInfo.mgmtGroupId && childMgmtGroupIds.has(teamInfo.mgmtGroupId))) {
+          if (!addedIds.has(rep.id)) {
+            addedIds.add(rep.id);
+            if (rep.user_id) accessibleUserIds.push(rep.user_id);
+            accessibleReps.push({
+              ...buildRepData(rep),
+              isDirectRecruit: directRecruitIds.has(rep.id),
+            });
+          }
+        }
+      }
+      
+      const downlineRecruits = getDownlineRecruits(user.id, addedIds);
+      for (const recruit of downlineRecruits) {
+        const matchingRep = repsData.find(r => r.id === recruit.id);
+        if (matchingRep) {
+          if (matchingRep.user_id && !accessibleUserIds.includes(matchingRep.user_id)) {
+            accessibleUserIds.push(matchingRep.user_id);
+          }
+          accessibleReps.push({
+            ...buildRepData(matchingRep),
+            isDirectRecruit: directRecruitIds.has(matchingRep.id),
+          });
+        } else {
+          accessibleReps.push({
+            ...buildRecruitAsRepData(recruit),
+            isDirectRecruit: directRecruitIds.has(recruit.id),
+          });
+        }
+      }
+      
+      console.log(`Senior manager has access to ${childMgmtGroupIds.size} mgmt groups, ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps`);
+
+    } else if (accessLevel === 'mgmt_group_lead' || accessLevel === 'manager') {
       const userMgmtGroups = mgmtGroups.filter(g => g.groupLeadId === user.id);
       const accessibleTeamIds = userMgmtGroups.flatMap(g => g.teamIds);
       const addedIds = new Set<string>();
@@ -612,7 +597,7 @@ Deno.serve(async (req) => {
         }
       }
       
-      console.log(`MGMT group lead has access to ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps`);
+      console.log(`${accessLevel} has access to ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps`);
 
     } else if (accessLevel === 'team_lead') {
       const userTeams = teams.filter(t => t.groupLeadId === user.id);
@@ -698,12 +683,92 @@ Deno.serve(async (req) => {
     }
     console.log('Team counts:', Object.fromEntries(teamCounts));
 
+    // === BUILD HIERARCHY for filter drawer ===
+    // Build sr_mgmt_groups with child mgmt group IDs
+    const srMgmtGroups = allSrMgmtGroupsData.map(sg => {
+      const childMgmtGroupIds = mgmtGroupsData
+        .filter(mg => mg.sr_mgmt_group_id === sg.id)
+        .map(mg => mg.id);
+      return {
+        id: sg.id,
+        name: sg.name,
+        leadUserId: sg.lead_user_id,
+        officeId: sg.office_id,
+        regionId: sg.region_id,
+        mgmtGroupIds: childMgmtGroupIds,
+      };
+    });
+
+    // Build office hierarchy: offices → sr_mgmt_groups → mgmt_groups → teams
+    const hierarchy = {
+      offices: officesData.map(o => {
+        const officeSrMgmtGroups = allSrMgmtGroupsData.filter(sg => sg.office_id === o.id);
+        const officeMgmtGroups = mgmtGroupsData.filter(mg => mg.office_id === o.id);
+        const officeTeams = teamsData.filter(t => t.office_id === o.id);
+        
+        // Sr MGMT groups in this office
+        const srGroups = officeSrMgmtGroups.map(sg => {
+          const childMgs = mgmtGroupsData.filter(mg => mg.sr_mgmt_group_id === sg.id);
+          return {
+            id: sg.id,
+            name: sg.name,
+            leadUserId: sg.lead_user_id,
+            mgmtGroups: childMgs.map(mg => {
+              const mgTeamIds = teamMgmtGroups.filter(tmg => tmg.mgmt_group_id === mg.id).map(tmg => tmg.team_id);
+              const mgTeams = teamsData.filter(t => mgTeamIds.includes(t.id));
+              return {
+                id: mg.id,
+                name: mg.name,
+                leadUserId: mg.lead_user_id,
+                teams: mgTeams.map(t => ({ id: t.id, name: t.name, leadUserId: t.lead_user_id })),
+              };
+            }),
+          };
+        });
+
+        // MGMT groups directly in this office (not under a sr_mgmt_group)
+        const directMgmtGroups = officeMgmtGroups
+          .filter(mg => !mg.sr_mgmt_group_id || !officeSrMgmtGroups.some(sg => sg.id === mg.sr_mgmt_group_id))
+          .map(mg => {
+            const mgTeamIds = teamMgmtGroups.filter(tmg => tmg.mgmt_group_id === mg.id).map(tmg => tmg.team_id);
+            const mgTeams = teamsData.filter(t => mgTeamIds.includes(t.id));
+            return {
+              id: mg.id,
+              name: mg.name,
+              leadUserId: mg.lead_user_id,
+              teams: mgTeams.map(t => ({ id: t.id, name: t.name, leadUserId: t.lead_user_id })),
+            };
+          });
+
+        // Teams directly in this office (not under any mgmt group in this office)
+        const mgmtTeamIds = new Set(officeMgmtGroups.flatMap(mg => 
+          teamMgmtGroups.filter(tmg => tmg.mgmt_group_id === mg.id).map(tmg => tmg.team_id)
+        ));
+        const directTeams = officeTeams
+          .filter(t => !mgmtTeamIds.has(t.id))
+          .map(t => ({ id: t.id, name: t.name, leadUserId: t.lead_user_id }));
+
+        return {
+          id: o.id,
+          name: o.name,
+          location: o.location,
+          srMgmtGroups: srGroups,
+          mgmtGroups: directMgmtGroups,
+          teams: directTeams,
+        };
+      }),
+    };
+
     return new Response(JSON.stringify({ 
       accessLevel, 
       mgmtGroups, 
       teams, 
       accessibleUserIds, 
-      accessibleReps 
+      accessibleReps,
+      isAreaDirector: !!isAreaDirector,
+      userOfficeIds: officeIds,
+      srMgmtGroups,
+      hierarchy,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

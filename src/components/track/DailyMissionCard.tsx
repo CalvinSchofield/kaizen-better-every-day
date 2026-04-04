@@ -71,9 +71,13 @@ export const DailyMissionCard = ({ className }: DailyMissionCardProps) => {
     );
   }
 
-  const dailyGoal = Math.round(data.dailyNeeded * 10) / 10;
+  const rawDailyGoal = Math.round(data.dailyNeeded * 10) / 10;
   const unitLabel = data.metricLabel;
-  const seasonLabel = 'to stay on track';
+
+  // Fallback: when no planned days remain but goals exist, show user's daily avg
+  const useFallbackAvg = rawDailyGoal === 0 && data.hasGoals && data.userDailyAvg > 0;
+  const dailyGoal = useFallbackAvg ? Math.round(data.userDailyAvg * 10) / 10 : rawDailyGoal;
+  const seasonLabel = useFallbackAvg ? 'your avg — beat it today' : 'to stay on track';
 
 
   // Weekly context from unified data

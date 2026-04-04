@@ -76,15 +76,13 @@ const vivintPortals = [
 ];
 
 const containerVariants = {
-  hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.04 },
-  },
+  hidden: { opacity: 1 },
+  visible: { opacity: 1 },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  hidden: { opacity: 1, y: 0 },
+  visible: { opacity: 1, y: 0 },
 };
 
 const Tools = () => {
@@ -134,12 +132,7 @@ const Tools = () => {
         </motion.div>
 
         {/* Vivint Portals */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25, duration: 0.3 }}
-          className="space-y-3"
-        >
+        <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">Vivint Portals</h2>
           <div className="grid grid-cols-2 gap-2">
             {vivintPortals.map((portal) => {
@@ -223,15 +216,10 @@ const Tools = () => {
               );
             })}
           </div>
-        </motion.div>
+        </div>
 
         {/* Need Help? - Smart Upline Contact */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35, duration: 0.3 }}
-          className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-primary/8 to-primary/3 p-4"
-        >
+        <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-primary/8 to-primary/3 p-4">
           <p className="text-sm font-semibold text-foreground mb-1">Need Help?</p>
           {uplineLoading ? (
             <p className="text-xs text-muted-foreground">Finding your upline...</p>
@@ -269,7 +257,7 @@ const Tools = () => {
           ) : (
             <p className="text-xs text-muted-foreground">Contact your team leader for help</p>
           )}
-        </motion.div>
+        </div>
       </div>
     </div>
   );

@@ -15,7 +15,14 @@ import { ChevronLeft, ChevronRight, Home, Map, BookOpen, Target, Calendar, Camer
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { hapticLight, hapticSelection } from "@/utils/haptics";
 import { prefetchAboutTeamImages } from "@/hooks/useAboutTeamPrefetch";
-import { getSlidesBySegment, IntroSlideConfig, IconName } from "@/data/introSlides";
+import { 
+  getPreBlitzRookieSlides, 
+  getKnockingUserSlides,
+  getOutsideOrgSlides,
+  getInOrgVetSlides,
+  IntroSlideConfig,
+  IconName 
+} from "@/data/introSlides";
 import type { OnboardingSegment } from "@/hooks/useOnboardingSegment";
 
 // Preload all leader and slide images on mount
@@ -39,10 +46,14 @@ const preloadImages = (slides: IntroSlideConfig[]) => {
   });
 };
 
+type UserType = 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader';
+
 interface IntroWizardProps {
-  segment: OnboardingSegment;
+  userType: UserType;
   firstName: string;
   onComplete: () => void;
+  segment?: OnboardingSegment;
+  isLeader?: boolean;
 }
 
 // Icon mapping
@@ -64,38 +75,87 @@ const getIcon = (iconName: IconName | undefined): ReactNode => {
   return icons[iconName];
 };
 
-export const IntroWizard = ({ segment, firstName, onComplete }: IntroWizardProps) => {
+const getSlides = (userType: UserType, firstName: string, segment?: OnboardingSegment, isLeader?: boolean): IntroSlideConfig[] => {
+  // If a segment is provided, use the new segmented slide sets
+  if (segment) {
+    switch (segment) {
+      case 'outside-org':
+        return getOutsideOrgSlides(firstName);
+      case 'in-org-vet':
+        // All leaders (team_lead+) get leader slides regardless of segment
+        return getInOrgVetSlides(firstName, !!isLeader);
+      case 'in-org-rookie-summer':
+        // Leaders who happen to be "rookie" year still get leader flow
+        if (isLeader) return getInOrgVetSlides(firstName, true);
+        return getPreBlitzRookieSlides(firstName);
+      case 'in-org-rookie-preseason':
+        if (isLeader) return getInOrgVetSlides(firstName, true);
+        return getPreBlitzRookieSlides(firstName);
+    }
+  }
+
+  // Legacy fallback
+  if (userType === 'pre-blitz-rookie') {
+    return getPreBlitzRookieSlides(firstName);
+  }
+  
+  const isLeaderType = userType === 'leader';
+  return getKnockingUserSlides(firstName, isLeaderType);
+};
+
+export const IntroWizard = ({ userType, firstName, onComplete, segment, isLeader: isLeaderProp }: IntroWizardProps) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const slides = getSlidesBySegment(segment, firstName);
+  const [isCropping, setIsCropping] = useState(false);
+  const slides = getSlides(userType, firstName, segment, isLeaderProp);
   const totalSlides = slides.length;
   const isLastSlide = currentSlide === totalSlides - 1;
   const currentSlideData = slides[currentSlide];
-
-  // Only preseason rookies go to About Team after wizard
-  const goesToAboutTeam = segment === 'in-org-rookie-preseason';
 
   // Preload all images when wizard mounts
   useEffect(() => {
     preloadImages(slides);
     
-    if (goesToAboutTeam) {
+    // In-org rookies will navigate to About Team, so prefetch those images early
+    const isRookieSegment = segment === 'in-org-rookie-preseason' || segment === 'in-org-rookie-summer';
+    if (userType === 'pre-blitz-rookie' || isRookieSegment) {
       prefetchAboutTeamImages();
     }
-  }, [segment]);
+  }, [userType, segment]);
 
   const handleNext = useCallback(() => {
     if (isLastSlide) {
-      if (goesToAboutTeam) {
-        onComplete();
+      onComplete();
+      
+      if (segment) {
+        // Leaders (team_lead+) go to goals first for knocking decision, then org building
+        if (isLeaderProp) {
+          navigate('/goals');
+          return;
+        }
+        // Segment-based routing for non-leaders
+        switch (segment) {
+          case 'outside-org':
+            navigate('/goals');
+            break;
+          case 'in-org-vet':
+            navigate('/goals');
+            break;
+          case 'in-org-rookie-preseason':
+            navigate('/about-team');
+            break;
+          case 'in-org-rookie-summer':
+            navigate('/about-team');
+            break;
+        }
+      } else if (userType === 'pre-blitz-rookie') {
+        // Legacy fallback
         navigate('/about-team');
-      } else {
-        onComplete();
       }
     } else {
       setCurrentSlide(prev => prev + 1);
     }
-  }, [isLastSlide, onComplete, goesToAboutTeam, navigate]);
+  }, [isLastSlide, onComplete, userType, segment, navigate]);
 
   const handlePrev = useCallback(() => {
     if (currentSlide > 0) {
@@ -107,13 +167,15 @@ export const IntroWizard = ({ segment, firstName, onComplete }: IntroWizardProps
     onComplete();
   }, [onComplete]);
 
-  // Swipe navigation
+  // Swipe navigation - disabled during photo cropping
   const { onTouchStart, onTouchMove, onTouchEnd } = useSwipeNavigation({
     onSwipeLeft: () => {
+      if (isCropping) return;
       hapticSelection();
       handleNext();
     },
     onSwipeRight: () => {
+      if (isCropping) return;
       hapticSelection();
       handlePrev();
     },
@@ -197,6 +259,7 @@ export const IntroWizard = ({ segment, firstName, onComplete }: IntroWizardProps
             key={slide.id}
             title={slide.title}
             description={slide.description}
+            onCropModeChange={setIsCropping}
           />
         );
       
@@ -224,12 +287,6 @@ export const IntroWizard = ({ segment, firstName, onComplete }: IntroWizardProps
     }
   };
 
-  // CTA button text for last slide
-  const getLastSlideButtonText = () => {
-    if (goesToAboutTeam) return "Meet the Team";
-    return "Get Started";
-  };
-
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col">
       {/* Header with skip button */}
@@ -253,9 +310,9 @@ export const IntroWizard = ({ segment, firstName, onComplete }: IntroWizardProps
       {/* Slide content - swipeable area */}
       <div 
         className="flex-1 flex items-center justify-center overflow-hidden px-6 touch-pan-y"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        onTouchStart={isCropping ? undefined : onTouchStart}
+        onTouchMove={isCropping ? undefined : onTouchMove}
+        onTouchEnd={isCropping ? undefined : onTouchEnd}
       >
         <AnimatePresence mode="wait">
           {renderSlide()}
@@ -308,7 +365,15 @@ export const IntroWizard = ({ segment, firstName, onComplete }: IntroWizardProps
           }}
           className="px-8 h-12 rounded-full font-semibold pointer-events-auto"
         >
-          {isLastSlide ? getLastSlideButtonText() : "Next"}
+          {isLastSlide ? (
+            isLeaderProp
+              ? "Set Up Goals"
+              : segment === 'in-org-rookie-preseason' || segment === 'in-org-rookie-summer' || userType === 'pre-blitz-rookie' 
+                ? "Meet the Team" 
+                : segment === 'outside-org' || segment === 'in-org-vet'
+                  ? "Set Up Goals"
+                  : "Get Started"
+          ) : "Next"}
           {!isLastSlide && <ChevronRight className="w-5 h-5 ml-1" />}
         </Button>
       </div>

@@ -26,8 +26,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearPersistedCache, clearCachedLayoutState } from "@/lib/queryPersister";
+import { FORCE_SPLASH_KEY } from "./HydrationGate";
 import { hapticSelection, hapticLight } from "@/utils/haptics";
 import { getInitials } from "@/utils/nameUtils";
+import { getSessionSafe } from "@/utils/authSession";
 
 // ── Reusable sub-components ──
 
@@ -143,34 +145,30 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
     setIsRefreshing(true);
     hapticLight();
     try {
-      // Clear ALL caches
+      console.log('[Refresh] Relaunch-style refresh starting…');
+
+      const { session } = await getSessionSafe();
+      if (!session) {
+        toast({
+          title: "Session expired",
+          description: "Please log out and sign in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Clear app caches but preserve auth + cached user identity, then hard reload.
       clearPersistedCache();
       clearCachedLayoutState();
-      
-      // Clear all localStorage caches
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('rep-data-cache') || 
-            key?.startsWith('competitors-cache') ||
-            key?.startsWith('blitzes-cache') ||
-            key?.startsWith('team-access-cache') ||
-            key?.startsWith('season-config-cache') ||
-            key?.startsWith('group-recruits-cache')) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
-      
-      // Clear React Query cache and refetch all queries
-      queryClient.clear();
-      await queryClient.invalidateQueries();
-      
-      toast({
-        title: "Data refreshed",
-        description: "All cached data has been cleared and reloaded.",
-      });
+
       setOpen(false);
+
+      // Set flag so HydrationGate shows the splash screen during reload
+      try { sessionStorage.setItem(FORCE_SPLASH_KEY, '1'); } catch {}
+
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 100);
     } catch (error) {
       console.error("Refresh error:", error);
       toast({
@@ -190,6 +188,10 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
 
   const confirmLogout = async () => {
     try {
+      try {
+        sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+      } catch {}
+
       // Clear ALL caches before signing out
       clearPersistedCache();
       clearCachedLayoutState();
@@ -202,9 +204,16 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             key?.startsWith('competitors-cache') ||
             key?.startsWith('blitzes-cache') ||
             key?.startsWith('team-access-cache') ||
-            key?.startsWith('kaizen-') ||
             key?.startsWith('season-config-cache') ||
             key?.startsWith('group-recruits-cache')) {
+          keysToRemove.push(key);
+        }
+      }
+      // Also clear kaizen- keys, but preserve identity-related keys that
+      // are managed by the auth layer (useCurrentUserId handles its own cleanup)
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('kaizen-') && key !== 'kaizen-current-user-id') {
           keysToRemove.push(key);
         }
       }

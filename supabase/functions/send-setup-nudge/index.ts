@@ -1,121 +1,148 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendWebPush } from "../_shared/web-push.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnon = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+    // Verify the caller
+    const userClient = createClient(supabaseUrl, supabaseAnon, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { targetUserId } = await req.json();
-    if (!targetUserId) {
-      return new Response(JSON.stringify({ error: 'Missing targetUserId' }), { status: 400, headers: corsHeaders });
+    const { targetUserId, nudgeType } = await req.json();
+    if (!targetUserId || !nudgeType) {
+      return new Response(JSON.stringify({ error: 'Missing targetUserId or nudgeType' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Get leader's name for the notification
-    const { data: leaderRep } = await supabase
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if leader (must be at least mgmt_group_lead)
+    const isLeader = await checkIsLeader(serviceClient, user.id);
+    if (!isLeader) {
+      return new Response(JSON.stringify({ error: 'Not authorized to send nudges' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check rate limit: max 1 nudge per rep per 24h
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { data: existingNudge } = await serviceClient
+      .from('notification_logs')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('recipient_user_id', targetUserId)
+      .eq('notification_type', `setup_nudge_${nudgeType}`)
+      .eq('entry_date', todayStr)
+      .maybeSingle();
+
+    if (existingNudge) {
+      return new Response(JSON.stringify({ error: 'Already nudged today' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get leader name
+    const { data: leaderRep } = await serviceClient
       .from('reps')
       .select('name')
       .eq('user_id', user.id)
-      .maybeSingle();
+      .single();
 
-    const leaderName = leaderRep?.name?.split(' ')[0] || 'Your leader';
+    const leaderFirstName = leaderRep?.name?.split(' ')[0] || 'Your leader';
 
-    const payload = {
-      title: '📋 Complete Your Setup',
-      body: `${leaderName} wants you to sync your numbers and set your goals in Kaizen.`,
-      data: { url: '/goals' },
-    };
+    // Build notification
+    const title = 'Set Up Your Summer ☀️';
+    const body = nudgeType === 'dates'
+      ? `${leaderFirstName} wants you to set your summer start and end dates in the app.`
+      : `${leaderFirstName} wants you to set your summer goals in the app.`;
 
-    // Send web push
-    const { data: subs } = await supabase
-      .from('push_subscriptions')
-      .select('*')
-      .eq('user_id', targetUserId);
-
-    let webSent = 0;
-    for (const sub of subs || []) {
-      try {
-        const result = await sendWebPush(
-          { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-          payload,
-        );
-        if (result.success) webSent++;
-      } catch (err) {
-        console.error('[send-setup-nudge] Web push error:', err);
-      }
-    }
-
-    // Send APNs if configured
-    let apnsSent = 0;
-    const apnsConfigured = Deno.env.get('APNS_TEAM_ID') && Deno.env.get('APNS_KEY_ID') && Deno.env.get('APNS_PRIVATE_KEY');
-    if (apnsConfigured) {
-      const { data: deviceTokens } = await supabase
-        .from('apns_device_tokens')
-        .select('*')
-        .eq('user_id', targetUserId);
-
-      for (const token of deviceTokens || []) {
-        try {
-          const response = await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseKey}`,
-            },
-            body: JSON.stringify({
-              deviceToken: token.device_token,
-              title: payload.title,
-              body: payload.body,
-              data: payload.data,
-            }),
-          });
-          if (response.ok) apnsSent++;
-        } catch (err) {
-          console.error('[send-setup-nudge] APNs error:', err);
-        }
-      }
-    }
-
-    // Log the notification
-    await supabase.from('notification_logs').insert({
-      user_id: user.id,
-      recipient_user_id: targetUserId,
-      notification_type: 'setup_nudge',
-      entry_date: new Date().toISOString().split('T')[0],
-      metadata: { webSent, apnsSent },
+    // Send via existing send-apns-notification function
+    const apnsResponse = await fetch(`${supabaseUrl}/functions/v1/send-apns-notification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        targetUserId,
+        title,
+        body,
+        url: '/track',
+        type: 'setup_nudge',
+      }),
     });
 
+    const apnsResult = await apnsResponse.json();
+
+    // Log the nudge
+    await serviceClient.from('notification_logs').insert({
+      user_id: user.id,
+      recipient_user_id: targetUserId,
+      notification_type: `setup_nudge_${nudgeType}`,
+      entry_date: todayStr,
+      metadata: { nudgeType, leaderName: leaderRep?.name },
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Nudge sent',
+      apns: apnsResult,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ success: true, webSent, apnsSent }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (err) {
-    console.error('[send-setup-nudge] Error:', err);
-    return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+
+async function checkIsLeader(client: any, userId: string): Promise<boolean> {
+  // Check area_directors
+  const { data: ad } = await client.from('area_directors').select('id').eq('user_id', userId).maybeSingle();
+  if (ad) return true;
+
+  // Check mgmt_groups lead
+  const { data: mg } = await client.from('mgmt_groups').select('id').eq('lead_user_id', userId).limit(1);
+  if (mg && mg.length > 0) return true;
+
+  // Check teams lead
+  const { data: tl } = await client.from('teams').select('id').eq('lead_user_id', userId).limit(1);
+  if (tl && tl.length > 0) return true;
+
+  // Check office_staff
+  const { data: os } = await client.from('office_staff').select('id').eq('user_id', userId).limit(1);
+  if (os && os.length > 0) return true;
+
+  return false;
+}

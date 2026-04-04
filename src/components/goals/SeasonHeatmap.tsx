@@ -194,10 +194,10 @@ export const SeasonHeatmap = ({
             else level = 4;
           }
         } else if (isFuture) {
-          if (isSunday || isExcluded) {
-            level = 'future-off';
-          } else if (isPlanned) {
+          if (isPlanned) {
             level = 'future-planned';
+          } else if (isSunday || isExcluded) {
+            level = 'future-off';
           } else {
             level = 'future-off';
           }
@@ -302,7 +302,8 @@ export const SeasonHeatmap = ({
     return null;
   }, [tappedCell, weeks]);
 
-  if (isLoading) {
+  // Show skeleton when explicitly loading OR when entry data hasn't arrived yet
+  if (isLoading || dailyEntries === undefined) {
     return (
       <div className="space-y-2">
         <Skeleton className="h-3 w-32" />

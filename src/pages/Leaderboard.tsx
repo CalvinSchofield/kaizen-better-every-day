@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { LeaderboardHeroBanner } from "@/components/leaderboard/LeaderboardHeroBanner";
@@ -6,19 +6,23 @@ import { LeaderboardFilters, TimeFilter } from "@/components/leaderboard/Leaderb
 import { UnifiedRaceSection } from "@/components/leaderboard/UnifiedRaceSection";
 import { LeaderboardSpotlightRow } from "@/components/leaderboard/LeaderboardSpotlightRow";
 import { WatchlistDrawer } from "@/components/leaderboard/WatchlistDrawer";
-import { SmartFilterDrawer, SmartFilterState, DEFAULT_FILTER_STATE, isFilterActive } from "@/components/filters/SmartFilterDrawer";
+import { UnifiedFilterDrawer, UnifiedFilterState, DEFAULT_UNIFIED_FILTER, isUnifiedFilterActive, resolveFilteredUserIds } from "@/components/filters/UnifiedFilterDrawer";
 import { useExpandedLeaderboard, CustomDateRange, getDateRange } from "@/hooks/useExpandedLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { useAwardStreaks } from "@/hooks/useAwardStreaks";
 import { useAvailableLeaderboardPresets } from "@/hooks/useAvailableLeaderboardPresets";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useHeader } from "@/contexts/HeaderContext";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { leaderboardTourSteps } from "@/config/pageTours";
 
 const LeaderboardSkeleton = () => (
   <div className="p-4 space-y-6">
@@ -39,13 +43,15 @@ const LeaderboardSkeleton = () => (
 
 const Leaderboard = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('live');
-  const [smartFilter, setSmartFilter] = useState<SmartFilterState>(DEFAULT_FILTER_STATE);
+  const [smartFilter, setSmartFilter] = useState<UnifiedFilterState>(DEFAULT_UNIFIED_FILTER);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>(undefined);
   const [watchlistDrawerOpen, setWatchlistDrawerOpen] = useState(false);
   const { userId: currentUserId } = useCurrentUserId();
   const { setCustomRightContent } = useHeader();
   const queryClient = useQueryClient();
+  const { data: teamAccess } = useTeamAccess();
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'leaderboard' });
 
   useSalesRealtime();
   const { watchedUserIds } = useWatchlist();
@@ -103,7 +109,7 @@ const Leaderboard = () => {
 
   // Inject filter icon into header
   useEffect(() => {
-    const active = isFilterActive(smartFilter);
+    const active = isUnifiedFilterActive(smartFilter);
     setCustomRightContent(
       <Button
         variant="ghost"
@@ -141,6 +147,59 @@ const Leaderboard = () => {
   const isLive = timeFilter === 'live';
   const currentDateRange = getDateRange(timeFilter, timeFilter === 'custom' ? customDateRange : undefined);
 
+  // Compute allowed user IDs from unified filter (for non-watchlist node-based filtering)
+  const filterAllowedUserIds = useMemo(() => {
+    if (!teamAccess || smartFilter.selectedNodes.length === 0) return null;
+    return new Set(resolveFilteredUserIds(
+      { ...smartFilter, scope: 'all', yearFilters: [] },
+      teamAccess.accessibleReps || [],
+      teamAccess.mgmtGroups || [],
+      teamAccess.accessibleUserIds || [],
+      currentUserId || null,
+      teamAccess.accessLevel || 'none',
+    ));
+  }, [teamAccess, smartFilter.selectedNodes, currentUserId]);
+
+  // Helper to filter any rankings object by filter state
+  const filterRankings = (rankings: any): any => {
+    const allowedIds = new Set<string>();
+    
+    if (isWatchlistMode && watchedUserIds.length > 0) {
+      watchedUserIds.forEach(id => allowedIds.add(id));
+      if (currentUserId) allowedIds.add(currentUserId);
+    }
+
+    const nodeIds = filterAllowedUserIds;
+
+    let yearIds: Set<string> | null = null;
+    if (smartFilter.yearFilters.length > 0 && teamAccess?.accessibleReps) {
+      const allowedYears = new Set(smartFilter.yearFilters);
+      yearIds = new Set(
+        teamAccess.accessibleReps
+          .filter(r => r.userId && allowedYears.has(r.year || ''))
+          .map(r => r.userId!)
+      );
+    }
+
+    const hasAnyFilter = (isWatchlistMode && watchedUserIds.length > 0) || nodeIds || yearIds;
+    if (!hasAnyFilter) return rankings;
+
+    const filtered: any = {};
+    for (const [key, entries] of Object.entries(rankings)) {
+      if (Array.isArray(entries)) {
+        filtered[key] = entries.filter((e: any) => {
+          if (isWatchlistMode && watchedUserIds.length > 0 && !allowedIds.has(e.userId)) return false;
+          if (nodeIds && !nodeIds.has(e.userId)) return false;
+          if (yearIds && !yearIds.has(e.userId)) return false;
+          return true;
+        });
+      } else {
+        filtered[key] = entries;
+      }
+    }
+    return filtered;
+  };
+
   if (!hasCachedLeaderboard && (isLive ? todayLoading : isLoading)) {
     return (
       <Layout>
@@ -148,21 +207,6 @@ const Leaderboard = () => {
       </Layout>
     );
   }
-
-  // Helper to filter any rankings object by watchlist user IDs
-  const filterRankingsByWatchlist = (rankings: any): any => {
-    if (!isWatchlistMode || watchedUserIds.length === 0) return rankings;
-    const allowedIds = new Set([...watchedUserIds, ...(currentUserId ? [currentUserId] : [])]);
-    const filtered: any = {};
-    for (const [key, entries] of Object.entries(rankings)) {
-      if (Array.isArray(entries)) {
-        filtered[key] = entries.filter((e: any) => allowedIds.has(e.userId));
-      } else {
-        filtered[key] = entries;
-      }
-    }
-    return filtered;
-  };
 
   const hasNoData = isLive
     ? !todayLeaderboard?.rankings || Object.values(todayLeaderboard.rankings).every(arr => arr.length === 0)
@@ -196,13 +240,18 @@ const Leaderboard = () => {
           />
         </div>
 
-        {/* Smart Filter Drawer */}
-        <SmartFilterDrawer
+        {/* Unified Filter Drawer */}
+        <UnifiedFilterDrawer
           open={showFilterDrawer}
           onOpenChange={setShowFilterDrawer}
           filterState={smartFilter}
           onFilterApply={setSmartFilter}
-          showTeamFilters={false}
+          mode="leaderboard"
+          hierarchy={teamAccess?.hierarchy}
+          mgmtGroups={teamAccess?.mgmtGroups || []}
+          teams={teamAccess?.teams || []}
+          accessibleReps={teamAccess?.accessibleReps || []}
+          accessLevel={teamAccess?.accessLevel}
         />
 
         {/* Content */}
@@ -233,7 +282,7 @@ const Leaderboard = () => {
             {isLive ? (
               todayLeaderboard && (
                 <UnifiedRaceSection
-                  rankings={filterRankingsByWatchlist(todayLeaderboard.rankings)}
+                  rankings={filterRankings(todayLeaderboard.rankings)}
                   currentUserId={currentUserId}
                   isLive={true}
                   isFetching={todayFetching}
@@ -244,7 +293,7 @@ const Leaderboard = () => {
               expandedLeaderboard && (
                 <div data-tour="leaderboard-sales">
                   <UnifiedRaceSection
-                    rankings={filterRankingsByWatchlist(expandedLeaderboard.rankings)}
+                    rankings={filterRankings(expandedLeaderboard.rankings)}
                     currentUserId={currentUserId}
                     isLive={false}
                     title={isWatchlistMode ? "Watchlist Rankings" : "Rankings"}
@@ -269,6 +318,12 @@ const Leaderboard = () => {
           onOpenChange={setWatchlistDrawerOpen}
         />
       </div>
+      <PageTour
+        steps={leaderboardTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </Layout>
   );
 };

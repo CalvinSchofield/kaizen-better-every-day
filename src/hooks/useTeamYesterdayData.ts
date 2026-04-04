@@ -4,8 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 interface YesterdayRepData {
   userId: string;
   name: string;
+  teamId?: string | null;
   teamName: string;
+  mgmtGroupId?: string | null;
   mgmtGroupName: string;
+  recruiterName?: string | null;
   stats: {
     doors: number;
     dms: number;
@@ -26,6 +29,7 @@ interface YesterdayRepData {
 interface UseTeamYesterdayDataParams {
   userIds: string[];
   excludeUserIds?: string[];
+  accessibleReps?: any[];
 }
 
 // Get "yesterday" date string for a given timezone
@@ -88,7 +92,7 @@ const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number } =>
   return { fp, prmr };
 };
 
-export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYesterdayDataParams) => {
+export const useTeamYesterdayData = ({ userIds, excludeUserIds = [], accessibleReps: passedAccessibleReps }: UseTeamYesterdayDataParams) => {
   return useQuery({
     queryKey: ['team-yesterday-data', userIds, excludeUserIds],
     queryFn: async () => {
@@ -124,22 +128,24 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
 
       if (error) throw error;
 
-      // Fetch team/MGMT group mapping from cache (versioned key format)
-      let accessibleReps: any[] = [];
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key?.startsWith('team-access-cache:v4:')) {
-            const cached = localStorage.getItem(key);
-            if (cached) {
-              const { data } = JSON.parse(cached);
-              accessibleReps = data?.accessibleReps || [];
-              break;
+      // Use passed accessibleReps directly, fall back to localStorage cache
+      let accessibleReps: any[] = passedAccessibleReps || [];
+      if (accessibleReps.length === 0) {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.startsWith('team-access-cache:v4:')) {
+              const cached = localStorage.getItem(key);
+              if (cached) {
+                const { data } = JSON.parse(cached);
+                accessibleReps = data?.accessibleReps || [];
+                break;
+              }
             }
           }
+        } catch (e) {
+          console.error('Failed to parse team access cache:', e);
         }
-      } catch (e) {
-        console.error('Failed to parse team access cache:', e);
       }
 
       const repInfoMap = new Map(accessibleReps.map((r: any) => [r.userId, r]));
@@ -193,8 +199,11 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
         reps.push({
           userId: entry.user_id,
           name: repInfo?.name || 'Unknown',
+          teamId: teamInfo?.teamId || null,
           teamName,
+          mgmtGroupId: teamInfo?.mgmtGroupId || null,
           mgmtGroupName,
+          recruiterName: teamInfo?.recruiterName || null,
           stats: {
             doors: entry.doors_knocked || 0,
             dms: entry.decision_makers || 0,

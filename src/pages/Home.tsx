@@ -1,4 +1,7 @@
 import { CheckCircle2, Circle, Lock, Loader2, ChevronRight, RefreshCw, LogOut, MapPin, Wifi, Key, Check, MessageCircle } from "lucide-react";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { homeTourSteps } from "@/config/pageTours";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,13 +13,13 @@ import { Progress } from "@/components/ui/progress";
 import { useRepData } from "@/hooks/useRepData";
 import { checkRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafe } from "@/utils/authSession";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
-import { VetHome } from "@/components/VetHome";
-import { PostBlitzRookieHome } from "@/components/PostBlitzRookieHome";
+// VetHome and PostBlitzRookieHome removed - replaced by /blitzes page
 import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { KnockingModeHome } from "@/components/KnockingModeHome";
@@ -25,13 +28,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { IntroWizard } from "@/components/IntroWizard";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
-import { useOnboardingSegment } from "@/hooks/useOnboardingSegment";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { useOnboardingSegment } from "@/hooks/useOnboardingSegment";
 import { useSalesRealtime } from "@/hooks/useSalesRealtime";
 import { getDaysUntilBlitz, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
-import { SetupBanner } from "@/components/SetupBanner";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 import { hapticSuccess, hapticMedium, hapticWarning } from "@/utils/haptics";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
@@ -75,15 +77,16 @@ const Home = () => {
     isInitializing,
     refetch
   } = useRepData();
+  const { showTour: showHomeTour, completeTour: completeHomeTour, skipTour: skipHomeTour } = usePageTour({ page: 'home' });
   
   const { isKnockingMode } = useAppMode(repData);
   const queryClient = useQueryClient();
   const { hasSeenIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
   const teamAccess = useTeamAccess();
-  const { segment: onboardingSegment } = useOnboardingSegment();
   const { hasGoalsAccess, goals } = useRepGoals();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   const { hasMnlEventToday } = useMondayNightLightsEvent();
+  const { segment: onboardingSegment } = useOnboardingSegment(repData);
   
   // Subscribe to realtime sales updates for immediate data sync
   useSalesRealtime();
@@ -714,6 +717,10 @@ const Home = () => {
 
   const handleLogout = async () => {
     try {
+      try {
+        sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+      } catch {}
+
       // Clear all caches before signing out
       localStorage.removeItem('rep-data-cache');
       queryClient.clear();
@@ -805,7 +812,7 @@ const Home = () => {
   const handleSetupNudge = async () => {
     setIsNudging(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = await getSessionSafe();
       if (!user?.email) throw new Error('No user email found');
 
       const { error } = await supabase.functions.invoke('send-setup-nudge-email', {
@@ -981,27 +988,41 @@ const Home = () => {
     );
   }
 
+  // Determine user type for intro wizard
+  const getUserType = (): 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader' => {
+    const year = repData.year || "Rookie";
+    const isVetOrSoph = year === "Vet" || year === "Sophomore";
+    const committedBlitzes = (repData.committed_blitzes as any[]) || [];
+    const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
+      if (!blitz?.endDate) return false;
+      const endDate = new Date(blitz.endDate);
+      return endDate < new Date();
+    });
+    
+    if (isLeader && isVetOrSoph) return 'leader';
+    if (isVetOrSoph) return 'vet';
+    if (year === "Rookie" && phase4Complete && hasAttendedBlitz) return 'post-blitz-rookie';
+    return 'pre-blitz-rookie';
+  };
+
   // Show intro wizard for new users
   if (!hasSeenIntro && repData) {
     const firstName = repData.name?.split(' ')[0] || 'there';
     return (
       <IntroWizard
-        segment={onboardingSegment}
+        userType={getUserType()}
         firstName={firstName}
-        onComplete={() => {
-          markIntroComplete();
-          // For non-preseason-rookies, chain directly to Goals (which gates on sync first)
-          // Preseason rookies go to About Team (handled inside IntroWizard) or stay on Home for ramp
-          if (onboardingSegment !== 'in-org-rookie-preseason') {
-            navigate('/goals');
-          }
-        }}
+        onComplete={markIntroComplete}
+        segment={onboardingSegment}
+        isLeader={!!isLeader}
       />
     );
   }
   
-  // Use centralized unlock status (includes Shadow ✅ check)
-  const { isUnlocked, hasAttendedBlitz, isOnActiveBlitz, hasCompletedShadow } = checkRookieUnlockStatus(repData);
+  // Use centralized unlock status (includes Shadow ✅ check + goal setup unlock)
+  const { isUnlocked, hasAttendedBlitz, isOnActiveBlitz, hasCompletedShadow } = checkRookieUnlockStatus(
+    repData ? { ...repData, setup_complete: goals?.setup_complete } : null
+  );
   
   // Check if knocking mode is active - redirect to Track (which now serves as the home)
   if (isKnockingMode) {
@@ -1015,24 +1036,18 @@ const Home = () => {
     }
   }
   
-  // Check if user is a Vet or Sophomore - show VetHome instead
+  // Redirect Vets/Sophomores to Blitzes page (only if goals are set up)
   if (repData.year === "Vet" || repData.year === "Sophomore") {
-    return (
-      <>
-        <SetupBanner />
-        <VetHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />
-      </>
-    );
+    if (!goals?.setup_complete) {
+      // Leaders who haven't set up goals go to Goals page for knocking decision + setup
+      return <Navigate to="/goals" replace />;
+    }
+    return <Navigate to="/blitzes" replace />;
   }
 
-  // Show PostBlitzRookieHome for unlocked rookies (attended blitz OR shadow ✅)
+  // Redirect unlocked rookies (attended blitz OR shadow ✅) to Blitzes page
   if (repData.year === "Rookie" && phase4Complete && isUnlocked) {
-    return (
-      <>
-        <SetupBanner />
-        <PostBlitzRookieHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />
-      </>
-    );
+    return <Navigate to="/blitzes" replace />;
   }
   
   // Helper to check phase status - case-insensitive matching
@@ -1843,6 +1858,12 @@ const Home = () => {
         seasonStartDate="2025-09-28"
         seasonEndDate="2026-04-11"
         timezone={repData?.timezone}
+      />
+      <PageTour
+        steps={homeTourSteps}
+        isOpen={showHomeTour}
+        onComplete={completeHomeTour}
+        onSkip={skipHomeTour}
       />
     </div>
   );

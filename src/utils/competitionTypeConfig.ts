@@ -1,6 +1,6 @@
-import { User, Users, UserPlus } from "lucide-react";
+import { User, Users, UserPlus, Car } from "lucide-react";
 
-export type ChallengeType = '1v1' | 'group';
+export type ChallengeType = '1v1' | 'group' | 'car_wars';
 export type IncentiveTargetType = 'first_to' | 'anyone_who' | 'group_total';
 
 export const challengeTypeConfig: Record<ChallengeType, {
@@ -20,6 +20,12 @@ export const challengeTypeConfig: Record<ChallengeType, {
     label: 'Team',
     sublabel: 'Team vs Team',
     color: 'text-blue-600',
+  },
+  'car_wars': {
+    icon: Car,
+    label: 'Car Wars',
+    sublabel: 'Multi-team battle',
+    color: 'text-purple-600',
   },
 };
 

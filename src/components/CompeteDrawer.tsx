@@ -14,7 +14,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { CreateChallengeDrawer } from "@/components/leaderboard/CreateChallengeDrawer";
 import { CreateIncentiveDrawer } from "@/components/leaderboard/CreateIncentiveDrawer";
 import { ChallengeScoreSlider } from "@/components/competitions/ChallengeScoreSlider";
-import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus, Users, User } from "lucide-react";
+import { Swords, Trophy, Gift, ChevronRight, Loader2, Check, X, Flame, Plus, Users, User, Car } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,12 +54,31 @@ const ChallengeProgressItem = ({ challenge, myUserId }: ChallengeProgressItemPro
   }
 
   const isGroupChallenge = challenge.type === 'group';
+  const isCarWars = challenge.type === 'car_wars';
 
-  if (isGroupChallenge) {
-    const teamA = progress.participants.filter(p => p.team === 'a');
-    const teamB = progress.participants.filter(p => p.team === 'b');
-    const teamATotal = teamA.reduce((sum, p) => sum + (p.current_value || 0), 0);
-    const teamBTotal = teamB.reduce((sum, p) => sum + (p.current_value || 0), 0);
+  if (isCarWars && progress.teams) {
+    // Car Wars: show top 2 teams as a slider
+    const sortedTeams = Object.values(progress.teams).sort((a, b) => b.total_value - a.total_value);
+    const first = sortedTeams[0];
+    const second = sortedTeams[1];
+    const teamLabel = (teamKey: string) => {
+      const ct = challenge.challenge_teams?.find(t => t.team_key === teamKey);
+      return ct?.team_label || `Team ${teamKey}`;
+    };
+    
+    return (
+      <ChallengeScoreSlider
+        isTeamBattle
+        redTotal={first?.total_value || 0}
+        blueTotal={second?.total_value || 0}
+        variant="compact"
+      />
+    );
+  }
+
+  if (isGroupChallenge && progress.teams) {
+    const teamATotal = progress.teams['a']?.total_value || 0;
+    const teamBTotal = progress.teams['b']?.total_value || 0;
 
     return (
       <ChallengeScoreSlider
@@ -290,13 +309,14 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                       {activeChallenges.map(challenge => {
                         const me = challenge.participants?.find(p => p.user_id === currentUser);
                         const isGroupChallenge = challenge.type === 'group';
-                        const typeBadge = getChallengeTypeBadge(isGroupChallenge ? 'group' : '1v1');
+                        const isCarWars = challenge.type === 'car_wars';
+                        const typeBadge = getChallengeTypeBadge(challenge.type as any);
                         const TypeIcon = typeBadge.Icon;
                         
                         // Get display names for challenge
                         const captainA = challenge.participants?.find(p => p.role === 'captain_a');
                         const captainB = challenge.participants?.find(p => p.role === 'captain_b');
-                        const opponent = !isGroupChallenge 
+                        const opponent = !isGroupChallenge && !isCarWars
                           ? challenge.participants?.find(p => p.user_id !== currentUser)
                           : null;
                         
@@ -313,7 +333,9 @@ export const CompeteDrawer = ({ open, onOpenChange }: CompeteDrawerProps) => {
                                 {typeBadge.label}
                               </Badge>
                               <span className="text-xs font-medium">
-                                {isGroupChallenge ? (
+                                {isCarWars ? (
+                                  `${challenge.challenge_teams?.length || 0} teams`
+                                ) : isGroupChallenge ? (
                                   <>
                                     <span className="text-red-500">{getCleanFirstName(captainA?.rep_name)}</span>
                                     <span className="text-muted-foreground"> vs </span>

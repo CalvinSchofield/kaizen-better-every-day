@@ -112,6 +112,10 @@ export const KnockingModeHome = ({
   }, [entry, hasStartedWorkToday]);
 
   const handleLogout = async () => {
+    try {
+      sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+    } catch {}
+
     // Clear all caches before signing out
     localStorage.removeItem('rep-data-cache');
     queryClient.clear();
@@ -170,7 +174,7 @@ export const KnockingModeHome = ({
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header with colored background */}
-      <div className="bg-primary text-primary-foreground p-6 pb-10">
+      <div data-tour="home-header" className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0 pr-4">
@@ -203,7 +207,7 @@ export const KnockingModeHome = ({
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 home-card-container">
+      <div data-tour="home-cards" className="max-w-4xl mx-auto px-4 -mt-4 pb-8 home-card-container">
         {/* Pending Install Alert - shows after 7 PM if pending installs */}
         <PendingInstallAlertCard />
         

@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUserId } from "./useCurrentUserId";
+import { getSessionSafe } from "@/utils/authSession";
+import { withTimeout } from "@/utils/withTimeout";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonField = any;
@@ -68,6 +70,23 @@ export interface RepData {
 
 // Helper to get user-specific cache key
 const getRepCacheKey = (userId: string) => `rep-data-cache-${userId}`;
+const REP_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const REP_FETCH_TIMEOUT_MS = 6000;
+
+const getCachedRepData = (userId: string): RepData | null => {
+  try {
+    const cached = localStorage.getItem(getRepCacheKey(userId));
+    if (!cached) return null;
+
+    const parsed = JSON.parse(cached);
+    if (parsed.userId !== userId) return null;
+    if (parsed.timestamp && Date.now() - parsed.timestamp > REP_CACHE_TTL_MS) return null;
+
+    return parsed.data as RepData;
+  } catch {
+    return null;
+  }
+};
 
 // Helper to clear all rep data caches (for logout)
 export const clearAllRepCaches = () => {
@@ -86,44 +105,67 @@ export const useRepData = () => {
   // PERF FIX: Use shared useCurrentUserId instead of independent auth check.
   // This eliminates a redundant getUser() network call + duplicate onAuthStateChange listener.
   const { userId: currentUserId, isReady: authChecked } = useCurrentUserId();
+  const initialData = currentUserId ? getCachedRepData(currentUserId) : undefined;
 
-  const { data: repData, isLoading: loading } = useQuery({
+  const { data: repData, isLoading: loading, error } = useQuery({
     queryKey: ['rep-data', currentUserId],
     enabled: !!currentUserId,
     staleTime: 1 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    initialData,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     retry: 1,
     queryFn: async () => {
       if (!currentUserId) return null;
 
       const cacheKey = getRepCacheKey(currentUserId);
+      const cachedRepData = getCachedRepData(currentUserId);
 
-      const { data, error } = await supabase
-        .from("reps")
-        .select("*")
-        .eq("user_id", currentUserId)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data && data.user_id !== currentUserId) {
-        console.error('SECURITY: Fetched rep data does not match current user!');
-        return null;
+      const { session } = await getSessionSafe();
+      if (!session?.user || session.user.id !== currentUserId) {
+        if (cachedRepData) return cachedRepData;
+        throw new Error('Auth session unavailable for rep fetch');
       }
 
-      if (!data) {
-        console.log("No rep data found - user needs to be added by admin");
-        return null;
+      try {
+        const { data, error } = await withTimeout(
+          supabase
+            .from("reps")
+            .select("*")
+            .eq("user_id", currentUserId)
+            .maybeSingle(),
+          REP_FETCH_TIMEOUT_MS,
+          "Rep data request timed out"
+        );
+
+        if (error) throw error;
+
+        if (data && data.user_id !== currentUserId) {
+          console.error('SECURITY: Fetched rep data does not match current user!');
+          return null;
+        }
+
+        if (!data) {
+          console.log("No rep data found - user needs to be added by admin");
+          return null;
+        }
+
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data,
+          timestamp: Date.now(),
+          userId: currentUserId
+        }));
+
+        return data;
+      } catch (fetchError) {
+        if (cachedRepData) {
+          console.warn('[useRepData] Rep fetch failed, using cached data:', fetchError);
+          return cachedRepData;
+        }
+
+        throw fetchError;
       }
-
-      localStorage.setItem(cacheKey, JSON.stringify({
-        data,
-        timestamp: Date.now(),
-        userId: currentUserId
-      }));
-
-      return data;
     },
   });
 
@@ -169,5 +211,11 @@ export const useRepData = () => {
 
   const isInitializing = !currentUserId && !authChecked;
 
-  return { repData: repData ?? null, loading, isInitializing, refetch };
+  return {
+    repData: repData ?? null,
+    loading,
+    error: error instanceof Error ? error : error ? new Error(String(error)) : null,
+    isInitializing,
+    refetch,
+  };
 };

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { UserX, Mail, LogOut } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 
 const SetupFlow = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [statusText, setStatusText] = useState("Loading your profile...");
   const [notInSystem, setNotInSystem] = useState(false);
@@ -27,6 +29,7 @@ const SetupFlow = () => {
   const [inviteName, setInviteName] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteYear, setInviteYear] = useState("Rookie");
+  const [isLateralInvite, setIsLateralInvite] = useState(false);
   const [isProcessingInvite, setIsProcessingInvite] = useState(false);
 
   useEffect(() => {
@@ -36,8 +39,8 @@ const SetupFlow = () => {
   const processInviteSignup = async () => {
     setIsProcessingInvite(true);
     try {
-      const { session } = await getSessionSafe();
-      if (!session) throw new Error('Not authenticated');
+      const { session, user } = await getSessionSafe();
+      if (!session || !user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('process-invite-signup', {
         body: {
@@ -65,9 +68,19 @@ const SetupFlow = () => {
               : "Your account has been set up.",
       });
 
-      // Now continue with normal setup flow
+      sessionStorage.removeItem('kaizen-invite-code');
+      localStorage.removeItem('kaizen-setup-complete');
+      localStorage.removeItem('kaizen-setup-timestamp');
+      localStorage.removeItem(`rep-data-cache-${user.id}`);
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['rep-data'] }),
+        queryClient.invalidateQueries({ queryKey: ['recruit-approval-status'] }),
+      ]);
+
       setShowInviteOnboarding(false);
-      await runSetup();
+      navigate('/', { replace: true });
+      return;
     } catch (error: any) {
       console.error('Invite processing error:', error);
       toast({
@@ -91,6 +104,17 @@ const SetupFlow = () => {
       // Check for invite code (from sessionStorage or user metadata)
       const storedInviteCode = sessionStorage.getItem('kaizen-invite-code') || user.user_metadata?.invite_code;
 
+      let inviteData: { invite_type?: string } | null = null;
+      if (storedInviteCode) {
+        const { data } = await supabase
+          .from('invite_codes')
+          .select('invite_type')
+          .eq('code', storedInviteCode)
+          .eq('is_active', true)
+          .maybeSingle();
+        inviteData = data;
+      }
+
       // Step 1: Check rep profile in Supabase
       setStatusText("Loading your profile...");
       
@@ -105,12 +129,36 @@ const SetupFlow = () => {
         if (storedInviteCode) {
           setInviteCode(storedInviteCode);
           setInviteName(user.user_metadata?.name || '');
+          setIsLateralInvite(inviteData?.invite_type === 'lateral');
           setShowInviteOnboarding(true);
           return;
         }
         // No invite code either - user needs to be added by admin
         setNotInSystem(true);
         return;
+      }
+
+      if (storedInviteCode) {
+        const { data: existingRecruit } = await supabase
+          .from('recruits')
+          .select('id, name, email, phone, year, approval_status, invite_code_used')
+          .eq('id', existingRep.id)
+          .maybeSingle();
+
+        const needsInviteVerification =
+          !existingRecruit ||
+          existingRecruit.approval_status !== 'pending' ||
+          existingRecruit.invite_code_used !== storedInviteCode;
+
+        if (needsInviteVerification) {
+          setInviteCode(storedInviteCode);
+          setInviteName(existingRecruit?.name || existingRep.name || user.user_metadata?.name || '');
+          setInvitePhone(existingRecruit?.phone || existingRep.phone || '');
+          setInviteYear(existingRecruit?.year || existingRep.year || 'Rookie');
+          setIsLateralInvite(inviteData?.invite_type === 'lateral');
+          setShowInviteOnboarding(true);
+          return;
+        }
       }
       
       // Clear invite code from session storage since we're past that point
@@ -461,19 +509,25 @@ const SetupFlow = () => {
                 {isProcessingInvite ? "Setting up your account..." : "Join My Team →"}
               </Button>
 
-              <Button
-                variant="ghost"
-                onClick={async () => {
-                  sessionStorage.removeItem('kaizen-invite-code');
-                  await supabase.auth.signOut();
-                  navigate('/auth');
-                }}
-                className="w-full text-muted-foreground"
-                size="sm"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
-              </Button>
+              {/* Only show sign out if user hasn't started filling out the form */}
+              {!inviteName.trim() && !invitePhone.trim() && (
+                <Button
+                  variant="ghost"
+                  onClick={async () => {
+                    sessionStorage.removeItem('kaizen-invite-code');
+                    try {
+                      sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+                    } catch {}
+                    await supabase.auth.signOut();
+                    navigate('/auth');
+                  }}
+                  className="w-full text-muted-foreground"
+                  size="sm"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -566,6 +620,9 @@ const SetupFlow = () => {
               <Button
                 variant="outline"
                 onClick={async () => {
+                  try {
+                    sessionStorage.setItem('kaizen-expected-signout-at', Date.now().toString());
+                  } catch {}
                   await supabase.auth.signOut();
                   navigate('/auth');
                 }}

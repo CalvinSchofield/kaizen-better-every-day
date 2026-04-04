@@ -6,17 +6,24 @@ import { withTimeout } from "@/utils/withTimeout";
 import { hapticSuccess, hapticWarning, hapticMedium } from "@/utils/haptics";
 import { toast } from "sonner";
 
-export type ChallengeType = '1v1' | 'group';
+export type ChallengeType = '1v1' | 'group' | 'car_wars';
 export type ChallengeMetric = 'fp_plus' | 'prmr' | 'transitions' | 'doors_knocked';
 export type ChallengeStatus = 'pending' | 'declined' | 'active' | 'completed' | 'voided';
 export type ChallengeVisibility = 'public' | 'private';
 export type ParticipantRole = 'captain_a' | 'captain_b' | 'member';
 
+export interface ChallengeTeam {
+  id: string;
+  challenge_id: string;
+  team_label: string;
+  team_key: string;
+}
+
 export interface ChallengeParticipant {
   id: string;
   challenge_id: string;
   user_id: string;
-  team: 'a' | 'b' | null;
+  team: string | null;
   role: ParticipantRole;
   accepted: boolean | null;
   final_value: number | null;
@@ -37,6 +44,7 @@ export interface Challenge {
   start_date: string;
   end_date: string;
   winner_user_id: string | null;
+  winner_team_key: string | null;
   is_tie: boolean;
   tiebreaker_winner_id: string | null;
   created_at: string;
@@ -44,6 +52,7 @@ export interface Challenge {
   // Joined data
   creator_name?: string;
   participants?: ChallengeParticipant[];
+  challenge_teams?: ChallengeTeam[];
 }
 
 export interface CreateChallengeInput {
@@ -56,8 +65,13 @@ export interface CreateChallengeInput {
   creator_timezone?: string;
   participants: Array<{
     user_id: string;
-    team?: 'a' | 'b';
+    team?: string;
     role: ParticipantRole;
+  }>;
+  // Car Wars specific
+  teams?: Array<{
+    team_key: string;
+    team_label: string;
   }>;
 }
 
@@ -140,6 +154,12 @@ export const useChallenges = (filter: 'active' | 'pending' | 'history' = 'active
             accepted,
             final_value,
             accepted_at
+          ),
+          challenge_teams (
+            id,
+            challenge_id,
+            team_label,
+            team_key
           )
         `)
         .in('status', statusFilter)
@@ -170,6 +190,7 @@ export const useChallenges = (filter: 'active' | 'pending' | 'history' = 'active
           rep_name: repMap.get(p.user_id)?.name || 'Unknown',
           profile_photo_url: repMap.get(p.user_id)?.profile_photo_url,
         })),
+        challenge_teams: c.challenge_teams || [],
       })) as Challenge[];
     },
     staleTime: 10 * 1000,
@@ -238,6 +259,12 @@ export const useMyActiveChallenges = () => {
             role,
             accepted,
             final_value
+          ),
+          challenge_teams (
+            id,
+            challenge_id,
+            team_label,
+            team_key
           )
         `)
         .in('id', challengeIds)
@@ -277,6 +304,7 @@ export const useMyActiveChallenges = () => {
           rep_name: repMap.get(p.user_id)?.name || 'Unknown',
           profile_photo_url: repMap.get(p.user_id)?.profile_photo_url,
         })),
+        challenge_teams: c.challenge_teams || [],
       })) as Challenge[];
     },
     staleTime: 10 * 1000, // 10 seconds - faster refresh for active challenges
@@ -351,22 +379,33 @@ export const useCreateChallenge = () => {
 
       if (challengeError) throw challengeError;
 
-      // Add creator as participant (captain_a for 1v1/group)
+      // For car_wars, creator is organizer (not on a team). For others, creator is captain_a
+      const creatorParticipant = input.type === 'car_wars' 
+        ? {
+            challenge_id: challenge.id,
+            user_id: user.id,
+            team: null as string | null,
+            role: 'captain_a' as ParticipantRole,
+            accepted: true,
+            accepted_at: new Date().toISOString(),
+          }
+        : {
+            challenge_id: challenge.id,
+            user_id: user.id,
+            team: input.type === 'group' ? 'a' : null,
+            role: 'captain_a' as ParticipantRole,
+            accepted: true,
+            accepted_at: new Date().toISOString(),
+          };
+
       const participants = [
-        {
-          challenge_id: challenge.id,
-          user_id: user.id,
-          team: input.type === 'group' ? 'a' : null,
-          role: 'captain_a' as ParticipantRole,
-          accepted: true,
-          accepted_at: new Date().toISOString(),
-        },
+        creatorParticipant,
         ...input.participants.map(p => ({
           challenge_id: challenge.id,
           user_id: p.user_id,
           team: p.team || null,
           role: p.role,
-          accepted: null, // Initially pending
+          accepted: null as boolean | null, // Initially pending
         })),
       ];
 
@@ -375,6 +414,22 @@ export const useCreateChallenge = () => {
         .insert(participants);
 
       if (partError) throw partError;
+
+      // For car_wars, insert team metadata
+      if (input.type === 'car_wars' && input.teams && input.teams.length > 0) {
+        const { error: teamError } = await supabase
+          .from('challenge_teams')
+          .insert(input.teams.map(t => ({
+            challenge_id: challenge.id,
+            team_key: t.team_key,
+            team_label: t.team_label,
+          })));
+        
+        if (teamError) {
+          console.error('[useCreateChallenge] Failed to insert teams:', teamError);
+          throw teamError;
+        }
+      }
 
       // Check if all participants are in creator's downline - if so, auto-start
       let shouldAutoStart = false;
@@ -430,9 +485,10 @@ export const useCreateChallenge = () => {
           const creatorName = creatorRep?.name || 'Someone';
           const notifType = shouldAutoStart ? 'challenge_started' : 'challenge_invite';
           const notifTitle = shouldAutoStart ? '⚔️ Challenge Started!' : '🎯 Challenge Invite!';
+          const typeLabel = input.type === 'car_wars' ? 'Car Wars' : input.type === '1v1' ? '1v1' : 'team';
           const notifBody = shouldAutoStart
-            ? `${creatorName} started a ${input.type === '1v1' ? '1v1' : 'team'} ${input.metric.replace('_', ' ').toUpperCase()} challenge with you!`
-            : `${creatorName} challenged you to a ${input.type === '1v1' ? '1v1' : 'team'} battle on ${input.metric.replace('_', ' ').toUpperCase()}!`;
+            ? `${creatorName} started a ${typeLabel} ${input.metric.replace('_', ' ').toUpperCase()} challenge with you!`
+            : `${creatorName} challenged you to a ${typeLabel} battle on ${input.metric.replace('_', ' ').toUpperCase()}!`;
           
           await supabase.functions.invoke('send-challenge-notification', {
             body: {

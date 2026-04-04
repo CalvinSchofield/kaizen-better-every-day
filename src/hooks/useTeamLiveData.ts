@@ -8,6 +8,7 @@ interface LiveRepData {
   name: string;
   year?: string;
   teamId?: string | null; // For grouping in reports
+  mgmtGroupId?: string | null;
   teamName: string;
   mgmtGroupName: string;
   recruiterName?: string | null; // For organic hierarchy grouping
@@ -49,6 +50,7 @@ interface LiveRepData {
 interface UseTeamLiveDataParams {
   userIds: string[];
   excludeUserIds?: string[];
+  accessibleReps?: any[];
 }
 
 // Get "today" date string for a given timezone
@@ -89,7 +91,7 @@ const calculateBreakMinutes = (breakPeriods: any): number => {
 };
 
 
-export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDataParams) => {
+export const useTeamLiveData = ({ userIds, excludeUserIds = [], accessibleReps: passedAccessibleReps }: UseTeamLiveDataParams) => {
   return useQuery({
     queryKey: ['team-live-data', userIds, excludeUserIds],
     queryFn: async () => {
@@ -142,23 +144,24 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
 
       if (error) throw error;
 
-      // Fetch team/MGMT group mapping from the team access cache
-      // Search for the versioned cache key format used by useTeamAccess
-      let accessibleReps: any[] = [];
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key?.startsWith('team-access-cache:v4:')) {
-            const cached = localStorage.getItem(key);
-            if (cached) {
-              const { data } = JSON.parse(cached);
-              accessibleReps = data?.accessibleReps || [];
-              break;
+      // Use passed accessibleReps directly, fall back to localStorage cache
+      let accessibleReps: any[] = passedAccessibleReps || [];
+      if (accessibleReps.length === 0) {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.startsWith('team-access-cache:v4:')) {
+              const cached = localStorage.getItem(key);
+              if (cached) {
+                const { data } = JSON.parse(cached);
+                accessibleReps = data?.accessibleReps || [];
+                break;
+              }
             }
           }
+        } catch (e) {
+          console.error('Failed to parse team access cache:', e);
         }
-      } catch (e) {
-        console.error('Failed to parse team access cache:', e);
       }
 
       const repInfoMap = new Map(accessibleReps.map((r: any) => [r.userId, r]));
@@ -186,6 +189,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         // Use teamName from cache, or fallback to "Team [leader name]", or finally "No Team"
         const teamLeaderName = repInfo?.team_leader;
         const teamId = teamInfo?.teamId || null;
+        const mgmtGroupId = teamInfo?.mgmtGroupId || null;
         const teamName = teamInfo?.teamName || 
                         (teamLeaderName ? `Team ${teamLeaderName}` : 'No Team');
         const mgmtGroupName = teamInfo?.mgmtGroupName || '';
@@ -287,6 +291,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
               name: repInfo?.name || 'Unknown',
               year: repInfo?.year || teamInfo?.year || undefined,
               teamId,
+              mgmtGroupId,
               teamName,
               mgmtGroupName,
               recruiterName,
@@ -332,6 +337,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             userId,
             name: repInfo?.name || 'Unknown',
             teamId,
+            mgmtGroupId,
             teamName,
             mgmtGroupName,
             recruiterName,

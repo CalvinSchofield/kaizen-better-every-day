@@ -464,6 +464,38 @@ export type Database = {
           },
         ]
       }
+      challenge_teams: {
+        Row: {
+          challenge_id: string
+          created_at: string
+          id: string
+          team_key: string
+          team_label: string
+        }
+        Insert: {
+          challenge_id: string
+          created_at?: string
+          id?: string
+          team_key: string
+          team_label?: string
+        }
+        Update: {
+          challenge_id?: string
+          created_at?: string
+          id?: string
+          team_key?: string
+          team_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_teams_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenges: {
         Row: {
           completed_at: string | null
@@ -480,6 +512,7 @@ export type Database = {
           tiebreaker_winner_id: string | null
           type: string
           visibility: string
+          winner_team_key: string | null
           winner_user_id: string | null
         }
         Insert: {
@@ -497,6 +530,7 @@ export type Database = {
           tiebreaker_winner_id?: string | null
           type: string
           visibility?: string
+          winner_team_key?: string | null
           winner_user_id?: string | null
         }
         Update: {
@@ -514,6 +548,7 @@ export type Database = {
           tiebreaker_winner_id?: string | null
           type?: string
           visibility?: string
+          winner_team_key?: string | null
           winner_user_id?: string | null
         }
         Relationships: []
@@ -1035,6 +1070,7 @@ export type Database = {
           lead_user_id: string | null
           name: string
           office_id: string | null
+          pending_lead_recruit_id: string | null
           sr_mgmt_group_id: string | null
           updated_at: string | null
         }
@@ -1044,6 +1080,7 @@ export type Database = {
           lead_user_id?: string | null
           name: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           sr_mgmt_group_id?: string | null
           updated_at?: string | null
         }
@@ -1053,6 +1090,7 @@ export type Database = {
           lead_user_id?: string | null
           name?: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           sr_mgmt_group_id?: string | null
           updated_at?: string | null
         }
@@ -1069,6 +1107,13 @@ export type Database = {
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mgmt_groups_pending_lead_recruit_id_fkey"
+            columns: ["pending_lead_recruit_id"]
+            isOneToOne: false
+            referencedRelation: "recruits"
             referencedColumns: ["id"]
           },
           {
@@ -2408,6 +2453,7 @@ export type Database = {
           lead_user_id: string | null
           name: string
           office_id: string | null
+          pending_lead_recruit_id: string | null
           region_id: string | null
           updated_at: string | null
         }
@@ -2417,6 +2463,7 @@ export type Database = {
           lead_user_id?: string | null
           name: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           region_id?: string | null
           updated_at?: string | null
         }
@@ -2426,6 +2473,7 @@ export type Database = {
           lead_user_id?: string | null
           name?: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           region_id?: string | null
           updated_at?: string | null
         }
@@ -2442,6 +2490,13 @@ export type Database = {
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sr_mgmt_groups_pending_lead_recruit_id_fkey"
+            columns: ["pending_lead_recruit_id"]
+            isOneToOne: false
+            referencedRelation: "recruits"
             referencedColumns: ["id"]
           },
           {
@@ -2494,6 +2549,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      streak_protections: {
+        Row: {
+          actual_value: number | null
+          baseline_value: number | null
+          created_at: string
+          entry_date: string
+          id: string
+          method: string
+          protection_type: string
+          streak_length: number | null
+          user_id: string
+        }
+        Insert: {
+          actual_value?: number | null
+          baseline_value?: number | null
+          created_at?: string
+          entry_date: string
+          id?: string
+          method: string
+          protection_type: string
+          streak_length?: number | null
+          user_id: string
+        }
+        Update: {
+          actual_value?: number | null
+          baseline_value?: number | null
+          created_at?: string
+          entry_date?: string
+          id?: string
+          method?: string
+          protection_type?: string
+          streak_length?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      streak_recovery_windows: {
+        Row: {
+          created_at: string
+          id: string
+          knocking_days_used: Json | null
+          recovery_deadline_date: string | null
+          restored_streak: number | null
+          status: string
+          streak_lost_on: string
+          target_doors: number | null
+          target_fp: number | null
+          target_prmr: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          knocking_days_used?: Json | null
+          recovery_deadline_date?: string | null
+          restored_streak?: number | null
+          status?: string
+          streak_lost_on: string
+          target_doors?: number | null
+          target_fp?: number | null
+          target_prmr?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          knocking_days_used?: Json | null
+          recovery_deadline_date?: string | null
+          restored_streak?: number | null
+          status?: string
+          streak_lost_on?: string
+          target_doors?: number | null
+          target_fp?: number | null
+          target_prmr?: number | null
+          user_id?: string
+        }
+        Relationships: []
       }
       tags: {
         Row: {
@@ -2553,6 +2686,7 @@ export type Database = {
           lead_user_id: string | null
           name: string
           office_id: string | null
+          pending_lead_recruit_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2561,6 +2695,7 @@ export type Database = {
           lead_user_id?: string | null
           name: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2569,6 +2704,7 @@ export type Database = {
           lead_user_id?: string | null
           name?: string
           office_id?: string | null
+          pending_lead_recruit_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2584,6 +2720,13 @@ export type Database = {
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_pending_lead_recruit_id_fkey"
+            columns: ["pending_lead_recruit_id"]
+            isOneToOne: false
+            referencedRelation: "recruits"
             referencedColumns: ["id"]
           },
         ]
@@ -2744,6 +2887,10 @@ export type Database = {
       }
       cleanup_old_counter_events: { Args: never; Returns: undefined }
       get_accessible_team_ids: { Args: { _user_id: string }; Returns: string[] }
+      get_downline_recruit_ids: {
+        Args: { _user_id: string }
+        Returns: string[]
+      }
       get_user_office_ids: { Args: { _user_id: string }; Returns: string[] }
       has_active_upline: { Args: { _user_id: string }; Returns: boolean }
       has_min_role: {

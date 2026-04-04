@@ -234,15 +234,16 @@ export function useNativePushNotifications() {
   useEffect(() => {
     if (!isNative) return;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && pendingToken) {
-        console.log('[NativePush] Auth event – retrying parked token');
-        await storeToken(pendingToken);
-      }
-      // Always refresh flag on sign-in
-      if (event === 'SIGNED_IN') {
-        await refreshStoredTokenFlag();
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      window.setTimeout(() => {
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && pendingToken) {
+          console.log('[NativePush] Auth event – retrying parked token');
+          void storeToken(pendingToken);
+        }
+        if (event === 'SIGNED_IN') {
+          void refreshStoredTokenFlag();
+        }
+      }, 0);
     });
 
     return () => subscription.unsubscribe();

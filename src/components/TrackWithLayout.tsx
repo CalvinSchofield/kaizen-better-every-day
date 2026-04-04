@@ -16,6 +16,10 @@ import { SaleDetailSheet } from "./SaleDetailSheet";
 import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 import { PendingSalesAlert } from "./PendingSalesAlert";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { trackTourSteps } from "@/config/pageTours";
+import { TrackTourDayPreview } from "@/components/track/TrackTourDayPreview";
 
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useAddSaleToEntry } from "@/hooks/useAddSaleToEntry";
@@ -71,6 +75,9 @@ const TrackWithLayout = () => {
   const { totalFP: preseasonFP } = usePreseasonFP();
   const goalPaceData = useGoalPaceCalculator();
   const { userId: currentUserId } = useCurrentUserId();
+  
+  // Page tour
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'track' });
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry, isRefreshing, isFreshDataVerified, isOfflineWithBackup } = useDailyEntry();
   const { addSale: addSaleToEntry, isAddingSale } = useAddSaleToEntry();
   const { updateSale, deleteSale: deleteSaleFromEntry, isDeleting: isDeletingSale } = useSaleUpdate();
@@ -114,39 +121,42 @@ const TrackWithLayout = () => {
     const checkAuth = async () => {
       try {
         const { user } = await getSessionSafe();
-        if (mounted) {
-          if (!user) {
-            // Try to refresh before marking unhealthy
-            const { data: refreshData } = await supabase.auth.refreshSession();
-            setAuthHealthy(!!refreshData?.user);
-            if (!refreshData?.user) {
-              console.error('[TrackWithLayout] Auth session expired - data may not save!');
-            }
-          } else {
-            setAuthHealthy(true);
-          }
+        if (!mounted) return;
+
+        if (user) {
+          setAuthHealthy(true);
+          return;
         }
+
+        if (currentUserId) {
+          console.warn('[TrackWithLayout] Session temporarily unavailable; preserving live tracking state');
+          setAuthHealthy(true);
+          return;
+        }
+
+        setAuthHealthy(false);
+        console.error('[TrackWithLayout] No authenticated user available for Track');
       } catch {
-        if (mounted) setAuthHealthy(false);
+        if (mounted) {
+          setAuthHealthy(Boolean(currentUserId));
+        }
       }
     };
-    
-    // Check immediately and every 60 seconds
+
     checkAuth();
     const interval = setInterval(checkAuth, 60_000);
-    
-    // Also check on visibility change (app resume)
+
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') checkAuth();
+      if (document.visibilityState === 'visible') void checkAuth();
     };
     document.addEventListener('visibilitychange', handleVisibility);
-    
+
     return () => {
       mounted = false;
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [currentUserId]);
   
   // Local backup for data recovery
   const userId = currentUserId;
@@ -1539,6 +1549,13 @@ const TrackWithLayout = () => {
       work_start_time: now.toISOString(),
       timezone
     });
+
+    // Fire-and-forget: notify upline if rookie is knocking solo (outside blitz)
+    if (repData?.year === "Rookie") {
+      supabase.functions.invoke("notify-rookie-solo-knocking").catch(() => {
+        // Silent — notification is best-effort
+      });
+    }
   };
 
   const handleEndWork = () => {
@@ -1857,6 +1874,24 @@ const TrackWithLayout = () => {
         />
       )}
 
+      {/* Day Complete Preview - only shown during tour */}
+      {showTour && <TrackTourDayPreview />}
+
+      {/* Page Tour */}
+      <PageTour
+        steps={trackTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+        onStepAction={(action) => {
+          if (action === 'openLogSaleSheet') {
+            setIsLogSaleSheetOpen(true);
+          } else if (action === 'showDayCompletePreview') {
+            // Preview is rendered above — no extra action needed
+            setIsLogSaleSheetOpen(false);
+          }
+        }}
+      />
     </>
   );
 };

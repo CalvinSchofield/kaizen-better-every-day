@@ -444,13 +444,17 @@ async function executeOrgChange(
   requestType: string,
   requestData: any
 ): Promise<Record<string, any>> {
-  const { name, leadUserId, mgmtGroupId, officeId, srMgmtGroupId, regionId, srRegionId, partnerId, divisionId } = requestData;
+  const { name, leadUserId, mgmtGroupId, officeId, srMgmtGroupId, regionId, srRegionId, partnerId, divisionId, pendingLeadRecruitId } = requestData;
 
   switch (requestType) {
     case 'create_team': {
+      const insertData: Record<string, unknown> = { name, lead_user_id: leadUserId || null };
+      if (!leadUserId && pendingLeadRecruitId) {
+        insertData.pending_lead_recruit_id = pendingLeadRecruitId;
+      }
       const { data: team, error } = await supabase
         .from('teams')
-        .insert({ name, lead_user_id: leadUserId || null })
+        .insert(insertData)
         .select()
         .single();
       if (error) throw error;
@@ -464,9 +468,13 @@ async function executeOrgChange(
     }
 
     case 'create_mgmt_group': {
+      const insertData: Record<string, unknown> = { name, lead_user_id: leadUserId || null, office_id: officeId || null, sr_mgmt_group_id: srMgmtGroupId || null };
+      if (!leadUserId && pendingLeadRecruitId) {
+        insertData.pending_lead_recruit_id = pendingLeadRecruitId;
+      }
       const { data: group, error } = await supabase
         .from('mgmt_groups')
-        .insert({ name, lead_user_id: leadUserId || null, office_id: officeId || null, sr_mgmt_group_id: srMgmtGroupId || null })
+        .insert(insertData)
         .select()
         .single();
       if (error) throw error;
@@ -474,9 +482,13 @@ async function executeOrgChange(
     }
 
     case 'create_sr_mgmt_group': {
+      const insertData: Record<string, unknown> = { name, lead_user_id: leadUserId || null, office_id: officeId || null };
+      if (!leadUserId && pendingLeadRecruitId) {
+        insertData.pending_lead_recruit_id = pendingLeadRecruitId;
+      }
       const { data: group, error } = await supabase
         .from('sr_mgmt_groups')
-        .insert({ name, lead_user_id: leadUserId || null, office_id: officeId || null })
+        .insert(insertData)
         .select()
         .single();
       if (error) throw error;

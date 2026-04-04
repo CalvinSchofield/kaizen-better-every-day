@@ -22,6 +22,7 @@ import { ReportsPerformanceTab } from "@/components/reports/ReportsPerformanceTa
 import { ReportsPatternsTab } from "@/components/reports/ReportsPatternsTab";
 import { LeaderAICoachFab } from "@/components/reports/LeaderAICoachFab";
 import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
+import { HeroDrillDownDrawer } from "@/components/reports/v2/HeroDrillDownDrawer";
 
 type DatePreset = ReportsDatePreset;
 type ReportTab = 'people' | 'performance' | 'patterns';
@@ -189,11 +190,13 @@ const TeamReports = () => {
   const { data: liveData, isLoading: liveLoading } = useTeamLiveData({
     userIds: effectiveUserIds,
     excludeUserIds,
+    accessibleReps: accessData?.accessibleReps,
   });
 
   const { data: yesterdayData, isLoading: yesterdayLoading } = useTeamYesterdayData({
     userIds: effectiveUserIds,
     excludeUserIds,
+    accessibleReps: accessData?.accessibleReps,
   });
 
   // For today views, include unfinalized entries so leaders can see in-progress work
@@ -223,6 +226,7 @@ const TeamReports = () => {
     userIds: effectiveUserIds,
     excludeUserIds,
     period: aggregatedPeriod || 'week',
+    accessibleReps: accessData?.accessibleReps,
   });
 
   const isAggregatedView = datePreset === 'week' || datePreset === 'lastWeek' || datePreset === 'month' || datePreset === 'lastMonth' || datePreset === 'preseason' || datePreset === 'ytd';
@@ -342,6 +346,97 @@ const TeamReports = () => {
   };
 
   const heroMetrics = getHeroMetrics();
+
+  // Drill-down drawer state
+  const [heroDrillDownOpen, setHeroDrillDownOpen] = useState(false);
+
+  // Build group breakdown for hero drill-down
+  const heroGroupBreakdown = useMemo(() => {
+    const groups = insightsData?.groupedByMgmt || insightsData?.groupedByTeam;
+    if (!groups || groups.length < 2) return [];
+    return groups.map((g: any) => ({
+      name: g.mgmtGroupName || g.teamName,
+      fp: g.totals.fp,
+      prmr: g.totals.prmr,
+      repCount: g.members.length,
+      doors: g.totals.doors,
+      presentations: g.totals.presentations,
+    }));
+  }, [insightsData?.groupedByMgmt, insightsData?.groupedByTeam]);
+
+  // Build sparkline data for hero card
+  const heroSparkline = useMemo(() => {
+    if (!insightsData?.dailyTrend || insightsData.dailyTrend.length < 2) return undefined;
+    return insightsData.dailyTrend.map((d: any) => ({ date: d.date, fp: d.fp, prmr: d.prmr || 0 }));
+  }, [insightsData?.dailyTrend]);
+
+  // Compute comparison data for period-over-period
+  const getComparisonPeriodRange = () => {
+    const now = new Date();
+    switch (datePreset) {
+      case 'week': {
+        const prevStart = subWeeks(startOfWeek(now, { weekStartsOn: 0 }), 1);
+        const prevEnd = subDays(startOfWeek(now, { weekStartsOn: 0 }), 1);
+        return { start: format(prevStart, 'yyyy-MM-dd'), end: format(prevEnd, 'yyyy-MM-dd') };
+      }
+      case 'month': {
+        const lastMonthDate = subMonths(now, 1);
+        return { start: format(startOfMonth(lastMonthDate), 'yyyy-MM-dd'), end: format(endOfMonth(lastMonthDate), 'yyyy-MM-dd') };
+      }
+      default: return null;
+    }
+  };
+
+  const comparisonRange = getComparisonPeriodRange();
+  
+  const { data: comparisonInsights } = useTeamInsightsData({
+    userIds: effectiveUserIds,
+    dateRange: comparisonRange || { start: '', end: '' },
+    excludeUserIds,
+    includeLive: false,
+  });
+
+  // Build comparison data prop
+  const comparisonData = useMemo(() => {
+    if (!comparisonRange || !insightsData || !comparisonInsights) return undefined;
+    
+    const currentLabel = datePreset === 'week' ? 'This Week' : 'This Month';
+    const previousLabel = datePreset === 'week' ? 'Last Week' : 'Last Month';
+
+    return {
+      current: {
+        fp: insightsData.totalFP,
+        prmr: insightsData.totalPRMR,
+        doors: insightsData.totalDoors,
+        presentations: insightsData.totalPresentations,
+        closes: insightsData.totalCloses,
+        hoursWorked: insightsData.totalWorkMinutes / 60,
+        repsWorked: insightsData.uniqueRepsWorked,
+      },
+      previous: {
+        fp: comparisonInsights.totalFP,
+        prmr: comparisonInsights.totalPRMR,
+        doors: comparisonInsights.totalDoors,
+        presentations: comparisonInsights.totalPresentations,
+        closes: comparisonInsights.totalCloses,
+        hoursWorked: comparisonInsights.totalWorkMinutes / 60,
+        repsWorked: comparisonInsights.uniqueRepsWorked,
+      },
+      currentLabel,
+      previousLabel,
+    };
+  }, [insightsData, comparisonInsights, comparisonRange, datePreset]);
+
+  // Comparison delta for hero card
+  const heroComparison = useMemo(() => {
+    if (!comparisonData || !comparisonData.previous || comparisonData.previous.fp <= 0) return undefined;
+    return {
+      fpChange: ((comparisonData.current.fp - comparisonData.previous.fp) / comparisonData.previous.fp) * 100,
+      prmrChange: comparisonData.previous.prmr > 0 
+        ? ((comparisonData.current.prmr - comparisonData.previous.prmr) / comparisonData.previous.prmr) * 100 
+        : 0,
+    };
+  }, [comparisonData]);
 
   // View type for people tab
   const getViewType = () => {
@@ -570,6 +665,19 @@ const TeamReports = () => {
           avgFPPerRep={heroMetrics.avgFPPerRep}
           periodLabel={getPeriodLabel()}
           isLive={heroMetrics.isLive}
+          comparison={heroComparison}
+          sparklineData={heroSparkline}
+          onFpClick={heroGroupBreakdown.length >= 2 ? () => setHeroDrillDownOpen(true) : undefined}
+        />
+
+        {/* Hero Drill-Down Drawer */}
+        <HeroDrillDownDrawer
+          open={heroDrillDownOpen}
+          onOpenChange={setHeroDrillDownOpen}
+          title="FP+ Breakdown"
+          groups={heroGroupBreakdown}
+          dailyTrend={heroSparkline}
+          periodLabel={getPeriodLabel()}
         />
 
         {/* Tab Navigation */}
@@ -597,6 +705,7 @@ const TeamReports = () => {
             <TabsContent value="people" className="mt-0">
               <ReportsPeopleTab
                 viewType={getViewType()}
+                accessLevel={accessData?.accessLevel || 'team_lead'}
                 liveReps={liveData?.liveReps}
                 workingCount={liveData?.workingCount}
                 forgottenCount={liveData?.forgottenCount}
@@ -609,6 +718,7 @@ const TeamReports = () => {
                 repCount={aggregatedRankings?.repCount}
                 aggregatedLoading={aggregatedLoading}
                 rankingsTitle={getRankingsTitle()}
+                groupedByTeam={insightsData?.groupedByTeam}
               />
             </TabsContent>
 
@@ -633,6 +743,7 @@ const TeamReports = () => {
                   dailyTrendByMgmt={insightsData?.dailyTrendByMgmt}
                   accessLevel={accessData?.accessLevel || 'none'}
                   cumulativeLoading={cumulativeLoading}
+                  comparisonData={comparisonData}
                   canceledStats={canceledStats}
                   canceledLoading={canceledLoading}
                   canceledTitle={getCanceledTitle()}

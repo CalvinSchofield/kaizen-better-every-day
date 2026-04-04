@@ -2,10 +2,18 @@ import { useState, useMemo, useEffect } from "react";
 import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity, useUpdateRecruitActivity, useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useAssignableUsers } from "@/hooks/useAssignableUsers";
+import { AssigneeSelector } from "@/components/mygroup/AssigneeSelector";
+import { useRepData } from "@/hooks/useRepData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafe } from "@/utils/authSession";
+import { withTimeout } from "@/utils/withTimeout";
+
+// Mobile-optimized session getter: reads local cache only, no network refresh
+const getSessionFast = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return { session, user: session?.user ?? null };
+};
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -149,6 +157,7 @@ export const RecruitDetailDrawer = ({
     recruitId: recruitProp?.id,
     recruitTeamLeader: recruitProp?.teamName 
   });
+  const { repData } = useRepData();
   const queryClient = useQueryClient();
   const { checkAndUpdateStage } = useAutoStageProgression();
 
@@ -199,7 +208,7 @@ export const RecruitDetailDrawer = ({
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-drawer'],
     queryFn: async () => {
-      const { user } = await getSessionSafe();
+      const { user } = await getSessionFast();
       if (!user) return null;
       const { data } = await supabase.from('reps').select('id, name, team_leader, recruiter').eq('user_id', user.id).maybeSingle();
       return data;
@@ -352,7 +361,7 @@ export const RecruitDetailDrawer = ({
       if (!recruitRepData?.user_id) return [];
       
       // For the current user's own recruits, we can use the edge function
-      const { session } = await getSessionSafe();
+      const { session } = await getSessionFast();
       if (!session) return [];
       
       const { data, error } = await supabase.functions.invoke('fetch-downline-planned-days', {
@@ -435,24 +444,32 @@ export const RecruitDetailDrawer = ({
 
     // Look up the team leader's phone for group text
     let leaderPhone: string | null = null;
-    if (contactForHelp?.role === 'leader' && contactForHelp.phone) {
-      leaderPhone = normalizePhoneForSms(contactForHelp.phone);
-    } else if (recruit.teamId) {
-      const { data: teamData } = await supabase
-        .from('teams')
-        .select('lead_user_id')
-        .eq('id', recruit.teamId)
-        .maybeSingle();
-      if (teamData?.lead_user_id) {
+    try {
+      leaderPhone = await withTimeout((async () => {
+        if (contactForHelp?.role === 'leader' && contactForHelp.phone) {
+          return normalizePhoneForSms(contactForHelp.phone);
+        }
+
+        if (!recruit.teamId) return null;
+
+        const { data: teamData } = await supabase
+          .from('teams')
+          .select('lead_user_id')
+          .eq('id', recruit.teamId)
+          .maybeSingle();
+
+        if (!teamData?.lead_user_id) return null;
+
         const { data: leaderRep } = await supabase
           .from('reps')
           .select('phone')
           .eq('user_id', teamData.lead_user_id)
           .maybeSingle();
-        if (leaderRep?.phone) {
-          leaderPhone = normalizePhoneForSms(leaderRep.phone);
-        }
-      }
+
+        return leaderRep?.phone ? normalizePhoneForSms(leaderRep.phone) : null;
+      })(), 1200, 'Leader phone lookup timed out');
+    } catch (error) {
+      console.warn('[RecruitDetailDrawer] Falling back to solo SMS intent:', error);
     }
 
     // Open SMS app (group or solo)
@@ -547,7 +564,7 @@ export const RecruitDetailDrawer = ({
       if (updateError) throw updateError;
       
       // Also call edge function to sync
-      const { session } = await getSessionSafe();
+      const { session } = await getSessionFast();
       if (session) {
         await supabase.functions.invoke('update-rookie-status', {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -707,7 +724,7 @@ export const RecruitDetailDrawer = ({
     setHasPhaseError(false);
 
     try {
-      const { session } = await getSessionSafe();
+      const { session } = await getSessionFast();
       if (!session) throw new Error('Not authenticated');
 
       const phaseParams: Record<string, boolean> = {};
@@ -747,7 +764,7 @@ export const RecruitDetailDrawer = ({
     setHasPhaseError(false);
 
     try {
-      const { session } = await getSessionSafe();
+      const { session } = await getSessionFast();
       if (!session) throw new Error('Not authenticated');
 
       // Undo this phase and all phases after it
@@ -847,7 +864,7 @@ export const RecruitDetailDrawer = ({
       else if (finalState.trainings_complete) computedOnboardingStatus = 'Required Trainings ✅';
       else if (finalState.onboarding_complete) computedOnboardingStatus = 'Onboarding ✅';
 
-      const { session } = await getSessionSafe();
+      const { session } = await getSessionFast();
       if (!session) throw new Error('Not authenticated');
 
       // Use rep ID if available, otherwise use recruit ID
@@ -1187,7 +1204,7 @@ export const RecruitDetailDrawer = ({
       <Drawer open={logActivityOpen} onOpenChange={setLogActivityOpen}>
         <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader><DrawerTitle>{isDirectSchedule ? 'Schedule Follow-up' : 'Log Activity'}</DrawerTitle></DrawerHeader>
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(85dvh-4rem)]">
             {!isDirectSchedule && (
               <div className="grid grid-cols-3 gap-2">
                 {(['phone_call', 'in_person', 'note'] as const).map((type) => (
@@ -1529,26 +1546,16 @@ export const RecruitDetailDrawer = ({
                 {/* Assignee selector - only show for next_step activities */}
                 {selectedActivity.activity_type === 'next_step' && (
                   <div>
-                    <Label className="flex items-center gap-2">
+                    <Label className="flex items-center gap-2 mb-1">
                       <UserCircle className="h-4 w-4" />
                       Assigned To
                     </Label>
-                    <Select 
-                      value={editAssignee || 'me'} 
-                      onValueChange={(v) => setEditAssignee(v === 'me' ? null : v)}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="me">Me</SelectItem>
-                        {assignableUsers.map((user) => (
-                          <SelectItem key={user.userId} value={user.userId}>
-                            {user.name.split(' ')[0]} ({user.role})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <AssigneeSelector
+                      assignableUsers={assignableUsers}
+                      selectedAssignee={assignableUsers.find(u => u.userId === editAssignee) || null}
+                      onSelect={(user) => setEditAssignee(user?.userId || null)}
+                      currentUserPhotoUrl={repData?.profile_photo_url}
+                    />
                   </div>
                 )}
                 

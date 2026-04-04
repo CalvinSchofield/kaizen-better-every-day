@@ -14,6 +14,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Switch } from "@/components/ui/switch";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { CreateDrawer, ConfigureOfficeDrawer, ConfigureRegionDrawer } from "./OrgManagementDrawer";
+import { OfficeDetailDrawer } from "./OfficeDetailDrawer";
 import { BulkAssignRepsDrawer } from "./BulkAssignRepsDrawer";
 import { MoveToTeamDrawer } from "./MoveToTeamDrawer";
 import { MoveTeamToMgmtDrawer } from "./MoveTeamToMgmtDrawer";
@@ -40,10 +41,14 @@ interface OrgNode {
 }
 
 function countTotalDescendants(node: OrgNode): number {
-  if (node.children.length === 0) return 0;
   let count = 0;
+  // Count leaders of structural nodes as people
+  if (node.leadUserId && (node.type === "team" || node.type === "mgmt_group" || node.type === "sr_mgmt_group")) {
+    count += 1;
+  }
   for (const child of node.children) {
     if (child.type === "rep") count += 1;
+    else if (child.type === "recruiter_group") count += 1 + countTotalDescendants(child); // the recruiter + their recruits
     else count += countTotalDescendants(child);
   }
   return count;
@@ -325,6 +330,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
 
   // Management drawers
   const [createDrawer, setCreateDrawer] = useState<{ type: "office" | "region" | "team" | "mgmt_group" | "sr_mgmt_group" | "sr_region" | "partner" | "division"; parentId?: string; parentName?: string; parentType?: string } | null>(null);
+  const [officeDetailId, setOfficeDetailId] = useState<string | null>(null);
   const [configOffice, setConfigOffice] = useState<string | null>(null);
   const [configRegion, setConfigRegion] = useState<string | null>(null);
 
@@ -547,12 +553,13 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
   const handleNodeTap = useCallback((node: OrgNode) => {
     if (node.type === "rep") {
       handleRepTap(node);
-    } else if (node.type === "office" && canConfigureOffice(node.id)) {
-      setConfigOffice(node.id);
+    } else if (node.type === "office") {
+      // Always show office detail drawer; config is via long-press
+      setOfficeDetailId(node.id);
     } else if (node.type === "region" && canManageRegions && node.id !== "unassigned") {
       setConfigRegion(node.id);
     }
-  }, [handleRepTap, canConfigureOffice, canManageRegions]);
+  }, [handleRepTap, canManageRegions]);
 
   const handleLongPress = useCallback((node: OrgNode) => {
     const actionableTypes = ["rep", "team", "mgmt_group", "sr_mgmt_group", "region", "sr_region", "partner", "division", "office"];
@@ -689,6 +696,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         .map((t) => ({
           id: t.id, name: t.name, type: "team" as const,
           role: t.lead_user_id ? `Led by ${getRepName(t.lead_user_id)}` : undefined,
+          leadUserId: t.lead_user_id,
           children: buildTeamMembers(t.lead_user_id, t.name, t.id, mgmtGroupId, mgmtGroupName),
         }));
     };
@@ -840,42 +848,10 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
             });
           });
 
-          // Group MGMT groups by sr_mgmt_group for intermediate nodes
-          const mgmtBySrMgmt = new Map<string, typeof mgmtGroups>();
-          const directMgmt: typeof mgmtGroups = [];
-
+          // Flatten: show ALL MGMT groups directly under office (no Sr MGMT nesting)
           officeMgmtGroupIds.forEach(mgId => {
             const mg = mgmtGroups.find(m => m.id === mgId);
             if (!mg) return;
-            if (mg.sr_mgmt_group_id) {
-              const existing = mgmtBySrMgmt.get(mg.sr_mgmt_group_id) || [];
-              existing.push(mg);
-              mgmtBySrMgmt.set(mg.sr_mgmt_group_id, existing);
-            } else {
-              directMgmt.push(mg);
-            }
-          });
-
-          // Add Sr MGMT Group intermediate nodes
-          mgmtBySrMgmt.forEach((mgs, srMgmtId) => {
-            const srMgmt = srMgmtGroups.find((s: any) => s.id === srMgmtId);
-            if (srMgmt) {
-              officeChildren.push({
-                id: srMgmt.id, name: srMgmt.name, type: "sr_mgmt_group" as const,
-                role: (srMgmt as any).lead_user_id ? `Led by ${getRepName((srMgmt as any).lead_user_id)}` : undefined,
-                leadUserId: (srMgmt as any).lead_user_id,
-                children: mgs.map((mg) => ({
-                  id: mg.id, name: mg.name, type: "mgmt_group" as const,
-                  role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
-                  leadUserId: mg.lead_user_id,
-                  children: teamNodes(mg.id, mg.name),
-                })),
-              });
-            }
-          });
-
-          // Add direct MGMT groups
-          directMgmt.forEach((mg) => {
             officeChildren.push({
               id: mg.id, name: mg.name, type: "mgmt_group" as const,
               role: mg.lead_user_id ? `Led by ${getRepName(mg.lead_user_id)}` : undefined,
@@ -896,6 +872,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
                 officeChildren.push({
                   id: t.id, name: t.name, type: "team" as const,
                   role: t.lead_user_id ? `Led by ${getRepName(t.lead_user_id)}` : undefined,
+                  leadUserId: t.lead_user_id,
                   children: buildTeamMembers(t.lead_user_id, t.name, t.id, mgLink?.id || null, mgLink?.name || null),
                 });
               }
@@ -1011,6 +988,11 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
     return { office, staff, groups };
   }, [configOffice, orgData]);
 
+  const officeDetailData = useMemo(() => {
+    if (!officeDetailId || !orgData) return null;
+    return orgData.offices.find((o) => o.id === officeDetailId) || null;
+  }, [officeDetailId, orgData]);
+
   const configRegionData = useMemo(() => {
     if (!configRegion || !orgData) return null;
     const region = orgData.regions.find((r) => r.id === configRegion);
@@ -1065,7 +1047,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         // If only one option, show a direct button
         if (createOptions.length === 1) {
           return (
-            <div className="mb-3">
+            <div className="mb-3" data-tour="org-chart-create-button">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setCreateDrawer({ type: createOptions[0].type })}>
                 <Plus className="h-3.5 w-3.5" /> Create {createOptions[0].label}
               </Button>
@@ -1074,7 +1056,7 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         }
         
         return (
-          <div className="mb-3">
+          <div className="mb-3" data-tour="org-chart-create-button">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setActionTarget({ id: "__create__", name: "Create", type: "__create__" })}>
               <Plus className="h-3.5 w-3.5" /> Create
             </Button>
@@ -1119,18 +1101,34 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
         );
       })()}
 
-      <div className="space-y-1">
-        {tree.map((node) => (
-          <OrgNodeCard
-            key={node.id}
-            node={node}
-            depth={0}
-            onLongPressAction={handleLongPress}
-            onTap={handleNodeTap}
-            canManage={canManageTeams}
-          />
-        ))}
-      </div>
+      {(() => {
+        // Separate office nodes from hierarchy nodes for visual separation
+        const officeNodes = tree.filter(n => n.type === "office");
+        const hierarchyNodes = tree.filter(n => n.type !== "office");
+
+        return (
+          <div className="space-y-1">
+            {hierarchyNodes.map((node) => (
+              <OrgNodeCard key={node.id} node={node} depth={0} onLongPressAction={handleLongPress} onTap={handleNodeTap} canManage={canManageTeams} />
+            ))}
+
+            {officeNodes.length > 0 && (
+              <>
+                {hierarchyNodes.length > 0 && (
+                  <div className="flex items-center gap-2 py-3 mt-2">
+                    <Building2 className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Offices</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                )}
+                {officeNodes.map((node) => (
+                  <OrgNodeCard key={node.id} node={node} depth={0} onLongPressAction={handleLongPress} onTap={handleNodeTap} canManage={canManageTeams} />
+                ))}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Long-press action sheet */}
       <Drawer open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
@@ -1397,6 +1395,22 @@ export const OrgStructureTree = ({ accessLevel: propAccessLevel = "none" }: OrgS
           accessLevel={accessLevel}
         />
       )}
+
+      {/* Office detail drawer */}
+      <OfficeDetailDrawer
+        open={!!officeDetailId}
+        onOpenChange={(open) => !open && setOfficeDetailId(null)}
+        office={officeDetailData ? { id: officeDetailData.id, name: officeDetailData.name, location: officeDetailData.location } : null}
+        orgData={orgData ? {
+          officeStaff: orgData.officeStaff,
+          mgmtGroups: orgData.mgmtGroups,
+          srMgmtGroups: orgData.srMgmtGroups,
+          teams: orgData.teams,
+          teamMgmt: orgData.teamMgmt,
+          reps: orgData.reps,
+          recruits: orgData.recruits.map(r => ({ id: r.id, name: r.name, team_id: r.team_id, mgmt_group_id: r.mgmt_group_id, stage: r.stage, recruiter_user_id: r.recruiter_user_id })),
+        } : undefined}
+      />
 
       {/* Configure region drawer */}
       {configRegionData && (

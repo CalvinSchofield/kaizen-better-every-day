@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, Loader2, User, ChevronDown } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect, useRef } from "react";
+import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
+
 import { format, addDays, getDay, startOfDay } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,14 @@ import {
   DrawerFooter
 } from "@/components/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AssigneeSelector } from "./AssigneeSelector";
+import { useRepData } from "@/hooks/useRepData";
 import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MentionInput } from "./recruit-detail/MentionInput";
-import { AddToCalendarPrompt } from "./AddToCalendarPrompt";
+import { AddToCalendarDrawer } from "./AddToCalendarPrompt";
 import { getCleanName } from "@/utils/nameUtils";
 
 interface ScheduleFollowUpDrawerProps {
@@ -39,16 +41,25 @@ export const ScheduleFollowUpDrawer = ({
   const [notesMentions, setNotesMentions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<AssignableUser | null>(null);
-  const [showAssigneePopover, setShowAssigneePopover] = useState(false);
+  const { repData } = useRepData();
   
   // Calendar prompt state
   const [showCalendarPrompt, setShowCalendarPrompt] = useState(false);
   const [scheduledActivityId, setScheduledActivityId] = useState<string | null>(null);
   const [scheduledDateString, setScheduledDateString] = useState<string>('');
   
+  // Capture stable viewport height before keyboard opens
+  const stableHeightRef = useRef<number>(window.innerHeight);
+
   // Reset form state when drawer opens or recruit changes
   useEffect(() => {
     if (open) {
+      // Capture height BEFORE keyboard could fire
+      stableHeightRef.current = window.innerHeight;
+      // Dismiss keyboard immediately to prevent height squishing
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       setNotes('');
       setNotesMentions([]);
       setSelectedDate(addDays(new Date(), 1));
@@ -110,9 +121,14 @@ export const ScheduleFollowUpDrawer = ({
       
       // Show calendar prompt only if task is assigned to me (no assignee selected = me)
       if (result?.id && !selectedAssignee) {
-        setScheduledActivityId(result.id);
-        setScheduledDateString(dateOnlyString);
-        setShowCalendarPrompt(true);
+        const savedId = result.id;
+        const savedDate = dateOnlyString;
+        handleCloseComplete();
+        setTimeout(() => {
+          setScheduledActivityId(savedId);
+          setScheduledDateString(savedDate);
+          setShowCalendarPrompt(true);
+        }, 350);
       } else {
         handleCloseComplete();
       }
@@ -140,15 +156,16 @@ export const ScheduleFollowUpDrawer = ({
   if (!recruit) return null;
 
   return (
+    <>
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85svh] flex flex-col">
+      <DrawerContent className="flex flex-col" style={{ maxHeight: `${stableHeightRef.current * 0.85}px` }}>
         <DrawerHeader className="border-b flex-shrink-0">
           <DrawerTitle>
             Schedule Follow-up with {getCleanName(recruit.name)}
           </DrawerTitle>
         </DrawerHeader>
         
-        <div className="flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
           <div className="p-4 space-y-4">
           {/* Next steps - required */}
           <div>
@@ -216,81 +233,19 @@ export const ScheduleFollowUpDrawer = ({
             <label className="text-sm font-medium mb-2 block">
               Assign to (optional)
             </label>
-            {assignableUsersLoading && !assignableUsers.length ? (
-              <Skeleton className="h-10 w-full" />
-            ) : assignableUsers.length > 0 ? (
-              <Popover open={showAssigneePopover} onOpenChange={setShowAssigneePopover}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between"
-                    role="combobox"
-                  >
-                    <span className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      {selectedAssignee ? getCleanName(selectedAssignee.name) : "Me (default)"}
-                    </span>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[280px] p-2" align="start">
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant={!selectedAssignee ? "secondary" : "ghost"}
-                      className="w-full justify-start"
-                      onClick={() => {
-                        setSelectedAssignee(null);
-                        setShowAssigneePopover(false);
-                      }}
-                    >
-                      <User className="h-4 w-4 mr-2" />
-                      Me (default)
-                    </Button>
-                    {assignableUsers.map((user) => (
-                      <Button
-                        key={user.userId}
-                        variant={selectedAssignee?.userId === user.userId ? "secondary" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => {
-                          setSelectedAssignee(user);
-                          setShowAssigneePopover(false);
-                        }}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">{getCleanName(user.name)}</span>
-                        <span className="text-xs text-muted-foreground ml-2">{user.role}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                disabled
-              >
-                <User className="h-4 w-4 mr-2" />
-                Me (default)
-              </Button>
-            )}
+            <AssigneeSelector
+              assignableUsers={assignableUsers}
+              selectedAssignee={selectedAssignee}
+              onSelect={setSelectedAssignee}
+              isLoading={assignableUsersLoading}
+              currentUserPhotoUrl={repData?.profile_photo_url}
+            />
           </div>
           </div>
 
-          {/* Calendar Prompt - shown after successful scheduling */}
-          {showCalendarPrompt && scheduledActivityId && scheduledDateString && (
-            <AddToCalendarPrompt
-              activityId={scheduledActivityId}
-              recruit={recruit}
-              scheduledDate={scheduledDateString}
-              notes={notes}
-              onClose={handleCloseComplete}
-            />
-          )}
         </div>
 
-        {!showCalendarPrompt && (
-          <DrawerFooter className="border-t">
+        <DrawerFooter className="border-t">
             <Button 
               onClick={handleSchedule}
               disabled={!selectedDate || isLoading}
@@ -316,9 +271,24 @@ export const ScheduleFollowUpDrawer = ({
             >
               Cancel
             </Button>
-          </DrawerFooter>
-        )}
+        </DrawerFooter>
       </DrawerContent>
     </Drawer>
+
+    {recruit && scheduledActivityId && scheduledDateString && (
+      <AddToCalendarDrawer
+        open={showCalendarPrompt}
+        activityId={scheduledActivityId}
+        recruit={recruit}
+        scheduledDate={scheduledDateString}
+        notes={notes}
+        onClose={() => {
+          setShowCalendarPrompt(false);
+          setScheduledActivityId(null);
+          setScheduledDateString('');
+        }}
+      />
+    )}
+    </>
   );
 };

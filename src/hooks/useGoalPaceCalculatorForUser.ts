@@ -41,6 +41,25 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch rep's EFP mode setting
+  const { data: repInfo } = useQuery({
+    queryKey: ['downline-rep-efp-mode', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data } = await supabase
+        .from('reps')
+        .select('year, efp_mode_enabled')
+        .eq('user_id', userId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isVet = repInfo?.year === 'Vet';
+  const efpModeEnabled = isVet && (repInfo?.efp_mode_enabled || false);
+
   // Fetch season config
   const { data: seasonConfig } = useQuery({
     queryKey: ['downline-season-config', userId],
@@ -155,19 +174,26 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
     let dayFP = 0;
     let dayLiveFP = 0;
 
+    const getSaleValue = (sale: any): number => {
+      const salePrmr = Number(sale?.prmr) || 0;
+      if (efpModeEnabled) return salePrmr / 85;
+      if (sale?.type === 'fp') return 1;
+      if (sale?.type === 'upgrade') return salePrmr / 85;
+      return 0;
+    };
+
     for (const entry of allEntries) {
       const salesLog = entry.sales_log as any[] | null;
       let entryFP = 0;
 
       if (Array.isArray(salesLog) && salesLog.length > 0) {
         for (const sale of salesLog) {
-          if (sale.install_status === 'never_installed') continue;
-          if (sale.install_status === 'pending') continue;
-          if (sale.type === 'fp') entryFP += 1;
-          else if (sale.type === 'upgrade') entryFP += (Number(sale.prmr) || 0) / 85;
+          const status = typeof sale?.install_status === 'string' ? sale.install_status.toLowerCase().trim() : '';
+          if (status === 'never_installed' || status === 'pending' || status === 'cancelled' || status === 'canceled') continue;
+          entryFP += getSaleValue(sale);
         }
       } else {
-        entryFP = Number(entry.fp_plus) || 0;
+        entryFP = efpModeEnabled ? (Number(entry.prmr) || 0) / 85 : (Number(entry.fp_plus) || 0);
       }
 
       // Count finalized entries for YTD progress
@@ -203,12 +229,12 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
         const sl = entry.sales_log as any[] | null;
         if (Array.isArray(sl) && sl.length > 0) {
           for (const sale of sl) {
-            if (sale.install_status === 'never_installed' || sale.install_status === 'pending') continue;
-            if (sale.type === 'fp') trackedSince += 1;
-            else if (sale.type === 'upgrade') trackedSince += (Number(sale.prmr) || 0) / 85;
+            const status = typeof sale?.install_status === 'string' ? sale.install_status.toLowerCase().trim() : '';
+            if (status === 'never_installed' || status === 'pending' || status === 'cancelled' || status === 'canceled') continue;
+            trackedSince += getSaleValue(sale);
           }
         } else if (entry.is_finalized) {
-          trackedSince += Number(entry.fp_plus) || 0;
+          trackedSince += efpModeEnabled ? (Number(entry.prmr) || 0) / 85 : (Number(entry.fp_plus) || 0);
         }
       }
       const reconciledProgress = officialFp + trackedSince;
@@ -216,7 +242,7 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
     }
 
     return { currentProgress: effectiveProgress, knockingDays: kd, todayFP: dayFP, todayLiveFP: dayLiveFP };
-  }, [allEntries, todayStr, officialForSeason, seasonStartStr]);
+  }, [allEntries, todayStr, officialForSeason, seasonStartStr, efpModeEnabled]);
 
   const isLoading = goalsLoading || entriesLoading || plannedLoading;
 
@@ -259,9 +285,9 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
       })),
       personalSummerStart,
       personalSummerEnd: seasonConfig?.personal_summer_end || null,
-      efpModeEnabled: false, // Downline always shows FP+ (not EFP)
+      efpModeEnabled,
       conversionFactor: 1,
-      metricLabel: 'FP+',
+      metricLabel: efpModeEnabled ? 'EFP' : 'FP+',
       knockingDaysCompleted: knockingDays,
     });
   }, [goals, focusTier, isPreseason, currentProgress, todayFP, todayLiveFP, plannedDays, allEntries, personalSummerStart, seasonConfig, knockingDays, mustDoGoal, willDoGoal, couldDoGoal]);
@@ -279,7 +305,7 @@ export function useGoalPaceCalculatorForUser(userId: string | null | undefined):
       tierLabel: isPreseason ? 'Preseason' : 'Will Do',
       focusTier: isPreseason ? 'preseason' as any : focusTier,
       isPreseason,
-      metricLabel: 'FP+',
+      metricLabel: efpModeEnabled ? 'EFP' : 'FP+',
       dailyNeeded: 0,
       weeklyNeeded: 0,
       preseasonDailyPace: 0,

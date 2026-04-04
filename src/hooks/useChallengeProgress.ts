@@ -50,12 +50,12 @@ interface ParticipantProgress {
   user_id: string;
   rep_name: string;
   profile_photo_url?: string;
-  team: 'a' | 'b' | null;
+  team: string | null;
   current_value: number;
 }
 
 interface TeamProgress {
-  team: 'a' | 'b';
+  team: string;
   members: ParticipantProgress[];
   total_value: number;
 }
@@ -63,10 +63,7 @@ interface TeamProgress {
 export interface ChallengeProgressData {
   challenge: Challenge;
   participants: ParticipantProgress[];
-  teams?: {
-    a: TeamProgress;
-    b: TeamProgress;
-  };
+  teams?: Record<string, TeamProgress>;
   leader: ParticipantProgress | null;
   isUserAhead: boolean;
   userProgress: ParticipantProgress | null;
@@ -269,24 +266,20 @@ export const useChallengeProgress = (challenge: Challenge | null, options?: { in
       // Sort by value descending
       participants.sort((a, b) => b.current_value - a.current_value);
 
-      // Build team progress for group challenges
-      let teams: { a: TeamProgress; b: TeamProgress } | undefined;
-      if (challenge.type === 'group') {
-        const teamA = participants.filter(p => p.team === 'a');
-        const teamB = participants.filter(p => p.team === 'b');
-        
-        teams = {
-          a: {
-            team: 'a',
-            members: teamA,
-            total_value: teamA.reduce((sum, p) => sum + p.current_value, 0),
-          },
-          b: {
-            team: 'b',
-            members: teamB,
-            total_value: teamB.reduce((sum, p) => sum + p.current_value, 0),
-          },
-        };
+      // Build team progress for group/car_wars challenges
+      let teams: Record<string, TeamProgress> | undefined;
+      if (challenge.type === 'group' || challenge.type === 'car_wars') {
+        teams = {};
+        // Gather unique team keys
+        const teamKeys = new Set(participants.map(p => p.team).filter(Boolean) as string[]);
+        teamKeys.forEach(teamKey => {
+          const teamMembers = participants.filter(p => p.team === teamKey);
+          teams![teamKey] = {
+            team: teamKey,
+            members: teamMembers,
+            total_value: teamMembers.reduce((sum, p) => sum + p.current_value, 0),
+          };
+        });
       }
 
       const leader = participants[0] || null;

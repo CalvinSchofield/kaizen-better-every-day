@@ -13,6 +13,7 @@ import {
 import { ArrowLeft, Trash2, HelpCircle, MapPin, Clock, Loader2, Search, CalendarIcon, X } from "lucide-react";
 import { UpgradePrmrCalculator } from "@/components/UpgradePrmrCalculatorV2";
 import { supabase } from "@/integrations/supabase/client";
+import { useMapboxToken } from "@/hooks/useMapboxToken";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
@@ -118,20 +119,11 @@ export default function LogSale() {
   const [sinceTransitionMinutes, setSinceTransitionMinutes] = useState<number | null>(null);
   const [sinceDoorMinutes, setSinceDoorMinutes] = useState<number | null>(null);
 
-  // Fetch Mapbox token on mount
+  // Mapbox token from shared hook
+  const { mapboxToken: fetchedMapboxToken } = useMapboxToken();
   useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (!error && data?.token) {
-          setMapboxToken(data.token);
-        }
-      } catch (e) {
-        console.error('Failed to fetch Mapbox token:', e);
-      }
-    };
-    fetchToken();
-  }, []);
+    if (fetchedMapboxToken) setMapboxToken(fetchedMapboxToken);
+  }, [fetchedMapboxToken]);
 
   // Calculate time since last transition and door knock
   useEffect(() => {

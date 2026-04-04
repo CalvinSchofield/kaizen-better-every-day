@@ -7,10 +7,8 @@ export { RepWorkTimeline } from './RepWorkTimeline';
 export { TeamGoalSummary } from './TeamGoalSummary';
 export { EffortThresholdSettings } from './EffortThresholdSettings';
 
-export { ReportsTeamFilter } from './ReportsTeamFilter';
 export { HierarchicalRepList } from './HierarchicalRepList';
 export { LeaderStatsCard } from './LeaderStatsCard';
-export type { TeamFilter } from './ReportsTeamFilter';
 export type { TeamGoalStatus } from './TeamGoalSummary';
 
 // New dashboard layers
@@ -23,3 +21,11 @@ export { RepArchetypes } from './RepArchetypes';
 export { AutoInsights } from './AutoInsights';
 export { ProductionTrendChart } from './ProductionTrendChart';
 export { HourlyActivityChart } from './HourlyActivityChart';
+export { IntradayPaceBar } from './IntradayPaceBar';
+
+// Sales dashboard components
+export { HeroDrillDownDrawer } from './HeroDrillDownDrawer';
+export { GroupComparisonChart } from './GroupComparisonChart';
+export { PeriodComparisonCard } from './PeriodComparisonCard';
+export { GoalPaceCard } from './GoalPaceCard';
+export { CoachingAlerts } from './CoachingAlerts';

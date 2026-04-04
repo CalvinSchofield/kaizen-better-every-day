@@ -183,9 +183,15 @@ export const SwipeableTaskItem = ({
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.open(`sms:${recruit.phone}`, '_self');
-    // Open post-contact drawer for texts, passing activity context
-    onDirectText?.(recruit, activity);
+    // Use location.href for SMS on iOS Capacitor — more reliable than window.open
+    // Delay state changes to avoid interfering with the SMS intent
+    if (recruit.phone) {
+      window.location.href = `sms:${recruit.phone}`;
+    }
+    // Delay opening PostContactDrawer to let the SMS intent fire cleanly on native
+    setTimeout(() => {
+      onDirectText?.(recruit, activity);
+    }, 300);
   };
 
   // Determine what to display as the action/reason text

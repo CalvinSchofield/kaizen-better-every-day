@@ -26,18 +26,18 @@ export const clubSlug = (n: number) => `club_${n}`;
 // Streak thresholds
 export const TRANSITION_STREAK_THRESHOLDS = [3, 5, 7, 10, 14, 21, 30] as const;
 export const PRESENTATION_STREAK_THRESHOLDS = [3, 5, 7, 10, 14, 21, 30] as const;
-export const SALES_STREAK_THRESHOLDS = [3, 5, 7, 10, 14, 21] as const;
+export const SALES_STREAK_THRESHOLDS = [3, 6, 10, 12, 18, 24, 30, 36, 42, 60] as const;
 
 export const transitionStreakSlug = (n: number) => `streak_transition_${n}`;
 export const presentationStreakSlug = (n: number) => `streak_presentation_${n}`;
 export const salesStreakSlug = (n: number) => `streak_sales_${n}`;
 
-// Multi-sale streak definitions: [minCloses, consecutiveDays]
+// Multi-sale streak definitions
+const MS_DAYS = [3, 6, 10, 12, 18, 24] as const;
 export const MULTI_SALE_STREAKS = [
-  { min: 2, days: 3, slug: 'streak_multi_2_3' },
-  { min: 2, days: 5, slug: 'streak_multi_2_5' },
-  { min: 3, days: 3, slug: 'streak_multi_3_3' },
-  { min: 4, days: 3, slug: 'streak_multi_4_3' },
+  ...MS_DAYS.map(d => ({ min: 2, days: d, slug: `streak_multi_2_${d}` })),
+  ...MS_DAYS.map(d => ({ min: 3, days: d, slug: `streak_multi_3_${d}` })),
+  ...MS_DAYS.map(d => ({ min: 4, days: d, slug: `streak_multi_4_${d}` })),
 ] as const;
 
 // Special badge slugs
@@ -47,6 +47,10 @@ export const SPECIAL_SLUGS = {
   FIRST_BLOOD: 'first_blood',
   ONE_TWO_COMBO: 'one_two_combo',
   UPGRADE_ASSASSIN: 'upgrade_assassin',
+  FIRST_DOOR: 'first_door',
+  FIRST_TRANSITION: 'first_transition',
+  FIRST_PRESENTATION: 'first_presentation',
+  FIRST_SALE: 'first_sale',
 } as const;
 
 // Streak freeze rules
@@ -54,6 +58,32 @@ export const STREAK_FREEZE = {
   transition: { field: 'doors_knocked' as const, threshold: 80 },
   presentation: { field: 'transitions' as const, threshold: 2 },
   sales: null, // no freeze allowed
+} as const;
+
+// Streak protection config
+export const STREAK_PROTECTION = {
+  /** Multiplier for effort-based protection (150% of season average) */
+  EFFORT_MULTIPLIER: 1.5,
+  /** Recovery multiplier (200% of season average over 2 knocking days) */
+  RECOVERY_MULTIPLIER: 2.0,
+  /** Max protections per rolling 7-day window */
+  MAX_PER_WEEK_VET: 1,
+  MAX_PER_WEEK_ROOKIE: 2,
+  /** Minimum knocking days of history before protection is available */
+  MIN_HISTORY_DAYS: 5,
+  /** Default floor for new rookies with < 5 days history */
+  ROOKIE_DEFAULT_DOORS: 60,
+  /** Default floor for new vets with < 5 days history */
+  VET_DEFAULT_TRANSITIONS: 2,
+  /** Recovery window: number of knocking days (excluding Sundays) */
+  RECOVERY_KNOCKING_DAYS: 2,
+} as const;
+
+// Season date boundaries
+export const SEASON_DATES = {
+  PRESEASON_START: '2025-09-28',
+  SUMMER_START_GLOBAL: '2026-04-12',
+  SUMMER_END: '2026-09-26',
 } as const;
 
 // Rarity display config

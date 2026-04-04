@@ -171,7 +171,7 @@ export default function AddRecruit() {
   const { data: teamAccess } = useTeamAccess();
   
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
-  const isMgmtOrAbove = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate';
+  const isMgmtOrAbove = teamAccess?.accessLevel && !['none', 'team_lead', 'recruiter'].includes(teamAccess.accessLevel);
   const totalSteps = isLeader ? 5 : 3;
 
   // Fetch property options
@@ -233,9 +233,10 @@ export default function AddRecruit() {
       if (!r.name || !r.id) return false;
       if (currentUserId && r.userId === currentUserId) return true;
       const stageLower = (r.stage || '').toLowerCase();
-      const excludePatterns = ['not interested', 'left', 'potential', 'follow up', '100 list', '100_list', 'reached out', 'reached_out', 'evaluating'];
+      // Exclude inactive/exited reps
+      const excludePatterns = ['not interested', 'left', 'potential', 'follow up', '100 list', '100_list', 'reached out', 'reached_out'];
       if (excludePatterns.some((p) => stageLower.includes(p))) return false;
-      return stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold');
+      return stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold') || stageLower.includes('evaluating');
     });
     const byId = new Map<string, any>();
     base.forEach((r) => byId.set(r.id, r));
@@ -248,14 +249,10 @@ export default function AddRecruit() {
     return Array.from(byId.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [teamAccess?.accessibleReps, currentRep?.authUserId, currentRep?.id, selectedRecruiter]);
 
-  // Filter teams based on selected recruiter
-  const filteredTeams = useMemo(() => {
-    if (!teamAccess?.teams) return [];
-    if (!selectedRecruiter) return teamAccess.teams;
-    const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
-    if (recruiterData?.teamId) return teamAccess.teams.filter(t => t.id === recruiterData.teamId);
-    return teamAccess.teams;
-  }, [teamAccess?.teams, selectedRecruiter, allRecruiters]);
+  // All downline teams
+  const allTeams = useMemo(() => {
+    return teamAccess?.teams || [];
+  }, [teamAccess?.teams]);
 
   // Filter recruiters by selected team
   const filteredRecruiters = useMemo(() => {
@@ -318,6 +315,19 @@ export default function AddRecruit() {
     void applyTeamFromRecruiter(recruiterId);
   };
 
+  // When team changes, reset recruiter if it doesn't belong to the new team
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeam(teamId);
+    hapticLight();
+    // If current recruiter isn't on this team, reset
+    if (selectedRecruiter) {
+      const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
+      if (recruiterData && recruiterData.teamId !== teamId && recruiterData.id !== currentRep?.id) {
+        setSelectedRecruiter('');
+      }
+    }
+  };
+
   // Create recruit mutation
   const createRecruitMutation = useMutation({
     mutationFn: async (recruitData: {
@@ -340,8 +350,8 @@ export default function AddRecruit() {
           headers: { Authorization: `Bearer ${session.access_token}` },
           body: recruitData,
         }),
-        15000,
-        'Request timed out — please try again'
+        30000,
+        'Request timed out — please check your connection and try again'
       );
       if (error) {
         // Extract message from edge function error response
@@ -394,18 +404,23 @@ export default function AddRecruit() {
     const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
     const recruiterUserId = recruiterData?.userId || currentRep?.authUserId;
 
-    await createRecruitMutation.mutateAsync({
-      name: name.trim(),
-      phone: cleanPhone ? `+1${cleanPhone}` : '',
-      email: email.trim() || undefined,
-      location,
-      recruitmentSource,
-      teamId: selectedTeam || undefined,
-      stage: selectedStage,
-      spouseName: spouseName.trim() || undefined,
-      cautionNotes: cautionNotes.trim() || undefined,
-      recruiterUserId,
-    });
+    try {
+      await createRecruitMutation.mutateAsync({
+        name: name.trim(),
+        phone: cleanPhone ? `+1${cleanPhone}` : '',
+        email: email.trim() || undefined,
+        location,
+        recruitmentSource,
+        teamId: selectedTeam || undefined,
+        stage: selectedStage,
+        spouseName: spouseName.trim() || undefined,
+        cautionNotes: cautionNotes.trim() || undefined,
+        recruiterUserId,
+      });
+    } catch (e) {
+      // Error already handled by mutation's onError callback
+      console.error('handleLeaderSubmit error caught:', e);
+    }
   };
 
   const handleRepSubmit = async () => {
@@ -439,9 +454,9 @@ export default function AddRecruit() {
 
   // Get team display name
   const teamName = useMemo(() => {
-    const team = filteredTeams.find(t => t.id === selectedTeam);
+    const team = allTeams.find(t => t.id === selectedTeam);
     return getCleanName(team?.name) || '';
-  }, [selectedTeam, filteredTeams]);
+  }, [selectedTeam, allTeams]);
 
   // Render step content for leaders
   const renderLeaderStep = () => {
@@ -536,6 +551,20 @@ export default function AddRecruit() {
               <p className="text-sm text-muted-foreground">Assign to a recruiter and add notes</p>
             </div>
             <div className="space-y-4">
+              {/* Team selection first for MGMT leads */}
+              {isMgmtOrAbove && allTeams.length > 0 && (
+                <div>
+                  <Label>Team</Label>
+                  <Select value={selectedTeam} onValueChange={handleTeamChange}>
+                    <SelectTrigger className="h-12 mt-1"><SelectValue placeholder="Select team" /></SelectTrigger>
+                    <SelectContent>
+                      {allTeams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>{getCleanName(team.name)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Recruiter</Label>
                 <Select value={selectedRecruiter} onValueChange={handleRecruiterChange}>
@@ -552,19 +581,6 @@ export default function AddRecruit() {
                   </SelectContent>
                 </Select>
               </div>
-              {isMgmtOrAbove && filteredTeams.length > 0 && (
-                <div>
-                  <Label>Team</Label>
-                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                    <SelectTrigger className="h-12 mt-1"><SelectValue placeholder="Select team" /></SelectTrigger>
-                    <SelectContent>
-                      {filteredTeams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>{getCleanName(team.name)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
               <div>
                 <Label className="flex items-center gap-1.5"><Heart className="h-3.5 w-3.5 text-pink-500" /> Spouse/Partner Name</Label>
                 <Input value={spouseName} onChange={(e) => setSpouseName(e.target.value)} placeholder="Optional" className="h-12 mt-1" />

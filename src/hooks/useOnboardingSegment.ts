@@ -1,178 +1,196 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUserId } from "./useCurrentUserId";
-import { useRepData } from "./useRepData";
-import { useRookieUnlockStatus } from "./useRookieUnlockStatus";
 
-/**
- * Onboarding segment types:
- * 
- * - 'in-org-rookie-preseason': Rookie in our office, summer hasn't started
- * - 'in-org-rookie-summer': Rookie in our office, summer has started
- * - 'in-org-vet': Soph/Vet in our office
- * - 'outside-org': Any user from a different office/group
- */
 export type OnboardingSegment = 
-  | 'in-org-rookie-preseason'
-  | 'in-org-rookie-summer'
+  | 'outside-org'
   | 'in-org-vet'
-  | 'outside-org';
+  | 'in-org-rookie-preseason'
+  | 'in-org-rookie-summer';
+
+const GLOBAL_SUMMER_START = '2026-04-12';
+
+interface RepDataForSegment {
+  user_id: string;
+  year?: string | null;
+  team_leader?: string | null;
+  stage?: string | null;
+}
 
 /**
- * Determines which onboarding flow a user should see based on:
- * 1. Whether they're "in our org" (invite code creator belongs to primary office)
- * 2. Their year (Rookie vs Soph/Vet)
- * 3. Whether summer has started
+ * Determines the user's onboarding segment by checking if their team leader
+ * belongs to a team assigned to the AD's office(s).
  * 
- * "In our org" = the user's mgmt_group belongs to the primary office,
- * OR the invite code creator belongs to the primary office.
+ * Segments:
+ * - outside-org: not in the AD's office
+ * - in-org-vet: in office, year is Vet or Sophomore
+ * - in-org-rookie-preseason: in office, Rookie, summer hasn't started
+ * - in-org-rookie-summer: in office, Rookie, summer has started
  */
-export const useOnboardingSegment = () => {
-  const { userId, isReady } = useCurrentUserId();
-  const { repData } = useRepData();
-  const { hasSummerStarted } = useRookieUnlockStatus(repData);
+export const useOnboardingSegment = (repData: RepDataForSegment | null) => {
+  const { userId } = useCurrentUserId();
+  const isRookie = repData?.year === "Rookie";
+  const isVetOrSoph = repData?.year === "Vet" || repData?.year === "Sophomore";
 
-  const { data: segment, isLoading } = useQuery({
-    queryKey: ['onboarding-segment', userId],
-    enabled: isReady && !!userId,
-    staleTime: 30 * 60 * 1000, // Cache for 30 min — this doesn't change
-    gcTime: 60 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    queryFn: async (): Promise<{ isInOrg: boolean }> => {
-      if (!userId) return { isInOrg: false };
-
-      // Strategy 1: Check if the user's own recruit record has an mgmt_group
-      // that belongs to the primary office
-      const { data: recruit } = await supabase
-        .from('recruits')
-        .select('mgmt_group_id, invite_code_used')
-        .eq('id', userId)  // recruits.id matches reps.id which is the recruit UUID
+  // Check if user has a leadership role (regional+) which always means "in org"
+  const { data: hasLeadershipRole } = useQuery({
+    queryKey: ['has-leadership-role', userId],
+    enabled: !!userId,
+    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      if (!userId) return false;
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
         .maybeSingle();
-
-      // Also try matching by looking up the rep record to find the recruit
-      let mgmtGroupId = recruit?.mgmt_group_id;
-      let inviteCodeUsed = recruit?.invite_code_used;
-
-      // If no direct match, try finding recruit by email
-      if (!mgmtGroupId) {
-        const { data: repRecord } = await supabase
-          .from('reps')
-          .select('email, invite_code_used')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (repRecord?.invite_code_used) {
-          inviteCodeUsed = repRecord.invite_code_used;
-        }
-
-        if (repRecord?.email) {
-          const { data: recruitByEmail } = await supabase
-            .from('recruits')
-            .select('mgmt_group_id')
-            .ilike('email', repRecord.email)
-            .maybeSingle();
-          
-          mgmtGroupId = recruitByEmail?.mgmt_group_id || null;
-        }
-      }
-
-      // Check if mgmt_group belongs to primary office
-      if (mgmtGroupId) {
-        const { data: mgmtGroup } = await supabase
-          .from('mgmt_groups')
-          .select('office_id')
-          .eq('id', mgmtGroupId)
-          .maybeSingle();
-
-        if (mgmtGroup?.office_id) {
-          return { isInOrg: true };
-        }
-      }
-
-      // Strategy 2: Check via invite code creator
-      if (inviteCodeUsed) {
-        const { data: inviteCode } = await supabase
-          .from('invite_codes')
-          .select('inviter_user_id')
-          .eq('code', inviteCodeUsed)
-          .maybeSingle();
-
-        if (inviteCode?.inviter_user_id) {
-          // Check if inviter leads an mgmt_group with an office
-          const { data: inviterMgmt } = await supabase
-            .from('mgmt_groups')
-            .select('office_id')
-            .eq('lead_user_id', inviteCode.inviter_user_id)
-            .not('office_id', 'is', null)
-            .maybeSingle();
-
-          if (inviterMgmt?.office_id) {
-            return { isInOrg: true };
-          }
-
-          // Check if inviter is in office_staff
-          const { count } = await supabase
-            .from('office_staff')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', inviteCode.inviter_user_id);
-
-          if ((count ?? 0) > 0) {
-            return { isInOrg: true };
-          }
-
-          // Check if inviter is on a team under an mgmt_group with an office
-          const { data: inviterRep } = await supabase
-            .from('reps')
-            .select('id')
-            .eq('user_id', inviteCode.inviter_user_id)
-            .maybeSingle();
-
-          if (inviterRep?.id) {
-            const { data: inviterRecruit } = await supabase
-              .from('recruits')
-              .select('mgmt_group_id')
-              .eq('id', inviterRep.id)
-              .maybeSingle();
-
-            if (inviterRecruit?.mgmt_group_id) {
-              const { data: inviterMgmtGroup } = await supabase
-                .from('mgmt_groups')
-                .select('office_id')
-                .eq('id', inviterRecruit.mgmt_group_id)
-                .maybeSingle();
-
-              if (inviterMgmtGroup?.office_id) {
-                return { isInOrg: true };
-              }
-            }
-          }
-        }
-      }
-
-      return { isInOrg: false };
+      // Any formal role means they're "in org"
+      return !!data;
     },
   });
 
-  const isInOrg = segment?.isInOrg ?? true; // Default to in-org to avoid showing wrong flow
-  const isRookie = repData?.year === 'Rookie';
-  const isVetOrSoph = repData?.year === 'Vet' || repData?.year === 'Sophomore';
+  // Fetch office team lead names to determine if user is "in org"
+  const { data: officeTeamLeads, isLoading } = useQuery({
+    queryKey: ['office-team-leads'],
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      // Get all office IDs managed by area directors
+      const { data: staffRows } = await supabase
+        .from('office_staff')
+        .select('office_id')
+        .eq('role', 'area_director');
 
-  // Determine segment
-  let onboardingSegment: OnboardingSegment;
-  if (!isInOrg) {
-    onboardingSegment = 'outside-org';
-  } else if (isRookie) {
-    onboardingSegment = hasSummerStarted ? 'in-org-rookie-summer' : 'in-org-rookie-preseason';
-  } else {
-    onboardingSegment = 'in-org-vet';
-  }
+      if (!staffRows || staffRows.length === 0) return [];
+
+      const officeIds = staffRows.map(s => s.office_id);
+
+      // Get team lead names for teams in those offices
+      const { data: teams } = await supabase
+        .from('teams')
+        .select('lead_user_id, office_id')
+        .in('office_id', officeIds);
+
+      if (!teams || teams.length === 0) return [];
+
+      const leadUserIds = teams.map(t => t.lead_user_id).filter(Boolean) as string[];
+      if (leadUserIds.length === 0) return [];
+
+      // Get lead names from reps table
+      const { data: leads } = await supabase
+        .from('reps')
+        .select('name')
+        .in('user_id', leadUserIds);
+
+      // Also get mgmt group leads for these offices
+      const { data: mgmtGroups } = await supabase
+        .from('mgmt_groups')
+        .select('lead_user_id')
+        .in('office_id', officeIds);
+
+      const mgmtLeadIds = (mgmtGroups || []).map(m => m.lead_user_id).filter(Boolean) as string[];
+      
+      let mgmtLeadNames: string[] = [];
+      if (mgmtLeadIds.length > 0) {
+        const { data: mgmtLeads } = await supabase
+          .from('reps')
+          .select('name')
+          .in('user_id', mgmtLeadIds);
+        mgmtLeadNames = (mgmtLeads || []).map(l => l.name).filter(Boolean);
+      }
+
+      const teamLeadNames = (leads || []).map(l => l.name).filter(Boolean);
+      return [...new Set([...teamLeadNames, ...mgmtLeadNames])];
+    },
+  });
+
+  // Check if user is also a leader in the office (AD, mgmt lead, team lead)
+  const { data: isUserOfficeLeader } = useQuery({
+    queryKey: ['is-user-office-leader', userId],
+    enabled: !!userId,
+    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      if (!userId) return false;
+      // Check if user is an AD
+      const { data: adCheck } = await supabase
+        .from('area_directors')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (adCheck) return true;
+
+      // Check if user leads a team or mgmt group in an AD's office
+      const { data: staffRows } = await supabase
+        .from('office_staff')
+        .select('office_id')
+        .eq('role', 'area_director');
+      if (!staffRows || staffRows.length === 0) return false;
+      const officeIds = staffRows.map(s => s.office_id);
+
+      const { data: teamLead } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('lead_user_id', userId)
+        .in('office_id', officeIds)
+        .maybeSingle();
+      if (teamLead) return true;
+
+      const { data: mgmtLead } = await supabase
+        .from('mgmt_groups')
+        .select('id')
+        .eq('lead_user_id', userId)
+        .in('office_id', officeIds)
+        .maybeSingle();
+      return !!mgmtLead;
+    },
+  });
+
+  const isInMyOffice = useMemo(() => {
+    if (!repData || !officeTeamLeads) return false;
+    
+    // Users with formal leadership roles are always "in org"
+    if (hasLeadershipRole) return true;
+    
+    // If the user IS an office leader, they're in the org
+    if (isUserOfficeLeader) return true;
+
+    const teamLeader = repData.team_leader;
+    if (!teamLeader) return false;
+
+    // Clean the team leader text (remove emojis, trim)
+    const cleanLeader = teamLeader
+      .replace(/[\u{1F600}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}]/gu, '')
+      .trim();
+
+    // Check if the rep's team leader matches any office team/mgmt lead
+    return officeTeamLeads.some(leadName => {
+      const cleanLead = leadName
+        .replace(/[\u{1F600}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}]/gu, '')
+        .trim();
+      // Match full name or check if one contains the other
+      return cleanLeader === cleanLead || 
+             cleanLeader.includes(cleanLead) || 
+             cleanLead.includes(cleanLeader);
+    });
+  }, [repData, officeTeamLeads, isUserOfficeLeader, hasLeadershipRole]);
+
+  const isSummerStarted = useMemo(() => {
+    return new Date() >= new Date(GLOBAL_SUMMER_START + 'T00:00:00');
+  }, []);
+
+  const segment: OnboardingSegment = useMemo(() => {
+    if (!isInMyOffice) return 'outside-org';
+    if (isVetOrSoph) return 'in-org-vet';
+    if (isRookie && isSummerStarted) return 'in-org-rookie-summer';
+    return 'in-org-rookie-preseason';
+  }, [isInMyOffice, isVetOrSoph, isRookie, isSummerStarted]);
 
   return {
-    segment: onboardingSegment,
-    isInOrg,
-    isLoading: isLoading || !repData,
-    isRookie,
-    isVetOrSoph,
-    hasSummerStarted,
+    segment,
+    isInMyOffice,
+    isSummerStarted,
+    isLoading,
   };
 };

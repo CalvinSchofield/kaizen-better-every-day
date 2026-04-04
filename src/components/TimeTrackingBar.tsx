@@ -163,7 +163,7 @@ export const TimeTrackingBar = ({
         )}
 
         {/* End Clock */}
-        <div className="flex flex-col items-center gap-1">
+        <div data-tour="track-end-clock" className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
             size="sm"

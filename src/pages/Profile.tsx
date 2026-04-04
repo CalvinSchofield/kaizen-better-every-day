@@ -13,6 +13,8 @@ import { useHeader } from "@/contexts/HeaderContext";
 import { useUserBadges, useBadgeDefinitions, getTopBadges } from "@/hooks/useUserBadges";
 import { BadgeGrid } from "@/components/badges/BadgeGrid";
 import { BadgeIcon } from "@/components/badges/BadgeIcon";
+import { useCurrentSalesStreak } from "@/hooks/useCurrentSalesStreak";
+import { useStreakProtection } from "@/hooks/useStreakProtection";
 
 import { useRepProfile } from "@/hooks/useRepProfile";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -77,6 +79,8 @@ const Profile = () => {
   const { data: earnedBadges } = useUserBadges(targetUserId);
   const { data: allDefinitions } = useBadgeDefinitions();
   const topBadges = earnedBadges ? getTopBadges(earnedBadges, 2) : [];
+  const { data: salesStreakData } = useCurrentSalesStreak(targetUserId);
+  const { data: protectionData } = useStreakProtection(isOwnProfile ? targetUserId : null);
 
   // Scroll-based header title: show rep name when scrolled past the name
   useEffect(() => {
@@ -325,6 +329,54 @@ const Profile = () => {
         </div>
       </motion.div>
 
+      {/* Sales streak pill - always visible */}
+      {salesStreakData && salesStreakData.streak > 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mx-5 mt-2 mb-3"
+        >
+          <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded-full px-4 py-2">
+            <span className="text-base">🔥</span>
+            {(salesStreakData.shieldCount || 0) > 0 && <span className="text-base">🛡️</span>}
+            <span className="text-sm font-bold text-foreground">
+              {salesStreakData.streak}-Day Sales Streak
+              {(salesStreakData.shieldCount || 0) > 0 && (
+                <span className="text-xs font-medium text-muted-foreground ml-1">
+                  ({salesStreakData.shieldCount} {salesStreakData.shieldCount === 1 ? 'shield' : 'shields'})
+                </span>
+              )}
+            </span>
+            {salesStreakData.globalReached > 0 && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {salesStreakData.globalReached === 1
+                    ? "Only 1 rep has ever gotten this far"
+                    : `Only ${salesStreakData.globalReached} reps have ever gotten this far`}
+                </span>
+              </>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Recovery state pill - own profile only */}
+      {isOwnProfile && salesStreakData && salesStreakData.streak === 0 && protectionData?.hasActiveRecovery && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mx-5 mt-2 mb-3"
+        >
+          <div className="flex items-center justify-center gap-2 bg-warning/8 border border-warning/20 rounded-full px-4 py-2">
+            <span className="text-base">🔥</span>
+            <span className="text-sm font-semibold text-foreground">
+              Streak paused — earning it back
+            </span>
+          </div>
+        </motion.div>
+      )}
+
       {/* Momentum Sparkline / Goal Pace / Heatmap Swiper */}
       <ProfileSwiper
         dailyFp={profile.dailyFpValues}
@@ -378,7 +430,7 @@ const Profile = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="badges" className="mt-4">
+          <TabsContent value="badges" className="mt-4 space-y-3">
             <div className="bg-card border border-border rounded-2xl p-4">
               {allDefinitions && earnedBadges ? (
                 <BadgeGrid

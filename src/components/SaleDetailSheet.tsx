@@ -15,6 +15,7 @@ import { format, parseISO, setHours, setMinutes, addDays } from "date-fns";
 import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search, Pencil, Phone, User, Hash, DollarSign, Calendar, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useMapboxToken } from "@/hooks/useMapboxToken";
 import { CancellationConfirmDrawer } from "@/components/customers/CancellationConfirmDrawer";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
@@ -97,22 +98,11 @@ export const SaleDetailSheet = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCancellationDrawer, setShowCancellationDrawer] = useState(false);
 
-  // Fetch Mapbox token on mount
+  // Mapbox token from shared hook
+  const { mapboxToken: fetchedMapboxToken } = useMapboxToken();
   useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (!error && data?.token) {
-          setMapboxToken(data.token);
-        } else {
-          console.error('Failed to fetch Mapbox token:', error);
-        }
-      } catch (e) {
-        console.error('Failed to fetch Mapbox token:', e);
-      }
-    };
-    fetchToken();
-  }, []);
+    if (fetchedMapboxToken) setMapboxToken(fetchedMapboxToken);
+  }, [fetchedMapboxToken]);
 
   // Reset to summary view when drawer closes
   useEffect(() => {

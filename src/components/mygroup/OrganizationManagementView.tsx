@@ -100,7 +100,7 @@ export const OrganizationManagementView = () => {
         supabase.from("teams").select("*"),
         supabase.from("mgmt_groups").select("*"),
         supabase.from("team_mgmt_groups").select("*"),
-        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage, phone, email, created_at, updated_at, mgmt_group_id"),
+        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage, phone, email, created_at, updated_at, mgmt_group_id, approval_status"),
         supabase.from("reps").select("user_id, name"),
         supabase.from("offices").select("id, name, region_id"),
         supabase.from("office_staff").select("user_id, office_id, role"),
@@ -347,6 +347,14 @@ export const OrganizationManagementView = () => {
   const displayExpandedGroups = lowerQuery ? new Set(filteredData.groups.map((g) => g.id)) : expandedGroups;
   const displayExpandedTeams = lowerQuery ? new Set(filteredData.teams.map((t) => t.id)) : expandedTeams;
 
+  // Pending recruits for leader picker (recruits with approval_status = 'pending')
+  const pendingRecruitsForLeader = useMemo(() => {
+    if (!orgData) return [];
+    return orgData.recruits
+      .filter(r => (r as any).approval_status === 'pending' && r.name)
+      .map(r => ({ id: r.id, name: r.name, email: r.email }));
+  }, [orgData]);
+
   if (accessLoading || orgLoading) {
     return (
       <div className="space-y-4">
@@ -587,6 +595,7 @@ export const OrganizationManagementView = () => {
           mode={createMode}
           allReps={reps}
           allGroups={allGroups}
+          pendingRecruits={pendingRecruitsForLeader}
         />
       )}
     </div>

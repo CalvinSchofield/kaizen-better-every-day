@@ -1,36 +1,49 @@
+import { useEffect, useState } from "react";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
-import { Loader2 } from "lucide-react";
+import { AppSplashScreen } from "./AppSplashScreen";
+
+/** SessionStorage key set by the Refresh Data action to force a splash on reload */
+export const FORCE_SPLASH_KEY = 'kaizen-force-splash';
 
 interface HydrationGateProps {
   children: React.ReactNode;
 }
 
 /**
- * Global hydration gate that shows a brief splash on cold app launch
+ * Global hydration gate that shows a branded splash on cold app launch
  * until auth is ready and persisted cache can be used.
- * 
- * PERF FIX: If we have a cached userId, render immediately and verify
- * auth in the background. ProtectedRoute will catch truly expired sessions.
- * This prevents the 1-4s block on native/TestFlight where getUser() is slow.
+ *
+ * When a "Refresh Data" reload is triggered, a sessionStorage flag forces the
+ * splash to stay visible until auth is fully re-verified (not just cached).
  */
 export const HydrationGate = ({ children }: HydrationGateProps) => {
   const { userId, authVerified, canUseCachedData } = useCurrentUserId();
+
+  // Check if this is a forced-splash reload (e.g. from "Refresh Data" button)
+  const [forceSplash, setForceSplash] = useState(() => {
+    try {
+      return sessionStorage.getItem(FORCE_SPLASH_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  // Clear the flag once auth is fully verified
+  useEffect(() => {
+    if (forceSplash && authVerified) {
+      try { sessionStorage.removeItem(FORCE_SPLASH_KEY); } catch {}
+      setForceSplash(false);
+    }
+  }, [forceSplash, authVerified]);
+
+  // During a forced splash, only proceed once auth is truly verified
+  if (forceSplash) {
+    return <AppSplashScreen message="Refreshing your data…" />;
+  }
   
-  // PERF: Render immediately if we have a cached userId OR auth is verified.
-  // On native, getUser() can take 1-4s. If we have a cached userId, render
-  // optimistically - ProtectedRoute will redirect to /auth if session is truly expired.
   if (canUseCachedData || authVerified) {
     return <>{children}</>;
   }
   
-  // Brief splash only when we have NO cached userId and auth hasn't resolved yet.
-  // This should only happen on very first app install (no cache exists).
-  return (
-    <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="h-8 w-8 text-primary animate-spin" />
-        <span className="text-sm text-muted-foreground">Loading...</span>
-      </div>
-    </div>
-  );
+  return <AppSplashScreen message="Loading…" />;
 };

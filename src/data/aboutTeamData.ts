@@ -392,7 +392,7 @@ export const heroContent = {
   title: "Kaizen",
   tagline: "Better Every Day.",
   subheadline: "A team built to develop elite performers — not just sell alarms.",
-  statValue: "$48,512",
+  statValue: "$46,394",
   statLabel: "average rookie earnings"
 };
 

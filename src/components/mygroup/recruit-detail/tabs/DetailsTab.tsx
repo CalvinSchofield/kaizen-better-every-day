@@ -35,7 +35,12 @@ import {
   SelectSeparator,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafe } from "@/utils/authSession";
+
+// Mobile-optimized: use local session cache, no network refresh
+const getSessionFast = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return { session, user: session?.user ?? null };
+};
 import { toast } from "sonner";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
@@ -158,16 +163,20 @@ export const DetailsTab = ({
   const [showRoleRemoveConfirm, setShowRoleRemoveConfirm] = useState(false);
 
   // Can this user edit the recruit's role?
+  // Bootstrap authority is restricted to Calvin Schofield only
+  const BOOTSTRAP_USER_ID = '843dac61-139d-4511-a057-c3bf359a9c07';
+  const isBootstrapUser = currentUserId === BOOTSTRAP_USER_ID;
   const isOriginalInviter = recruitDetails?.recruiter_user_id === currentUserId;
-  const canEditRole = recruitRole && (
+  const isViewingSelf = recruitRole && (recruitRole as any).user_id === currentUserId;
+  const canEditRole = recruitRole && !isViewingSelf && (
     isOriginalInviter || hasMinAccess(accessLevel, 'mgmt_group_lead')
   );
 
   // Determine assignable roles for editing
   const editableRoles = useMemo(() => {
-    if (isOriginalInviter) return ASSIGNABLE_ROLES; // Bootstrap authority
+    if (isBootstrapUser && isOriginalInviter) return ASSIGNABLE_ROLES; // Bootstrap authority (Calvin only)
     return getAssignableRoles(accessLevel);
-  }, [accessLevel, isOriginalInviter]);
+  }, [accessLevel, isBootstrapUser, isOriginalInviter]);
 
   const roleJumpInfo = useMemo(() => {
     if (!newRole) return null;
@@ -739,7 +748,7 @@ const BlitzStatusCard = ({
       
       if (supabaseError) throw supabaseError;
       
-      const { session } = await getSessionSafe();
+      const { session } = await getSessionFast();
       if (session) {
         await supabase.functions.invoke('update-rookie-status', {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -954,7 +963,7 @@ const BlitzCommitmentsSection = ({
     queryClient.setQueryData(['recruit-blitzes-commitments', recruit.id], newCommittedBlitzIds);
     
     try {
-      const { session } = await getSessionSafe();
+      const { session } = await getSessionFast();
       if (!session) throw new Error('No session');
       
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {

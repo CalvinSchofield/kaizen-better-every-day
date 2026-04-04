@@ -15,6 +15,7 @@ import { parseLocalDate } from '@/utils/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSessionSafe } from "@/utils/authSession";
+import { invalidateGoalRelatedQueries } from "@/utils/goalInvalidation";
 
 interface QuickEditGoalsDrawerProps {
   open: boolean;
@@ -125,9 +126,7 @@ export const QuickEditGoalsDrawer = ({
             });
           }
 
-          queryClient.invalidateQueries({ queryKey: ['season-config-for-goals-page'] });
-          queryClient.invalidateQueries({ queryKey: ['season-config'] });
-          queryClient.invalidateQueries({ queryKey: ['season-config-whatif'] });
+          invalidateGoalRelatedQueries(queryClient);
         }
       }
 

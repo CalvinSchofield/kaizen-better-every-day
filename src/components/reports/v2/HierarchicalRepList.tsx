@@ -15,7 +15,9 @@ interface RepData {
   year?: string;
   teamName?: string | null;
   teamId?: string | null;
-  recruiterName?: string | null; // For organic hierarchy grouping
+  mgmtGroupId?: string | null;
+  mgmtGroupName?: string | null;
+  recruiterName?: string | null;
   workStartTime?: string;
   workEndTime?: string;
   avgStartTime?: string;
@@ -39,7 +41,6 @@ interface HierarchicalRepListProps {
   onRepClick?: (userId: string) => void;
 }
 
-// Format hours nicely
 const formatHours = (hours: number): string => {
   if (hours <= 0) return '—';
   const h = Math.floor(hours);
@@ -60,7 +61,6 @@ export const HierarchicalRepList = ({
   
   // Filter reps by search AND only show reps with activity
   const filteredReps = useMemo(() => {
-    // First filter to only reps who worked
     const activeReps = reps.filter(rep => {
       const hasActivity = rep.doors > 0 || rep.transitions > 0 || 
                           rep.presentations > 0 || rep.fp > 0;
@@ -68,142 +68,77 @@ export const HierarchicalRepList = ({
       return hasActivity || isCurrentlyWorking;
     });
     
-    // Then filter by search query
     if (!searchQuery.trim()) return activeReps;
     const query = searchQuery.toLowerCase();
     return activeReps.filter(rep => 
       rep.name.toLowerCase().includes(query) ||
       rep.teamName?.toLowerCase().includes(query) ||
-      rep.recruiterName?.toLowerCase().includes(query)
+      rep.mgmtGroupName?.toLowerCase().includes(query)
     );
   }, [reps, searchQuery]);
   
-  // Get first name for organic grouping (e.g., "Calder" from "Calder Severson")
-  const getFirstNameForGroup = (name: string | null | undefined): string => {
-    if (!name) return 'Ungrouped';
-    const cleanName = name.replace(/^[^\p{L}]*/u, '').trim();
-    return cleanName.split(/\s+/)[0] || 'Ungrouped';
-  };
-  
-  // Build a map of rep names to their team status for organic grouping
-  // This helps us trace up the recruiter chain to find a team lead
-  const teamLeadNames = useMemo(() => {
-    const names = new Set<string>();
-    reps.forEach(rep => {
-      if (rep.teamId && rep.teamName) {
-        // This rep has a formal team - they're a team lead or on a team
-        const firstName = getFirstNameForGroup(rep.name);
-        names.add(firstName.toLowerCase());
-      }
-    });
-    return names;
-  }, [reps]);
-  
-  // Find the closest team lead in the recruiter chain
-  const findTeamLeadRecruiter = (recruiterName: string | null | undefined): string | null => {
-    if (!recruiterName) return null;
-    
-    const firstName = getFirstNameForGroup(recruiterName);
-    
-    // If the direct recruiter is a team lead, use them
-    if (teamLeadNames.has(firstName.toLowerCase())) {
-      return firstName;
-    }
-    
-    // Try to find the recruiter's recruiter (trace up the chain)
-    // Look for a rep matching the recruiter name
-    const recruiterRep = reps.find(r => {
-      const rFirstName = getFirstNameForGroup(r.name);
-      return rFirstName.toLowerCase() === firstName.toLowerCase();
-    });
-    
-    if (recruiterRep?.recruiterName) {
-      // Recurse up to find a team lead (max 4 levels)
-      return findTeamLeadRecruiterRecursive(recruiterRep.recruiterName, 4);
-    }
-    
-    // No team lead found, use the direct recruiter
-    return firstName;
-  };
-  
-  const findTeamLeadRecruiterRecursive = (recruiterName: string, depth: number): string | null => {
-    if (depth <= 0) return getFirstNameForGroup(recruiterName);
-    
-    const firstName = getFirstNameForGroup(recruiterName);
-    
-    // If this is a team lead, return them
-    if (teamLeadNames.has(firstName.toLowerCase())) {
-      return firstName;
-    }
-    
-    // Find this recruiter's recruiter
-    const recruiterRep = reps.find(r => {
-      const rFirstName = getFirstNameForGroup(r.name);
-      return rFirstName.toLowerCase() === firstName.toLowerCase();
-    });
-    
-    if (recruiterRep?.recruiterName) {
-      return findTeamLeadRecruiterRecursive(recruiterRep.recruiterName, depth - 1);
-    }
-    
-    // Couldn't trace further, use what we have
-    return firstName;
-  };
-  
-  // Group reps by team OR by recruiter (organic hierarchy)
+  // Check if we have multi-level org data (MGMT groups)
+  const hasMgmtGroups = useMemo(() => {
+    const mgmtIds = new Set(filteredReps.map(r => r.mgmtGroupId).filter(Boolean));
+    return mgmtIds.size > 1;
+  }, [filteredReps]);
+
+  // Group reps by org hierarchy: MGMT Group > Team
   const groupedReps = useMemo(() => {
-    const groups = new Map<string, { teamName: string; teamId: string | null; reps: RepData[]; isOrganic: boolean }>();
-    
+    type TeamBucket = { name: string; id: string | null; reps: RepData[] };
+    type MgmtBucket = { name: string; id: string | null; teams: Map<string, TeamBucket>; ungrouped: RepData[] };
+
+    const mgmtMap = new Map<string, MgmtBucket>();
+    const ungroupedReps: RepData[] = [];
+
     filteredReps.forEach(rep => {
-      // Priority 1: Use team if exists (formal team structure)
-      if (rep.teamId && rep.teamName) {
-        const teamKey = rep.teamId;
-        if (!groups.has(teamKey)) {
-          groups.set(teamKey, { teamName: rep.teamName, teamId: rep.teamId, reps: [], isOrganic: false });
+      if (hasMgmtGroups && rep.mgmtGroupId) {
+        const mgmtKey = rep.mgmtGroupId;
+        if (!mgmtMap.has(mgmtKey)) {
+          mgmtMap.set(mgmtKey, { name: rep.mgmtGroupName || 'Unknown Group', id: mgmtKey, teams: new Map(), ungrouped: [] });
         }
-        groups.get(teamKey)!.reps.push(rep);
-      } 
-      // Priority 2: Group by recruiter name - trace up to find a team lead
-      else if (rep.recruiterName) {
-        // Find the closest team lead in the recruiter chain
-        const teamLeadName = findTeamLeadRecruiter(rep.recruiterName);
-        const organicKey = `organic_${(teamLeadName || 'unknown').toLowerCase()}`;
-        const groupName = `${teamLeadName || 'Unknown'}'s Group`;
-        
-        if (!groups.has(organicKey)) {
-          groups.set(organicKey, { teamName: groupName, teamId: null, reps: [], isOrganic: true });
+        const mgmt = mgmtMap.get(mgmtKey)!;
+        if (rep.teamId) {
+          if (!mgmt.teams.has(rep.teamId)) {
+            mgmt.teams.set(rep.teamId, { name: rep.teamName || 'No Team', id: rep.teamId, reps: [] });
+          }
+          mgmt.teams.get(rep.teamId)!.reps.push(rep);
+        } else {
+          mgmt.ungrouped.push(rep);
         }
-        groups.get(organicKey)!.reps.push(rep);
-      }
-      // Priority 3: Ungrouped (should be rare)
-      else {
-        const ungroupedKey = 'ungrouped';
-        if (!groups.has(ungroupedKey)) {
-          groups.set(ungroupedKey, { teamName: 'Ungrouped', teamId: null, reps: [], isOrganic: false });
+      } else if (rep.teamId) {
+        // Flat team grouping (single mgmt group or no mgmt groups)
+        const key = `team_${rep.teamId}`;
+        if (!mgmtMap.has(key)) {
+          mgmtMap.set(key, { name: rep.teamName || 'No Team', id: null, teams: new Map(), ungrouped: [] });
         }
-        groups.get(ungroupedKey)!.reps.push(rep);
+        mgmtMap.get(key)!.ungrouped.push(rep);
+      } else {
+        ungroupedReps.push(rep);
       }
     });
-    
-    // Sort groups: formal teams first (alphabetically), then organic groups, then "Ungrouped" last
-    const sortedGroups = Array.from(groups.entries()).sort(([keyA, a], [keyB, b]) => {
-      // Ungrouped always last
-      if (keyA === 'ungrouped') return 1;
-      if (keyB === 'ungrouped') return -1;
-      // Formal teams before organic groups
-      if (!a.isOrganic && b.isOrganic) return -1;
-      if (a.isOrganic && !b.isOrganic) return 1;
-      // Alphabetical within same type
-      return a.teamName.localeCompare(b.teamName);
-    });
-    
-    return sortedGroups;
-  }, [filteredReps, findTeamLeadRecruiter]);
+
+    // Convert to sorted array
+    const groups = Array.from(mgmtMap.entries()).map(([key, mgmt]) => {
+      const allReps = [...mgmt.ungrouped, ...Array.from(mgmt.teams.values()).flatMap(t => t.reps)];
+      const totalFP = allReps.reduce((s, r) => s + r.fp, 0);
+      return { key, ...mgmt, allReps, totalFP };
+    }).sort((a, b) => b.totalFP - a.totalFP);
+
+    return { groups, ungroupedReps };
+  }, [filteredReps, hasMgmtGroups]);
   
-  // Expand all by default if searching or only one team
+  // Expand all by default if searching or only one group
   const effectiveExpanded = useMemo(() => {
-    if (searchQuery.trim() || groupedReps.length === 1) {
-      return new Set(groupedReps.map(([key]) => key));
+    const totalGroups = groupedReps.groups.length + (groupedReps.ungroupedReps.length > 0 ? 1 : 0);
+    if (searchQuery.trim() || totalGroups <= 2) {
+      const all = new Set<string>();
+      groupedReps.groups.forEach(g => {
+        all.add(g.key);
+        g.teams.forEach((_, tKey) => all.add(`${g.key}:${tKey}`));
+      });
+      if (groupedReps.ungroupedReps.length > 0) all.add('__ungrouped__');
+      return all;
     }
     return expandedTeams;
   }, [searchQuery, groupedReps, expandedTeams]);
@@ -211,21 +146,9 @@ export const HierarchicalRepList = ({
   const toggleTeam = (teamKey: string) => {
     setExpandedTeams(prev => {
       const next = new Set(prev);
-      if (next.has(teamKey)) {
-        next.delete(teamKey);
-      } else {
-        next.add(teamKey);
-      }
+      next.has(teamKey) ? next.delete(teamKey) : next.add(teamKey);
       return next;
     });
-  };
-  
-  // Calculate team stats
-  const getTeamStats = (teamReps: RepData[]) => {
-    const totalFP = teamReps.reduce((sum, r) => sum + r.fp, 0);
-    const totalPRMR = teamReps.reduce((sum, r) => sum + r.prmr, 0);
-    const workingCount = teamReps.filter(r => r.isWorking).length;
-    return { totalFP, totalPRMR, workingCount };
   };
 
   const RepRow = ({ rep }: { rep: RepData }) => {
@@ -265,9 +188,7 @@ export const HierarchicalRepList = ({
               </Badge>
             )}
             {rep.isWorking && (
-              <div className="flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              </div>
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             )}
           </div>
           
@@ -315,6 +236,15 @@ export const HierarchicalRepList = ({
     );
   };
 
+  // Sort reps within a group
+  const sortReps = (list: RepData[]) =>
+    [...list].sort((a, b) => {
+      if (a.isWorking !== b.isWorking) return a.isWorking ? -1 : 1;
+      if (a.fp !== b.fp) return b.fp - a.fp;
+      if (a.presentations !== b.presentations) return b.presentations - a.presentations;
+      return b.doors - a.doors;
+    });
+
   return (
     <div className="space-y-3">
       {/* Search bar */}
@@ -336,23 +266,16 @@ export const HierarchicalRepList = ({
       
       {/* Grouped list */}
       <div className="space-y-2">
-        {groupedReps.map(([teamKey, { teamName, reps: teamReps }]) => {
-          const isExpanded = effectiveExpanded.has(teamKey);
-          const stats = getTeamStats(teamReps);
-          
-          // Sort reps: working first, then by FP desc, then by presentations
-          const sortedReps = [...teamReps].sort((a, b) => {
-            if (a.isWorking !== b.isWorking) return a.isWorking ? -1 : 1;
-            if (a.fp !== b.fp) return b.fp - a.fp;
-            if (a.presentations !== b.presentations) return b.presentations - a.presentations;
-            return b.doors - a.doors;
-          });
+        {groupedReps.groups.map(group => {
+          const isExpanded = effectiveExpanded.has(group.key);
+          const workingCount = group.allReps.filter(r => r.isWorking).length;
+          const hasNestedTeams = group.teams.size > 0 && hasMgmtGroups;
           
           return (
             <Collapsible
-              key={teamKey}
+              key={group.key}
               open={isExpanded}
-              onOpenChange={() => toggleTeam(teamKey)}
+              onOpenChange={() => toggleTeam(group.key)}
             >
               <CollapsibleTrigger className="w-full">
                 <div className={cn(
@@ -360,44 +283,124 @@ export const HierarchicalRepList = ({
                   "bg-muted/50 hover:bg-muted/70 transition-colors"
                 )}>
                   <div className="flex items-center gap-2">
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4" />
-                    )}
+                    {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     <Users className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">{teamName}</span>
+                    <span className="font-medium">{group.name}</span>
                     <Badge variant="secondary" className="text-xs">
-                      {teamReps.length}
+                      {group.allReps.length}
                     </Badge>
-                    {stats.workingCount > 0 && isLiveView && (
+                    {workingCount > 0 && isLiveView && (
                       <div className="flex items-center gap-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-[10px] text-green-600">{stats.workingCount}</span>
+                        <span className="text-[10px] text-green-600">{workingCount}</span>
                       </div>
                     )}
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {stats.totalFP > 0 && (
-                      <span className="font-semibold text-green-600 dark:text-green-400 text-sm">
-                        {stats.totalFP.toFixed(1)} FP+
-                      </span>
-                    )}
-                  </div>
+                  {group.totalFP > 0 && (
+                    <span className="font-semibold text-green-600 dark:text-green-400 text-sm">
+                      {group.totalFP.toFixed(1)} FP+
+                    </span>
+                  )}
                 </div>
               </CollapsibleTrigger>
               
               <CollapsibleContent>
-                <div className="space-y-1.5 mt-1.5 ml-4">
-                  {sortedReps.map(rep => (
-                    <RepRow key={rep.userId} rep={rep} />
-                  ))}
+                <div className="space-y-1.5 mt-1.5 ml-3">
+                  {hasNestedTeams ? (
+                    <>
+                      {Array.from(group.teams.values())
+                        .sort((a, b) => {
+                          const aFP = a.reps.reduce((s, r) => s + r.fp, 0);
+                          const bFP = b.reps.reduce((s, r) => s + r.fp, 0);
+                          return bFP - aFP;
+                        })
+                        .map(team => {
+                          const tKey = `${group.key}:${team.id}`;
+                          const tExp = effectiveExpanded.has(tKey);
+                          const teamFP = team.reps.reduce((s, r) => s + r.fp, 0);
+                          const teamWC = team.reps.filter(r => r.isWorking).length;
+
+                          return (
+                            <Collapsible key={tKey} open={tExp} onOpenChange={() => toggleTeam(tKey)}>
+                              <CollapsibleTrigger className="w-full">
+                                <div className={cn(
+                                  "flex items-center justify-between p-2.5 rounded-lg",
+                                  "bg-muted/40 hover:bg-muted/60 transition-colors"
+                                )}>
+                                  <div className="flex items-center gap-2">
+                                    {tExp ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                                    <span className="font-medium text-sm">{team.name}</span>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5">{team.reps.length}</Badge>
+                                    {teamWC > 0 && isLiveView && (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                        <span className="text-[10px] text-green-600">{teamWC}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {teamFP > 0 && (
+                                    <span className="font-semibold text-green-600 dark:text-green-400 text-sm">
+                                      {teamFP.toFixed(1)} FP+
+                                    </span>
+                                  )}
+                                </div>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="space-y-1.5 mt-1.5 ml-4">
+                                  {sortReps(team.reps).map(rep => (
+                                    <RepRow key={rep.userId} rep={rep} />
+                                  ))}
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          );
+                        })}
+                      {group.ungrouped.length > 0 && (
+                        <div className="space-y-1.5 ml-4">
+                          {sortReps(group.ungrouped).map(rep => (
+                            <RepRow key={rep.userId} rep={rep} />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-1.5 ml-4">
+                      {sortReps([...group.ungrouped, ...Array.from(group.teams.values()).flatMap(t => t.reps)]).map(rep => (
+                        <RepRow key={rep.userId} rep={rep} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </CollapsibleContent>
             </Collapsible>
           );
         })}
+
+        {/* Ungrouped reps */}
+        {groupedReps.ungroupedReps.length > 0 && (
+          <Collapsible open={effectiveExpanded.has('__ungrouped__')} onOpenChange={() => toggleTeam('__ungrouped__')}>
+            <CollapsibleTrigger className="w-full">
+              <div className={cn(
+                "flex items-center justify-between p-3 rounded-lg",
+                "bg-muted/50 hover:bg-muted/70 transition-colors"
+              )}>
+                <div className="flex items-center gap-2">
+                  {effectiveExpanded.has('__ungrouped__') ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">Ungrouped</span>
+                  <Badge variant="secondary" className="text-xs">{groupedReps.ungroupedReps.length}</Badge>
+                </div>
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-1.5 mt-1.5 ml-4">
+                {sortReps(groupedReps.ungroupedReps).map(rep => (
+                  <RepRow key={rep.userId} rep={rep} />
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </div>
       
       {/* Empty state */}

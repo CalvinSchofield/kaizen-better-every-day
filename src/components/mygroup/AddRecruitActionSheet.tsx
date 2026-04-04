@@ -27,9 +27,11 @@ const generateShortCode = () => {
 interface AddRecruitActionSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When true, only "Share Kaizen" is shown (rookies can't add to pipeline) */
+  isRookie?: boolean;
 }
 
-export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSheetProps) => {
+export const AddRecruitActionSheet = ({ open, onOpenChange, isRookie = false }: AddRecruitActionSheetProps) => {
   const navigate = useNavigate();
   const { userId } = useCurrentUserId();
   const { toast } = useToast();
@@ -172,20 +174,22 @@ export const AddRecruitActionSheet = ({ open, onOpenChange }: AddRecruitActionSh
         <div className="p-4 pb-8 space-y-3">
           {!showShareView ? (
             <>
-              <button
-                onClick={handleAddToPipeline}
-                className="w-full flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:bg-accent/50 transition-colors text-left"
-              >
-                <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <UserPlus className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">Add to Pipeline</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Add someone you want to work with
-                  </p>
-                </div>
-              </button>
+              {!isRookie && (
+                <button
+                  onClick={handleAddToPipeline}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:bg-accent/50 transition-colors text-left"
+                >
+                  <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <UserPlus className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Add to Pipeline</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Add someone you want to work with
+                    </p>
+                  </div>
+                </button>
+              )}
 
               <button
                 onClick={handleShareKaizen}

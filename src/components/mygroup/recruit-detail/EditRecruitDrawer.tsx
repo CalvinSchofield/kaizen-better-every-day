@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafe } from "@/utils/authSession";
+
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { ASSIGNABLE_ROLES, getRoleLabel, hasMinAccess, ROLE_HIERARCHY, getAssignableRoles, getRoleJumpInfo, type AccessLevel } from "@/utils/roleHierarchy";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -40,15 +40,12 @@ import { Check, ChevronsUpDown, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Drawer as ConfirmDrawer,
+  DrawerContent as ConfirmDrawerContent,
+  DrawerHeader as ConfirmDrawerHeader,
+  DrawerTitle as ConfirmDrawerTitle,
+  DrawerFooter as ConfirmDrawerFooter,
+} from "@/components/ui/drawer";
 
 interface EditRecruitDrawerProps {
   open: boolean;
@@ -208,7 +205,7 @@ export const EditRecruitDrawer = ({
   const { data: currentUserRep } = useQuery({
     queryKey: ['current-user-rep-for-edit'],
     queryFn: async () => {
-      const { user } = await getSessionSafe();
+      const { user } = await supabase.auth.getSession().then(r => ({ session: r.data.session, user: r.data.session?.user ?? null }));
       if (!user) return null;
       const { data } = await supabase
         .from('reps')
@@ -429,7 +426,7 @@ export const EditRecruitDrawer = ({
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
-      const { session } = await getSessionSafe();
+      const { session } = await supabase.auth.getSession().then(r => ({ session: r.data.session, user: r.data.session?.user ?? null }));
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('update-recruit-properties', {
@@ -502,10 +499,33 @@ export const EditRecruitDrawer = ({
       watchOutNotes: watchOutNotes.trim(),
     });
 
+    // If saving from the pending approval flow, auto-approve
+    if (showRoleAssignment) {
+      try {
+        await supabase
+          .from('recruits')
+          .update({
+            approval_status: 'approved',
+            approved_by_user_id: currentUserId,
+            approved_at: new Date().toISOString(),
+          })
+          .eq('id', recruit.id);
+        
+        // Log approval activity
+        if (currentUserId) {
+          await supabase.from('recruit_activities').insert({
+            recruit_id: recruit.id,
+            activity_type: 'note' as any,
+            logged_by_user_id: currentUserId,
+            notes: 'Signup approved ✅',
+          });
+        }
+      } catch (e) {
+        console.error('Failed to auto-approve:', e);
+      }
+    }
+
     // If a role was selected, insert into user_roles
-    // Role assignment is SEPARATE from org placement — assigning a role just gives
-    // them the right access level. Where they fit in the org tree is determined by
-    // their upline leader assigning them to the correct structure.
     if (selectedRole && canAssignRoles) {
       try {
         let recruitUserId: string | null = null;
@@ -534,20 +554,6 @@ export const EditRecruitDrawer = ({
               user_id: recruitUserId,
               role: selectedRole,
             });
-          }
-          
-          // Clear the recruiter_user_id on higher-role recruits so they don't appear
-          // as "recruited by" the person who merely gave them app access.
-          // Their actual org placement is handled separately by their upline leader.
-          const selectedRoleIndex = ROLE_HIERARCHY.indexOf(selectedRole as AccessLevel);
-          const approverRoleIndex = ROLE_HIERARCHY.indexOf(accessLevel);
-          
-          if (selectedRoleIndex > approverRoleIndex) {
-            console.log(`[EditRecruitDrawer] Clearing recruiter for higher-role signup: ${selectedRole} > ${accessLevel}`);
-            await supabase
-              .from('recruits')
-              .update({ recruiter_user_id: null })
-              .eq('id', recruit.id);
           }
         }
       } catch (e) {
@@ -968,39 +974,43 @@ export const EditRecruitDrawer = ({
         </DrawerFooter>
       </DrawerContent>
 
-      {/* Role Assignment Confirmation Dialog */}
-      <AlertDialog open={showRoleConfirm} onOpenChange={setShowRoleConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+      {/* Role Assignment Confirmation Drawer */}
+      <ConfirmDrawer open={showRoleConfirm} onOpenChange={setShowRoleConfirm}>
+        <ConfirmDrawerContent>
+          <ConfirmDrawerHeader>
+            <ConfirmDrawerTitle className="flex items-center gap-2">
               {roleJumpInfo?.isLargeJump && (
                 <AlertTriangle className="h-5 w-5 text-amber-500" />
               )}
               Confirm Role Assignment
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-left space-y-2">
-              <p>
-                You're about to assign <strong>{name}</strong> the role of{' '}
-                <strong>{getRoleLabel(selectedRole as AccessLevel)}</strong>.
+            </ConfirmDrawerTitle>
+          </ConfirmDrawerHeader>
+          <div className="px-4 pb-2 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              You're about to assign <strong>{name}</strong> the role of{' '}
+              <strong>{getRoleLabel(selectedRole as AccessLevel)}</strong>.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              This will give them management access at that level.
+            </p>
+            {roleJumpInfo?.isLargeJump && (
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                ⚠️ This role is {roleJumpInfo.levelDiff} levels above your own — please double-check this is correct.
               </p>
-              <p className="text-muted-foreground">
-                This will give them management access at that level.
-              </p>
-              {roleJumpInfo?.isLargeJump && (
-                <p className="text-amber-600 dark:text-amber-400 font-medium">
-                  ⚠️ This role is {roleJumpInfo.levelDiff} levels above your own — please double-check this is correct.
-                </p>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Go Back</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSave}>
-              Yes, Assign {getRoleLabel(selectedRole as AccessLevel)}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            )}
+          </div>
+          <ConfirmDrawerFooter className="border-t pt-4">
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowRoleConfirm(false)}>
+                Go Back
+              </Button>
+              <Button className="flex-1" onClick={handleSave}>
+                Yes, Assign {getRoleLabel(selectedRole as AccessLevel)}
+              </Button>
+            </div>
+          </ConfirmDrawerFooter>
+        </ConfirmDrawerContent>
+      </ConfirmDrawer>
     </Drawer>
   );
 };

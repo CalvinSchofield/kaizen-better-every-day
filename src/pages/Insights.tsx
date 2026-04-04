@@ -10,23 +10,20 @@ import { useEfpMode } from '@/hooks/useEfpMode';
 import { useCumulativeFP } from '@/hooks/useCumulativeFP';
 import { useAvailableInsightsPresets, InsightsDatePreset, PRESEASON_START, SUMMER_START } from '@/hooks/useAvailableDatePresets';
 import { useSalesRealtime } from '@/hooks/useSalesRealtime';
+import { useHeader } from '@/contexts/HeaderContext';
 
-import { Calendar as CalendarIcon, Lock, BarChart3 } from 'lucide-react';
+import { Calendar as CalendarIcon, Lock, BarChart3, Sparkles } from 'lucide-react';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { CustomDateRangeDrawer } from '@/components/shared/CustomDateRangeDrawer';
 import { cn } from '@/lib/utils';
-import { AICoachFab } from '@/components/insights/AICoachFab';
+import { InsightsChat } from '@/components/insights/InsightsChat';
 import { InsightsOverviewTab } from '@/components/insights/InsightsOverviewTab';
 import { InsightsPerformanceTab } from '@/components/insights/InsightsPerformanceTab';
 import { InsightsPatternsTab } from '@/components/insights/InsightsPatternsTab';
 import { InsightsDealsTab } from '@/components/insights/InsightsDealsTab';
+import { PageTour } from '@/components/PageTour';
+import { usePageTour } from '@/hooks/usePageTour';
+import { insightsTourSteps } from '@/config/pageTours';
 
 type DatePreset = InsightsDatePreset;
 type InsightsTab = 'overview' | 'performance' | 'patterns' | 'deals';
@@ -76,6 +73,24 @@ export default function Insights() {
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'insights' });
+  const [chatOpen, setChatOpen] = useState(false);
+  const { setCustomRightContent } = useHeader();
+
+  // Put AI Coach button in the app header
+  useEffect(() => {
+    setCustomRightContent(
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setChatOpen(true)}
+        className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20"
+      >
+        <Sparkles className="h-5 w-5 text-primary" />
+      </Button>
+    );
+    return () => setCustomRightContent(null);
+  }, [setCustomRightContent]);
   
   
   
@@ -348,74 +363,29 @@ export default function Insights() {
         )}
       </div>
 
-      {/* AI Coach Floating Button */}
-      {insights && insights.daysWorked > 0 && <AICoachFab />}
+      {/* AI Coach Chat */}
+      <InsightsChat isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
-      {/* Custom Date Range Sheet */}
-      <Sheet open={showCustomDialog} onOpenChange={setShowCustomDialog}>
-        <SheetContent side="bottom" className="rounded-t-3xl">
-          <SheetHeader>
-            <SheetTitle>Select Custom Date Range</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Start Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customStartDate ? format(customStartDate, 'PPP') : 'Pick start date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customStartDate}
-                    onSelect={setCustomStartDate}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-2 block">End Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customEndDate}
-                    onSelect={setCustomEndDate}
-                    disabled={(date) => customStartDate ? date < customStartDate : false}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+      {/* Custom Date Range Drawer */}
+      <CustomDateRangeDrawer
+        open={showCustomDialog}
+        onOpenChange={setShowCustomDialog}
+        startDate={customStartDate}
+        endDate={customEndDate}
+        onApply={(start, end) => {
+          setCustomStartDate(start);
+          setCustomEndDate(end);
+          setHasUserSelectedPreset(true);
+          setDatePreset('custom');
+        }}
+      />
 
-            <Button 
-              onClick={() => {
-                setHasUserSelectedPreset(true);
-                setDatePreset('custom');
-                setShowCustomDialog(false);
-              }} 
-              className="w-full"
-              disabled={!customStartDate || !customEndDate}
-            >
-              Apply Date Range
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
+      <PageTour
+        steps={insightsTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </div>
   );
 }

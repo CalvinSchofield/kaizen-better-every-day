@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, Loader2, User, ChevronDown } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { format, addDays, getDay, startOfDay } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { MentionInput } from "@/components/mygroup/recruit-detail/MentionInput";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import { 
   Drawer, 
   DrawerContent, 
@@ -17,7 +17,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Recruit, RecruitActivity, useUpdateRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { useActivityCalendarEvent } from "@/hooks/useActivityCalendarEvents";
-import { AddToCalendarPrompt } from "./AddToCalendarPrompt";
+import { AddToCalendarDrawer } from "./AddToCalendarPrompt";
+import { AssigneeSelector } from "./AssigneeSelector";
+import { useRepData } from "@/hooks/useRepData";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +62,7 @@ export const RescheduleActivityDrawer = ({
   const [taskMentions, setTaskMentions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<AssignableUser | null>(null);
-  const [showAssigneePopover, setShowAssigneePopover] = useState(false);
+  const { repData } = useRepData();
   
   // Calendar prompt state
   const [showCalendarPrompt, setShowCalendarPrompt] = useState(false);
@@ -145,9 +147,14 @@ export const RescheduleActivityDrawer = ({
       
       // If user had this in their calendar and task is still assigned to them, show prompt to update
       if (existingCalendarEvent && !selectedAssignee) {
-        setScheduledDateString(dateOnlyString);
-        setPreviousDateString(prevDate);
-        setShowCalendarPrompt(true);
+        const savedDate = dateOnlyString;
+        const savedPrevDate = prevDate;
+        handleCloseComplete();
+        setTimeout(() => {
+          setScheduledDateString(savedDate);
+          setPreviousDateString(savedPrevDate);
+          setShowCalendarPrompt(true);
+        }, 350);
       } else {
         handleCloseComplete();
       }
@@ -175,6 +182,7 @@ export const RescheduleActivityDrawer = ({
   if (!recruit || !activity) return null;
 
   return (
+    <>
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader className="border-b">
@@ -183,7 +191,7 @@ export const RescheduleActivityDrawer = ({
           </DrawerTitle>
         </DrawerHeader>
         
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-x-hidden">
           {/* Editable task text */}
           <div>
             <label className="text-sm font-medium mb-2 block">
@@ -250,82 +258,17 @@ export const RescheduleActivityDrawer = ({
             <label className="text-sm font-medium mb-2 block">
               Assign to (optional)
             </label>
-            {assignableUsersLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : assignableUsers.length > 0 ? (
-              <Popover open={showAssigneePopover} onOpenChange={setShowAssigneePopover}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between"
-                    role="combobox"
-                  >
-                    <span className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      {selectedAssignee ? selectedAssignee.name : "Me (default)"}
-                    </span>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[280px] p-2" align="start">
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant={!selectedAssignee ? "secondary" : "ghost"}
-                      className="w-full justify-start"
-                      onClick={() => {
-                        setSelectedAssignee(null);
-                        setShowAssigneePopover(false);
-                      }}
-                    >
-                      <User className="h-4 w-4 mr-2" />
-                      Me (default)
-                    </Button>
-                    {assignableUsers.map((user) => (
-                      <Button
-                        key={user.userId}
-                        variant={selectedAssignee?.userId === user.userId ? "secondary" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => {
-                          setSelectedAssignee(user);
-                          setShowAssigneePopover(false);
-                        }}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">{user.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">{user.role}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                disabled
-              >
-                <User className="h-4 w-4 mr-2" />
-                Me (default)
-              </Button>
-            )}
+            <AssigneeSelector
+              assignableUsers={assignableUsers}
+              selectedAssignee={selectedAssignee}
+              onSelect={setSelectedAssignee}
+              isLoading={assignableUsersLoading}
+              currentUserPhotoUrl={repData?.profile_photo_url}
+            />
           </div>
         </div>
 
-        {/* Calendar Prompt - shown after successful reschedule if user had it in calendar */}
-        {showCalendarPrompt && activity && scheduledDateString && (
-          <AddToCalendarPrompt
-            activityId={activity.id}
-            recruit={recruit}
-            scheduledDate={scheduledDateString}
-            notes={taskText}
-            onClose={handleCloseComplete}
-            isReschedule={true}
-            previousDate={previousDateString}
-          />
-        )}
-
-        {!showCalendarPrompt && (
-          <DrawerFooter className="border-t">
+        <DrawerFooter className="border-t">
             <Button 
               onClick={handleReschedule}
               disabled={!selectedDate || isLoading}
@@ -351,9 +294,26 @@ export const RescheduleActivityDrawer = ({
             >
               Cancel
             </Button>
-          </DrawerFooter>
-        )}
+        </DrawerFooter>
       </DrawerContent>
     </Drawer>
+
+    {recruit && activity && scheduledDateString && (
+      <AddToCalendarDrawer
+        open={showCalendarPrompt}
+        activityId={activity.id}
+        recruit={recruit}
+        scheduledDate={scheduledDateString}
+        notes={taskText}
+        onClose={() => {
+          setShowCalendarPrompt(false);
+          setScheduledDateString('');
+          setPreviousDateString(undefined);
+        }}
+        isReschedule={true}
+        previousDate={previousDateString}
+      />
+    )}
+    </>
   );
 };

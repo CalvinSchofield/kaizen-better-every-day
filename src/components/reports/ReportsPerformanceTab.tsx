@@ -8,6 +8,10 @@ import { SalesFunnelChart } from "@/components/insights/SalesFunnelChart";
 import { TeamProgressChart } from "./TeamProgressChart";
 import { TeamCanceledStatsCard } from "./TeamCanceledStatsCard";
 import { TrendingUp, TrendingDown, Target, Clock } from "lucide-react";
+import { GroupComparisonChart } from "./v2/GroupComparisonChart";
+import { PeriodComparisonCard } from "./v2/PeriodComparisonCard";
+import { GoalPaceCard } from "./v2/GoalPaceCard";
+import { AccessLevel } from "@/utils/roleHierarchy";
 
 interface FunnelData {
   doors: { total: number; conversionToNext: number };
@@ -55,8 +59,26 @@ interface ReportsPerformanceTabProps {
   dailyTrendByRep?: any;
   dailyTrendByTeam?: any;
   dailyTrendByMgmt?: any;
-  accessLevel: import("@/utils/roleHierarchy").AccessLevel;
+  accessLevel: AccessLevel;
   cumulativeLoading?: boolean;
+  
+  // Period comparison
+  comparisonData?: {
+    current: { fp: number; prmr: number; doors: number; presentations: number; closes: number; hoursWorked: number; repsWorked: number };
+    previous: { fp: number; prmr: number; doors: number; presentations: number; closes: number; hoursWorked: number; repsWorked: number } | null;
+    currentLabel: string;
+    previousLabel: string;
+  };
+  
+  // Goal pace
+  goalPaceReps?: Array<{
+    name: string;
+    userId: string;
+    status: 'on_pace' | 'at_risk' | 'behind' | 'no_goals';
+    gapToGoal?: number;
+    percentComplete?: number;
+  }>;
+  onGoalPaceDrawerOpen?: () => void;
   
   canceledStats?: any;
   canceledLoading?: boolean;
@@ -157,6 +179,9 @@ export const ReportsPerformanceTab = ({
   dailyTrendByMgmt,
   accessLevel,
   cumulativeLoading,
+  comparisonData,
+  goalPaceReps,
+  onGoalPaceDrawerOpen,
   canceledStats,
   canceledLoading,
   canceledTitle,
@@ -193,6 +218,31 @@ export const ReportsPerformanceTab = ({
       {/* AI Coach */}
       <AICoachSection />
 
+      {/* Group Comparison Chart */}
+      <GroupComparisonChart
+        groupedByTeam={groupedByTeam}
+        groupedByMgmt={groupedByMgmt}
+        accessLevel={accessLevel}
+        isLoading={isLoading}
+      />
+
+      {/* Period-over-Period Comparison */}
+      {comparisonData && (
+        <PeriodComparisonCard
+          current={comparisonData.current}
+          previous={comparisonData.previous}
+          currentLabel={comparisonData.currentLabel}
+          previousLabel={comparisonData.previousLabel}
+        />
+      )}
+
+      {/* Goal Pace Tracker */}
+      {goalPaceReps && goalPaceReps.length > 0 && onGoalPaceDrawerOpen && (
+        <GoalPaceCard
+          reps={goalPaceReps}
+          onOpenDrawer={onGoalPaceDrawerOpen}
+        />
+      )}
       {/* Sales Funnel */}
       {insightsData.funnelData && (
         <Card className="p-4">

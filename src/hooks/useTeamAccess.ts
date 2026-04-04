@@ -1,8 +1,51 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
+import { useCurrentUserId } from "./useCurrentUserId";
 
 import type { AccessLevel } from "@/utils/roleHierarchy";
+
+interface HierarchyTeam {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+}
+
+interface HierarchyMgmtGroup {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+  teams: HierarchyTeam[];
+}
+
+interface HierarchySrMgmtGroup {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+  mgmtGroups: HierarchyMgmtGroup[];
+}
+
+interface HierarchyOffice {
+  id: string;
+  name: string;
+  location: string | null;
+  srMgmtGroups: HierarchySrMgmtGroup[];
+  mgmtGroups: HierarchyMgmtGroup[];
+  teams: HierarchyTeam[];
+}
+
+export interface OrgHierarchy {
+  offices: HierarchyOffice[];
+}
+
+export interface SrMgmtGroupInfo {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+  officeId: string | null;
+  regionId: string | null;
+  mgmtGroupIds: string[];
+}
 
 interface TeamAccessResponse {
   accessLevel: AccessLevel;
@@ -19,8 +62,8 @@ interface TeamAccessResponse {
   }>;
   accessibleUserIds: string[];
   accessibleReps: Array<{
-    id: string; // Supabase UUID for the rep record
-    userId: string | null; // null for ghost reps (no app account)
+    id: string;
+    userId: string | null;
     name: string;
     phone?: string | null;
     year?: string | null;
@@ -29,66 +72,73 @@ interface TeamAccessResponse {
     teamName?: string | null;
     mgmtGroupId?: string | null;
     mgmtGroupName?: string | null;
-    isGhostRep?: boolean; // true if rep has no app account
+    isGhostRep?: boolean;
     rampPhase1Complete?: boolean;
-    recruiterName?: string | null; // For organic hierarchy grouping
+    recruiterName?: string | null;
   }>;
+  isAreaDirector: boolean;
+  userOfficeIds: string[];
+  srMgmtGroups: SrMgmtGroupInfo[];
+  hierarchy: OrgHierarchy;
 }
 
-export const useTeamAccess = () => {
-  // Load cached data for instant hydration
-  const getCachedData = (): TeamAccessResponse | undefined => {
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('team-access-cache:v4:')) {
-          const cached = localStorage.getItem(key);
-          if (cached) {
-            const { data } = JSON.parse(cached);
-            return data as TeamAccessResponse;
-          }
-        }
-      }
-    } catch { /* ignore */ }
+const getCachedData = (userId: string | null): TeamAccessResponse | undefined => {
+  if (!userId) return undefined;
+
+  try {
+    const cached = localStorage.getItem(`team-access-cache:v4:${userId}`);
+    if (!cached) return undefined;
+
+    const { data } = JSON.parse(cached);
+    return data as TeamAccessResponse;
+  } catch {
     return undefined;
-  };
+  }
+};
+
+export const useTeamAccess = () => {
+  const { userId, authVerified } = useCurrentUserId();
+  const cachedData = getCachedData(userId);
 
   const query = useQuery({
-    queryKey: ['team-access'],
+    queryKey: ["team-access", userId],
+    enabled: authVerified && !!userId,
     queryFn: async () => {
-      const { session } = await getSessionSafe();
-
-      if (!session) {
-        throw new Error('Not authenticated');
+      if (!userId) {
+        throw new Error("Not authenticated");
       }
 
-      const CACHE_KEY = `team-access-cache:v4:${session.user.id}`;
+      const CACHE_KEY = `team-access-cache:v4:${userId}`;
+      const cachedRaw = localStorage.getItem(CACHE_KEY);
+      let cachedResult: TeamAccessResponse | null = cachedData ?? null;
 
-      // Try to load from cache first (scoped per user)
-      const cachedData = localStorage.getItem(CACHE_KEY);
-      let cachedResult: TeamAccessResponse | null = null;
-      
-      if (cachedData) {
+      if (cachedRaw) {
         try {
-          const { data, timestamp } = JSON.parse(cachedData);
-          // Use cache if less than 5 minutes old
+          const { data, timestamp } = JSON.parse(cachedRaw);
           if (Date.now() - timestamp < 5 * 60 * 1000) {
             return data as TeamAccessResponse;
           }
-          // Keep stale cache as fallback
           cachedResult = data as TeamAccessResponse;
         } catch (e) {
-          console.error('Failed to parse team access cache:', e);
+          console.error("Failed to parse team access cache:", e);
         }
       }
 
+      const { session } = await getSessionSafe();
+      if (!session) {
+        if (cachedResult) {
+          console.log("[useTeamAccess] No fresh session yet, returning cached team access");
+          return cachedResult;
+        }
+        throw new Error("Not authenticated");
+      }
+
       try {
-        // PERF FIX: Reduced timeout from 12s to 8s for native — fail fast and serve stale cache
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), 8000);
+          setTimeout(() => reject(new Error("Request timeout")), 8000);
         });
 
-        const fetchPromise = supabase.functions.invoke('fetch-team-access', {
+        const fetchPromise = supabase.functions.invoke("fetch-team-access", {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
@@ -97,68 +147,50 @@ export const useTeamAccess = () => {
         const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
         if (error) {
-          console.error('[useTeamAccess] Edge function error:', error);
-          // If we have cached data, return it instead of throwing
+          console.error("[useTeamAccess] Edge function error:", error);
           if (cachedResult) {
-            console.log('[useTeamAccess] Returning stale cache due to error');
+            console.log("[useTeamAccess] Returning stale cache due to error");
             return cachedResult;
           }
           throw error;
         }
 
-        // Update cache (best-effort - don't fail the request if caching fails)
         try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({
-            data,
-            timestamp: Date.now()
-          }));
+          localStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({
+              data,
+              timestamp: Date.now(),
+            })
+          );
         } catch (cacheError) {
-          console.warn('[useTeamAccess] Failed to cache result (storage full?):', cacheError);
+          console.warn("[useTeamAccess] Failed to cache result (storage full?):", cacheError);
         }
 
         return data as TeamAccessResponse;
       } catch (fetchError: any) {
-        console.error('[useTeamAccess] Fetch failed:', fetchError?.message || fetchError);
-        // Return cached data if available (stale is better than nothing)
+        console.error("[useTeamAccess] Fetch failed:", fetchError?.message || fetchError);
         if (cachedResult) {
-          console.log('[useTeamAccess] Returning stale cache due to fetch failure');
+          console.log("[useTeamAccess] Returning stale cache due to fetch failure");
           return cachedResult;
         }
         throw fetchError;
       }
     },
-    placeholderData: getCachedData(), // Instant hydration from localStorage
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-    gcTime: 1000 * 60 * 30, // Keep in memory for 30 minutes
-    retry: 2, // Reduced from 3 to prevent long waits
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Cap at 5s instead of 8s
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    retry: (failureCount, error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === "Not authenticated") return false;
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
-
-  // Check if we SHOULD be a leader based on cached data (for recovery UI)
-  const wasLeaderInCache = (): boolean => {
-    try {
-      // Check any cached key for this format
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('team-access-cache:v4:')) {
-          const cached = localStorage.getItem(key);
-          if (cached) {
-            const { data } = JSON.parse(cached);
-            if (data?.accessLevel && data.accessLevel !== 'none') {
-              return true;
-            }
-          }
-        }
-      }
-    } catch (e) {
-      // Ignore parse errors
-    }
-    return false;
-  };
 
   return {
     ...query,
-    // Expose whether this might be a failed leader session
-    wasLeader: wasLeaderInCache(),
+    data: query.data ?? cachedData,
+    isLoading: !authVerified || query.isLoading,
+    wasLeader: !!cachedData?.accessLevel && cachedData.accessLevel !== "none",
   };
 };

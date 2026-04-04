@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LayoutGrid, Sun, Building2, Bell, Target } from "lucide-react";
+import { LayoutGrid, Sun, Bell, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { 
   Drawer, 
@@ -10,14 +10,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecruitKanbanBoard } from "./RecruitKanbanBoard";
 import { SummerAvailabilityView } from "./SummerAvailabilityView";
-import { OrganizationManagementView } from "./OrganizationManagementView";
 import { ActivityDigestView } from "./ActivityDigestView";
 import { GoalsTabView } from "./GoalsTabView";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useTotalUnreadCount } from "@/hooks/useActivitySocial";
 
-type ViewMode = 'board' | 'availability' | 'org' | 'digest' | 'goals';
+type ViewMode = 'board' | 'availability' | 'digest' | 'goals';
 
 interface QuickViewDrawerProps {
   open: boolean;
@@ -32,8 +31,6 @@ const getDrawerTitle = (viewMode: ViewMode) => {
   switch (viewMode) {
     case 'availability':
       return 'Summer Availability';
-    case 'org':
-      return 'Organization';
     case 'digest':
       return 'Activity Digest';
     case 'goals':
@@ -69,17 +66,16 @@ export const QuickViewDrawer = ({
     }
   }, [open, initialTab, unreadCount]);
 
-  // Show org/goals tabs for leaders with downline access (AD, MGMT Lead, Team Lead)
-  const canViewOrg = teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate' || 
+  // Show goals tab for leaders with downline access
+  const canViewGoals = teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'corporate' || 
                      teamAccess?.accessLevel === 'mgmt_group_lead' || 
-                     teamAccess?.accessLevel === 'team_lead';
-  const canViewGoals = canViewOrg || teamAccess?.accessLevel === 'recruiter';
+                     teamAccess?.accessLevel === 'team_lead' ||
+                     teamAccess?.accessLevel === 'recruiter';
   const showBadge = viewMode === 'board';
 
   // Handle activity tap from digest - close drawer and open recruit detail
   const handleActivityTap = (recruitId: string, activityId: string) => {
     onOpenChange(false);
-    // Small delay to allow drawer close animation
     setTimeout(() => {
       onOpenRecruitDetail?.(recruitId, 'activity');
     }, 150);
@@ -95,7 +91,7 @@ export const QuickViewDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90dvh]">
+      <DrawerContent className="h-[90dvh]">
         <DrawerHeader className="border-b">
           <div className="flex items-center justify-between">
             <DrawerTitle className="flex items-center gap-2">
@@ -130,11 +126,6 @@ export const QuickViewDrawer = ({
                     <Target className="h-4 w-4" />
                   </TabsTrigger>
                 )}
-                {canViewOrg && (
-                  <TabsTrigger value="org" className="px-2" title="Organization">
-                    <Building2 className="h-4 w-4" />
-                  </TabsTrigger>
-                )}
               </TabsList>
             </Tabs>
           </div>
@@ -152,9 +143,7 @@ export const QuickViewDrawer = ({
             <SummerAvailabilityView />
           ) : viewMode === 'goals' ? (
             <GoalsTabView onRepClick={handleGoalsRepClick} />
-          ) : (
-            <OrganizationManagementView />
-          )}
+          ) : null}
         </div>
       </DrawerContent>
     </Drawer>

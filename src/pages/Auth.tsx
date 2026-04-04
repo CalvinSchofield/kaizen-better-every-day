@@ -58,7 +58,7 @@ const Auth = () => {
     // If coming from callback with recovery flag, set password reset mode
     if (isRecoveryFromCallback) {
       setIsPasswordReset(true);
-      return; // Don't check session or redirect
+      return; // Don't check session or redirect — user needs to set new password
     }
     
     // Listen for auth state changes to detect password recovery
@@ -66,30 +66,16 @@ const Auth = () => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordReset(true);
       } else if (event === 'SIGNED_IN' && session && !isPasswordReset && !isRecoveryFromCallback) {
-        const setupComplete = localStorage.getItem('kaizen-setup-complete');
-        if (setupComplete) {
-          navigate("/");
-        } else {
-          navigate("/setup");
-        }
+        navigate("/");
       }
     });
 
     // Check if user is already logged in (but not if we're doing password reset)
-    if (!isRecoveryFromCallback) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session && !isPasswordReset) {
-          const setupComplete = localStorage.getItem('kaizen-setup-complete');
-          if (setupComplete) {
-            navigate("/");
-          } else {
-            navigate("/setup");
-          }
-        }
-      });
-    }
-
-    return () => subscription.unsubscribe();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && !isPasswordReset) {
+        navigate("/");
+      }
+    });
 
     // Set default view based on signup history
     if (hasUserSignedUp()) {
@@ -97,7 +83,7 @@ const Auth = () => {
     }
 
     return () => subscription.unsubscribe();
-  }, [navigate, isPasswordReset]);
+  }, [navigate, isPasswordReset, isRecoveryFromCallback]);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,12 +123,7 @@ const Auth = () => {
       setConfirmPassword("");
       
       // Redirect to home
-      const setupComplete = localStorage.getItem('kaizen-setup-complete');
-      if (setupComplete) {
-        navigate("/");
-      } else {
-        navigate("/setup");
-      }
+      navigate("/");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -171,15 +152,21 @@ const Auth = () => {
         hapticSuccess();
         // Welcome message will show on the loading screen instead
         
-        // Check if setup has been completed
-        const setupComplete = localStorage.getItem('kaizen-setup-complete');
-        if (setupComplete) {
-          navigate("/");
-        } else {
-          navigate("/setup");
-        }
+        // Always navigate to home — ProtectedRoute + useSetupStatus will
+        // gate to /goals if setup is genuinely incomplete, using DB truth
+        // rather than a localStorage flag that gets cleared on unexpected signouts.
+        navigate("/");
       } else {
-        // Sign up
+        // Sign up — require invite code
+        if (!inviteCode) {
+          toast({
+            title: "Invite required",
+            description: "You need an invite link from your team leader to sign up.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
         if (!name.trim()) {
           toast({
             title: "Name required",
@@ -412,6 +399,7 @@ const Auth = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
+                autoComplete={isLogin ? "username" : "email"}
               />
               {!isLogin && (
                 <p className="text-xs text-muted-foreground">
@@ -432,6 +420,7 @@ const Auth = () => {
                 required
                 disabled={isLoading}
                 minLength={6}
+                autoComplete={isLogin ? "current-password" : "new-password"}
               />
             </div>
             <Button
@@ -463,17 +452,23 @@ const Auth = () => {
             <div className="space-y-3">
               {isLogin ? (
                 <>
-                  <div className="bg-primary/10 rounded-lg p-3 border border-primary/20">
-                    <p className="text-sm text-muted-foreground mb-1">New to Kaizen?</p>
-                    <button
-                      type="button"
-                      onClick={() => setIsLogin(false)}
-                      className="text-primary hover:underline font-semibold text-base"
-                      disabled={isLoading}
-                    >
-                      Create an account →
-                    </button>
-                  </div>
+                  {inviteCode ? (
+                    <div className="bg-primary/10 rounded-lg p-3 border border-primary/20">
+                      <p className="text-sm text-muted-foreground mb-1">New to Kaizen?</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsLogin(false)}
+                        className="text-primary hover:underline font-semibold text-base"
+                        disabled={isLoading}
+                      >
+                        Create an account →
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Need an account? Ask your team leader for an invite link.
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => navigate("/forgot-password")}

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Check, X, MapPin, Wifi, Key, Moon, AlertTriangle, Swords, Users, CloudSun, Pencil } from "lucide-react";
+import { ChevronRight, Check, X, MapPin, Wifi, Key, Moon, AlertTriangle, Swords, Users, CloudSun, Pencil, Lock, Calendar as CalendarIcon } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditSummerDatesDrawer } from "@/components/mygroup/EditSummerDatesDrawer";
 import { useCurrentUserId } from "@/hooks/useCurrentUserId";
@@ -15,6 +15,9 @@ import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { useBlitzRecapStats } from "@/hooks/useBlitzRecapStats";
 import { BlitzRecapCard } from "@/components/BlitzRecapCard";
 import { BlitzDetailDrawer } from "@/components/blitz/BlitzDetailDrawer";
+import { useRookieUnlockStatus } from "@/hooks/useRookieUnlockStatus";
+import { useRepGoals } from "@/hooks/useRepGoals";
+import { Card, CardContent } from "@/components/ui/card";
 
 import { formatBlitzDateRange as formatBlitzDateRangeUtil } from "@/utils/blitzDateUtils";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
@@ -97,6 +100,13 @@ const Blitzes = () => {
   const isLeader = teamAccessData?.accessLevel && teamAccessData.accessLevel !== 'none';
 
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
+
+  // Check if user is a pre-blitz rookie (locked out of production pages)
+  const { isPreBlitzRookie } = useRookieUnlockStatus(repData);
+  
+  // Check if goals are set up (gate for all users, not just rookies)
+  const { goals } = useRepGoals();
+  const needsGoalSetup = repData && !isPreBlitzRookie && !goals?.setup_complete;
 
   const committedBlitzesArr = (repData?.committed_blitzes as any[]) || [];
 
@@ -379,6 +389,41 @@ const Blitzes = () => {
     hidden: { opacity: 0, y: 12 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
   };
+
+  // Show locked state for pre-blitz rookies or anyone without goal setup
+  if (isPreBlitzRookie || needsGoalSetup) {
+    return (
+      <div className="min-h-screen bg-background p-4 pb-24 flex items-center justify-center">
+        <Card className="w-full max-w-md border-border/40">
+          <CardContent className="pt-8 pb-8 text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="relative">
+                <CalendarIcon className="h-16 w-16 text-muted-foreground/40" />
+                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1">
+                  <Lock className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-foreground">
+                {isPreBlitzRookie ? "Blitzes Unlock After Setup!" : "Set Up Your Goals First"}
+              </h2>
+              <p className="text-muted-foreground leading-relaxed">
+                {isPreBlitzRookie 
+                  ? "Complete your goal setup first, then you'll have full access to blitz details, RSVPs, and your summer schedule right here."
+                  : "Complete your goal setup to unlock your blitz schedule, RSVPs, and summer planning."}
+              </p>
+            </div>
+            <div className="pt-2">
+              <Button onClick={() => navigate('/goals')} className="rounded-full px-6">
+                Set Up Goals
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

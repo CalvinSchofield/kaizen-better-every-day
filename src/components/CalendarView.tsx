@@ -1,8 +1,8 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Pointer, Undo2, Lock, Plane, MapPin, Loader2, CalendarIcon, Check } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
+import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Plane, MapPin, Loader2, CalendarIcon, Check, CircleMinus, DollarSign } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore, differenceInDays } from "date-fns";
 import { parseLocalDate } from '@/utils/dateUtils';
 import { CalendarDayDrawer } from "@/components/CalendarDayDrawer";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
@@ -10,7 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useBlitzes } from "@/hooks/useBlitzes";
-import { hapticLight, hapticSuccess } from "@/utils/haptics";
+import { hapticLight, hapticSuccess, hapticMedium } from "@/utils/haptics";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRepGoals } from "@/hooks/useRepGoals";
@@ -28,6 +28,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
+import { invalidateGoalRelatedQueries } from "@/utils/goalInvalidation";
 import { formatBlitzDate } from "@/utils/blitzDateUtils";
 import { toast } from "sonner";
 
@@ -70,6 +71,10 @@ export const CalendarView = ({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [planningMode, setPlanningMode] = useState(() => searchParams.get('planning') === 'true');
+  const location = useLocation();
+  
+  // Track recently toggled dates for animation
+  const [recentlyToggled, setRecentlyToggled] = useState<Set<string>>(new Set());
 
   // Clear the query param after reading it so it doesn't persist on refresh
   useEffect(() => {
@@ -82,6 +87,16 @@ export const CalendarView = ({
       }, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+  
+  // Auto-exit planning mode when navigating away
+  const prevPathRef = useRef(location.pathname);
+  useEffect(() => {
+    if (prevPathRef.current !== location.pathname && planningMode) {
+      setPlanningMode(false);
+    }
+    prevPathRef.current = location.pathname;
+  }, [location.pathname, planningMode]);
+
   const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<any>(null);
   const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<any>(null);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
@@ -143,6 +158,43 @@ export const CalendarView = ({
     }
     return dailyGoal;
   };
+
+  // Calculate off-day cost for summer
+  const offDayCostInfo = useMemo(() => {
+    if (!isSummerStarted || !personalSummerStart || !personalSummerEnd) return null;
+    
+    const summerStartStr = format(personalSummerStart, 'yyyy-MM-dd');
+    const summerEndStr = format(personalSummerEnd, 'yyyy-MM-dd');
+    
+    // Count total summer days (excluding Sundays)
+    const allSummerDays = eachDayOfInterval({ start: personalSummerStart, end: personalSummerEnd });
+    const workableSummerDays = allSummerDays.filter(d => getDay(d) !== 0).length;
+    
+    // Count planned summer days
+    const plannedSummerDays = plannedDays?.filter(d => d.planned_date >= summerStartStr && d.planned_date <= summerEndStr).length || 0;
+    
+    const daysOff = workableSummerDays - plannedSummerDays;
+    
+    // Calculate daily revenue from existing entries if we have data
+    const summerEntries = entries.filter(e => e.entry_date >= summerStartStr && e.is_finalized);
+    let dailyRevenue: number | null = null;
+    
+    if (summerEntries.length >= 3) {
+      const totalPrmr = summerEntries.reduce((sum: number, e: any) => sum + (e.prmr || 0), 0);
+      dailyRevenue = totalPrmr / summerEntries.length;
+    } else if (summerDailyPace && summerDailyPace > 0) {
+      // Use pace as FP+ proxy: assume ~$85 per FP+ (PRMR)
+      dailyRevenue = summerDailyPace * 85;
+    }
+    
+    return {
+      daysOff: Math.max(0, daysOff),
+      totalWorkable: workableSummerDays,
+      plannedDays: plannedSummerDays,
+      estimatedCost: dailyRevenue && daysOff > 0 ? Math.round(dailyRevenue * daysOff) : null,
+      dailyRevenue: dailyRevenue ? Math.round(dailyRevenue) : null,
+    };
+  }, [isSummerStarted, personalSummerStart, personalSummerEnd, plannedDays, entries, summerDailyPace]);
 
 
   // useDailyEntry for delete mutation only
@@ -275,8 +327,23 @@ export const CalendarView = ({
       if (isSunday) return;
       if (date < today) return;
       
-      hapticLight();
+      hapticMedium();
       togglePlannedDay(dateStr);
+      
+      // Track for animation
+      setRecentlyToggled(prev => {
+        const next = new Set(prev);
+        next.add(dateStr);
+        return next;
+      });
+      // Clear animation after 600ms
+      setTimeout(() => {
+        setRecentlyToggled(prev => {
+          const next = new Set(prev);
+          next.delete(dateStr);
+          return next;
+        });
+      }, 600);
       return;
     }
 
@@ -471,9 +538,163 @@ export const CalendarView = ({
     pendingPrmr: 0,
   }), [entries, viewMode, currentDate, weekStart, weekEnd]);
 
+  // Handle Done button with haptic + toast
+  const handleDonePlanning = () => {
+    hapticSuccess();
+    setPlanningMode(false);
+    toast.success("Plan saved", { duration: 2000 });
+  };
+
+  // Render a day cell (shared between month & week views)
+  const renderDayCell = (day: Date, idx: number, isWeekView: boolean) => {
+    const entry = getEntryForDate(day);
+    const isKnocking = isKnockingDay(day);
+    const isTodayDate = isToday(day);
+    const isCurrentMonth = isWeekView ? true : isSameMonth(day, currentDate);
+    const isSunday = getDay(day) === 0;
+    const sundayHasData = isSunday && entry;
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const isPlanned = isDatePlanned(dateStr);
+    const hasEntry = entry && entry.is_finalized;
+    const wasJustToggled = recentlyToggled.has(dateStr);
+    
+    // Mission complete check
+    const dailyTarget = entry?.daily_target;
+    const production = efpModeEnabled ? calculateEfp(entry?.prmr || 0) : (entry?.fp_plus || 0);
+    const isMissionComplete = hasEntry && dailyTarget != null && dailyTarget > 0 && production >= dailyTarget;
+    
+    // Me vs Me historical data for this day
+    const historicalDay = meVsMeEnabled && hasMeVsMeData ? historicalByDate.get(dateStr) : null;
+
+    // Planning mode visual states
+    const isPastDate = (() => {
+      const t = new Date();
+      t.setHours(0, 0, 0, 0);
+      return day < t;
+    })();
+    const isUnplannable = planningMode && (isSunday || isPastDate);
+
+    return (
+      <div
+        key={idx}
+        data-tour={isTodayDate ? "calendar-day-tile" : undefined}
+        onClick={() => handleDayClick(day)}
+        className={cn(
+          "rounded-lg border transition-all relative overflow-hidden",
+          isWeekView ? "p-3 min-h-[100px] flex flex-col" : "aspect-square p-1.5",
+          isSunday && !sundayHasData ? 'opacity-40 cursor-not-allowed' : isWeekView ? 'cursor-pointer hover:scale-105' : 'cursor-pointer active:scale-95',
+          isTodayDate ? 'border-primary border-2' : 'border-border',
+          !isCurrentMonth ? 'opacity-40' : '',
+          planningMode && isUnplannable ? 'opacity-30' : '',
+          isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : isPlanned && !hasEntry ? 'bg-accent/30' : 'bg-card',
+        )}
+      >
+        {/* Checkmark animation when toggled in planning mode */}
+        <AnimatePresence>
+          {planningMode && wasJustToggled && isPlanned && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 25 }}
+              className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
+            >
+              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                <Check className="w-3.5 h-3.5 text-primary" strokeWidth={3} />
+              </div>
+            </motion.div>
+          )}
+          {planningMode && wasJustToggled && !isPlanned && (
+            <motion.div
+              initial={{ scale: 1, opacity: 0.8 }}
+              animate={{ scale: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
+            >
+              <div className="w-6 h-6 rounded-full bg-destructive/20 flex items-center justify-center">
+                <CircleMinus className="w-3.5 h-3.5 text-destructive" strokeWidth={2.5} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Planning mode: persistent checkmark on planned days */}
+        {planningMode && isPlanned && !hasEntry && !wasJustToggled && (
+          <div className="absolute top-0.5 right-0.5 text-primary">
+            <Check className={cn("strokeWidth-3", isWeekView ? "h-3 w-3" : "h-2.5 w-2.5")} strokeWidth={3} />
+          </div>
+        )}
+
+        {/* Mission complete indicator - top right corner */}
+        {!planningMode && isMissionComplete && (
+          <div className={cn("absolute text-emerald-500", isWeekView ? "top-1 right-1.5" : "top-0.5 right-0.5")}>
+            <Check className={cn(isWeekView ? "h-3 w-3" : "h-2.5 w-2.5")} strokeWidth={3} />
+          </div>
+        )}
+        {/* Planned day goal indicator - top right corner */}
+        {!planningMode && (() => {
+          const cellGoal = getDailyGoalForDate(dateStr);
+          return isPlanned && !hasEntry && cellGoal ? (
+            <div className={cn("absolute font-medium text-muted-foreground/60", isWeekView ? "top-1 right-1.5 text-[10px]" : "top-1 right-1.5 text-[8px]")}>
+              {formatValue(cellGoal)}
+            </div>
+          ) : null;
+        })()}
+        <div className={cn(
+          "font-semibold",
+          isWeekView ? "text-lg" : "text-sm",
+          isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'
+        )}>
+          {format(day, 'd')}
+        </div>
+        {hasEntry && (
+          isWeekView ? (
+            <div className="mt-2 space-y-0.5">
+              {efpModeEnabled ? (
+                <>
+                  <div className="text-xs text-primary font-semibold">
+                    {formatValue(calculateEfp(entry.prmr || 0))} EFP
+                  </div>
+                  <div className="text-xs text-muted-foreground font-medium">
+                    {formatValue(entry.fp_plus || 0)} FP+
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xs text-primary font-semibold">
+                    {formatValue(entry.fp_plus || 0)} FP+
+                  </div>
+                  {entry.prmr > 0 && (
+                    <div className="text-xs text-muted-foreground font-medium">
+                      ${Math.round(entry.prmr || 0)}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="text-xs text-primary font-semibold mt-0.5">
+              {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0)) : formatValue(entry.fp_plus || 0)}
+            </div>
+          )
+        )}
+        {/* Me vs Me historical overlay */}
+        {!hasEntry && historicalDay && historicalDay.fpPlus > 0 && (
+          <div className={cn(
+            "absolute font-medium text-muted-foreground/50",
+            isWeekView ? "bottom-1 left-1.5 text-[9px]" : "bottom-0.5 left-1 text-[8px]"
+          )}>
+            '{String(comparisonYear).slice(-2)}: {efpModeEnabled ? formatValue(historicalDay.prmr / 85) : formatValue(historicalDay.fpPlus)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className={cn(
-      "min-h-screen p-4 pb-24 transition-all duration-500",
+    <div className={cn(      
+      "min-h-screen p-4 transition-all duration-500",
+      planningMode ? "pb-44" : "pb-24",
       planningMode
         ? "bg-gradient-to-b from-primary/8 via-primary/3 to-background"
         : "bg-background"
@@ -506,53 +727,84 @@ export const CalendarView = ({
         </Button>
       </div>
 
-      {/* Planning Mode Toggle */}
-      <div className="flex justify-end mb-3">
-        <button
-          onClick={() => {
-            hapticLight();
-            setPlanningMode(prev => !prev);
-          }}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-[0.97]",
-            planningMode
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "bg-muted text-muted-foreground"
-          )}
-        >
-          <CalendarDays className="w-3.5 h-3.5" />
-          {planningMode ? "Planning" : "Plan"}
-        </button>
-      </div>
+      {/* Planning Mode Toggle — hidden when empty state CTA is showing */}
+      {!(!planningMode && (!plannedDays || plannedDays.length === 0)) && (
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={() => {
+              hapticLight();
+              if (planningMode) {
+                handleDonePlanning();
+              } else {
+                setPlanningMode(true);
+              }
+            }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-[0.97]",
+              planningMode
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            {planningMode ? "Planning" : "Plan"}
+          </button>
+        </div>
+      )}
 
-      {/* Empty state CTA - no days planned yet or missing summer dates */}
+      {/* Planning Mode Top Banner — replaces the old verbose instruction card */}
+      <AnimatePresence>
+        {planningMode && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="mb-3 overflow-hidden"
+          >
+            <div className="bg-primary/10 border border-primary/20 rounded-xl px-4 py-2.5 flex items-center justify-between">
+              <p className="text-sm font-medium text-primary">
+                {isSummerStarted 
+                  ? "Tap days you'll take off" 
+                  : "Tap the days you'll work"
+                }
+              </p>
+              <span className="text-xs text-primary/70 font-medium">
+                {plannedDays?.length || 0} planned
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Empty state CTA - no days planned yet */}
       {!planningMode && (!plannedDays || plannedDays.length === 0) && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 p-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 text-center space-y-2"
+          className="mb-4 p-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 text-center space-y-3"
         >
           <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center mx-auto">
             <Sparkles className="w-5 h-5 text-primary" />
           </div>
-          <h3 className="font-semibold text-sm">Plan your season</h3>
+          <h3 className="font-semibold text-sm">
+            {isSummerStarted ? "Mark your off days" : "Plan your season"}
+          </h3>
           <p className="text-xs text-muted-foreground leading-relaxed max-w-[260px] mx-auto">
-            Tap <strong>"Plan"</strong> above, then tap the days you'll be working. This powers your daily pace targets and keeps your goals on track.
+            {isSummerStarted 
+              ? "Tap below, then tap the days you'll take off this summer."
+              : "Tap below, then tap the days you'll be working. This powers your daily pace targets."
+            }
           </p>
-          {(!personalSummerStart || !personalSummerEnd) && (
-            <p className="text-[10px] text-muted-foreground/70 mt-1">
-              💡 Set your summer start & end dates in Goals to unlock summer planning
-            </p>
-          )}
           <button
             onClick={() => {
               hapticLight();
               setPlanningMode(true);
             }}
-            className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-semibold active:scale-[0.97] transition-transform"
+            className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-semibold active:scale-[0.97] transition-transform"
           >
             <CalendarDays className="w-3.5 h-3.5" />
-            Start Planning
+            {isSummerStarted ? "Mark Off Days" : "Start Planning"}
           </button>
         </motion.div>
       )}
@@ -566,166 +818,17 @@ export const CalendarView = ({
               {day}
             </div>
           ))}
-
-          {/* Calendar days */}
-{days.map((day, idx) => {
-            const entry = getEntryForDate(day);
-            const isKnocking = isKnockingDay(day);
-            const isCurrentMonth = isSameMonth(day, currentDate);
-            const isTodayDate = isToday(day);
-            const isSunday = getDay(day) === 0;
-            const sundayHasData = isSunday && entry;
-            const dateStr = format(day, 'yyyy-MM-dd');
-            const isPlanned = isDatePlanned(dateStr);
-            const hasEntry = entry && entry.is_finalized;
-            
-            // Mission complete check: did production meet the snapshotted daily target?
-            const dailyTarget = entry?.daily_target;
-            const production = efpModeEnabled ? calculateEfp(entry?.prmr || 0) : (entry?.fp_plus || 0);
-            const isMissionComplete = hasEntry && dailyTarget != null && dailyTarget > 0 && production >= dailyTarget;
-            
-            // Me vs Me historical data for this day
-            const historicalDay = meVsMeEnabled && hasMeVsMeData ? historicalByDate.get(dateStr) : null;
-
-            return (
-              <div
-                key={idx}
-                data-tour={isTodayDate ? "calendar-day-tile" : undefined}
-                onClick={() => handleDayClick(day)}
-                className={`
-                  aspect-square p-1.5 rounded-lg border transition-all relative
-                  ${isSunday && !sundayHasData ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
-                  ${isTodayDate ? 'border-primary border-2' : 'border-border'}
-                  ${!isCurrentMonth ? 'opacity-40' : ''}
-                  ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : isPlanned && !hasEntry ? 'bg-accent/30' : 'bg-card'}
-                `}
-              >
-                {/* Mission complete indicator - top right corner */}
-                {isMissionComplete && (
-                  <div className="absolute top-0.5 right-0.5 text-emerald-500">
-                    <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                  </div>
-                )}
-                {/* Planned day goal indicator - top right corner */}
-                {(() => {
-                  const cellGoal = getDailyGoalForDate(dateStr);
-                  return isPlanned && !hasEntry && cellGoal ? (
-                    <div className="absolute top-1 right-1.5 text-[8px] text-muted-foreground/60 font-medium">
-                      {formatValue(cellGoal)}
-                    </div>
-                  ) : null;
-                })()}
-                <div className={`text-sm font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
-                  {format(day, 'd')}
-                </div>
-                {hasEntry && (
-                  <div className="text-xs text-primary font-semibold mt-0.5">
-                    {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0)) : formatValue(entry.fp_plus || 0)}
-                  </div>
-                )}
-                {/* Me vs Me historical overlay - bottom left, only show on days without current results */}
-                {!hasEntry && historicalDay && historicalDay.fpPlus > 0 && (
-                  <div className="absolute bottom-0.5 left-1 text-[8px] text-muted-foreground/50 font-medium">
-                    '{String(comparisonYear).slice(-2)}: {efpModeEnabled ? formatValue(historicalDay.prmr / 85) : formatValue(historicalDay.fpPlus)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {days.map((day, idx) => renderDayCell(day, idx, false))}
         </div>
       ) : (
-        /* Week View - Grid layout matching month view */
+        /* Week View */
         <div data-tour="calendar-grid" className="grid grid-cols-7 gap-2" style={swipeStyle} {...swipeHandlers}>
-          {/* Day headers */}
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
             <div key={day} className="text-center text-sm font-semibold text-muted-foreground pb-2">
               {day}
             </div>
           ))}
-
-          {/* Week days */}
-{days.map((day, idx) => {
-            const entry = getEntryForDate(day);
-            const isKnocking = isKnockingDay(day);
-            const isTodayDate = isToday(day);
-            const isSunday = getDay(day) === 0;
-            const sundayHasData = isSunday && entry;
-            const dateStr = format(day, 'yyyy-MM-dd');
-            const isPlanned = isDatePlanned(dateStr);
-            const hasEntry = entry && entry.is_finalized;
-            
-            // Mission complete check
-            const dailyTarget = entry?.daily_target;
-            const production = efpModeEnabled ? calculateEfp(entry?.prmr || 0) : (entry?.fp_plus || 0);
-            const isMissionComplete = hasEntry && dailyTarget != null && dailyTarget > 0 && production >= dailyTarget;
-            
-            // Me vs Me historical data for this day
-            const historicalDay = meVsMeEnabled && hasMeVsMeData ? historicalByDate.get(dateStr) : null;
-
-            return (
-              <div
-                key={idx}
-                data-tour={isTodayDate ? "calendar-day-tile" : undefined}
-                onClick={() => handleDayClick(day)}
-                className={`
-                  p-3 rounded-lg border transition-all min-h-[100px] flex flex-col relative
-                  ${isSunday && !sundayHasData ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
-                  ${isTodayDate ? 'border-primary border-2' : 'border-border'}
-                  ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : isPlanned && !hasEntry ? 'bg-accent/30' : 'bg-card'}
-                `}
-              >
-                {/* Mission complete indicator - top right corner */}
-                {isMissionComplete && (
-                  <div className="absolute top-1 right-1.5 text-emerald-500">
-                    <Check className="h-3 w-3" strokeWidth={3} />
-                  </div>
-                )}
-                {/* Planned day goal indicator - top right corner */}
-                {(() => {
-                  const cellGoal = getDailyGoalForDate(dateStr);
-                  return isPlanned && !hasEntry && cellGoal ? (
-                    <div className="absolute top-1 right-1.5 text-[10px] text-muted-foreground/60 font-medium">
-                      {formatValue(cellGoal)}
-                    </div>
-                  ) : null;
-                })()}
-                <div className={`text-lg font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
-                  {format(day, 'd')}
-                </div>
-                {hasEntry && (
-                  <div className="mt-2 space-y-0.5">
-                    {efpModeEnabled ? (
-                      <>
-                        <div className="text-xs text-primary font-semibold">
-                          {formatValue(calculateEfp(entry.prmr || 0))} EFP
-                        </div>
-                        <div className="text-xs text-muted-foreground font-medium">
-                          {formatValue(entry.fp_plus || 0)} FP+
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-xs text-primary font-semibold">
-                          {formatValue(entry.fp_plus || 0)} FP+
-                        </div>
-                        {entry.prmr > 0 && (
-                          <div className="text-xs text-muted-foreground font-medium">
-                            ${Math.round(entry.prmr || 0)}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-                {/* Me vs Me historical overlay - bottom left, only show on days without current results */}
-                {!hasEntry && historicalDay && historicalDay.fpPlus > 0 && (
-                  <div className="absolute bottom-1 left-1.5 text-[9px] text-muted-foreground/50 font-medium">
-                    '{String(comparisonYear).slice(-2)}: {efpModeEnabled ? formatValue(historicalDay.prmr / 85) : formatValue(historicalDay.fpPlus)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {days.map((day, idx) => renderDayCell(day, idx, true))}
         </div>
       )}
 
@@ -770,7 +873,7 @@ export const CalendarView = ({
         )}
       </div>
 
-      {/* Planning mode card */}
+      {/* Planning mode card — simplified: blitzes + summer dates only, no instructions */}
       <AnimatePresence mode="wait">
         {planningMode && (
           <motion.div
@@ -782,54 +885,28 @@ export const CalendarView = ({
             className="mt-6"
           >
             <div className="rounded-2xl border border-primary/20 bg-card/80 backdrop-blur-sm p-5 space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
-                  <CalendarDays className="w-4.5 h-4.5 text-primary" />
-                </div>
-                <h3 className="text-base font-semibold text-foreground">Plan Your Work Days</h3>
-              </div>
-              
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <Pointer className="w-4 h-4 text-primary/70 shrink-0" />
-                  <span>Tap a day to mark it as a <strong className="text-foreground">work day</strong></span>
-                </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <Undo2 className="w-4 h-4 text-primary/70 shrink-0" />
-                  <span>Tap again to <strong className="text-foreground">remove</strong> it</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <Lock className="w-4 h-4 text-muted-foreground/50 shrink-0" />
-                  <span>Sundays & past dates can't be planned</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-border/50">
-                {(() => {
-                  const summerStartStr = personalSummerStart ? format(personalSummerStart, 'yyyy-MM-dd') : null;
-                  const preseasonCount = summerStartStr
-                    ? plannedDays?.filter(d => d.planned_date < summerStartStr).length || 0
-                    : plannedDays?.length || 0;
-                  const summerCount = summerStartStr
-                    ? plannedDays?.filter(d => d.planned_date >= summerStartStr).length || 0
-                    : 0;
-                  return (
+              {/* Off-day cost display for summer */}
+              {isSummerStarted && offDayCostInfo && offDayCostInfo.daysOff > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-500/5 border border-amber-500/15">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <DollarSign className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">
-                      <span className="text-primary font-bold">{plannedDays?.length || 0}</span>
-                      <span className="text-muted-foreground ml-1.5">days planned</span>
-                      {summerStartStr && (
-                        <span className="text-muted-foreground text-xs ml-1.5">
-                          ({preseasonCount} preseason · {summerCount} summer)
-                        </span>
-                      )}
+                      {offDayCostInfo.daysOff} summer {offDayCostInfo.daysOff === 1 ? 'day' : 'days'} off
                     </p>
-                  );
-                })()}
-              </div>
+                    {offDayCostInfo.estimatedCost && (
+                      <p className="text-xs text-muted-foreground">
+                        ~${offDayCostInfo.estimatedCost.toLocaleString()} potential revenue
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Blitz Trips Section - only during preseason */}
               {isPreseason && futureBlitzes.length > 0 && (
-                <div className="pt-3 border-t border-border/50 space-y-3">
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Plane className="w-4 h-4 text-primary" />
                     <h4 className="text-sm font-semibold text-foreground">Blitz Trips</h4>
@@ -905,7 +982,7 @@ export const CalendarView = ({
                   editSummerEnd !== personalSummerEndStr;
                 // Show section if there's something to edit (end date always, start date if not started)
                 return (showStartDate || true) ? (
-                  <div className="pt-3 border-t border-border/50 space-y-3">
+                  <div className={cn("space-y-3", (isPreseason && futureBlitzes.length > 0) ? "pt-3 border-t border-border/50" : "")}>
                     <div className="flex items-center gap-2">
                       <CalendarIcon className="w-4 h-4 text-primary" />
                       <h4 className="text-sm font-semibold text-foreground">Summer Dates</h4>
@@ -1022,9 +1099,7 @@ export const CalendarView = ({
                                   });
                                 }
 
-                                queryClient.invalidateQueries({ queryKey: ['season-config-for-goals-page'] });
-                                queryClient.invalidateQueries({ queryKey: ['season-config'] });
-                                queryClient.invalidateQueries({ queryKey: ['season-config-whatif'] });
+                                invalidateGoalRelatedQueries(queryClient);
                                 hapticSuccess();
                                 setSavedSummerDates(true);
                                 toast.success('Summer dates updated');
@@ -1079,7 +1154,7 @@ export const CalendarView = ({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 60, opacity: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-40"
+            className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-40"
           >
             <div className="bg-card border border-border rounded-2xl shadow-lg px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1104,7 +1179,12 @@ export const CalendarView = ({
                       </span>
                     );
                   })()}
-                  {viewTotals.daysWorked > 0 && (
+                  {isSummerStarted && offDayCostInfo && offDayCostInfo.daysOff > 0 && offDayCostInfo.estimatedCost && (
+                    <span className="text-[10px] text-amber-600/80">
+                      {offDayCostInfo.daysOff} off · ~${offDayCostInfo.estimatedCost.toLocaleString()}
+                    </span>
+                  )}
+                  {!isSummerStarted && viewTotals.daysWorked > 0 && (
                     <span className="text-[10px] text-muted-foreground">
                       {viewTotals.daysWorked} worked this {viewMode === 'week' ? 'week' : 'month'}
                     </span>
@@ -1112,10 +1192,7 @@ export const CalendarView = ({
                 </div>
               </div>
               <button
-                onClick={() => {
-                  hapticLight();
-                  setPlanningMode(false);
-                }}
+                onClick={handleDonePlanning}
                 className="text-xs font-semibold text-primary px-3 py-1.5 rounded-full bg-primary/10 active:scale-[0.97] transition-transform"
               >
                 Done

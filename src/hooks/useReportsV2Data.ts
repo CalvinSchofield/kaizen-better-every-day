@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafe } from "@/utils/authSession";
 import { format, subDays, getDay } from "date-fns";
+import { IntradayPaceResult, calculateIntradayPace, getDayType, generatePacePulseSentence } from "@/utils/intradayPaceCalculations";
 import { ActiveRecord, detectActiveRecords, AllTimeGroupRecords } from "@/utils/teamRecordDetection";
 import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
 import { useTeamLiveData } from "./useTeamLiveData";
@@ -86,6 +87,16 @@ interface UseReportsV2DataParams {
   excludeUserIds?: string[];
   isLiveView?: boolean; // true for "Today" view
   customThresholds?: EffortThresholds; // Optional custom thresholds from leader settings
+  accessibleReps?: Array<{
+    userId: string | null;
+    teamId?: string | null;
+    teamName?: string | null;
+    mgmtGroupId?: string | null;
+    mgmtGroupName?: string | null;
+    recruiterName?: string | null;
+    phone?: string | null;
+    year?: string | null;
+  }>;
 }
 
 export interface RepWithEffort {
@@ -95,6 +106,8 @@ export interface RepWithEffort {
   timezone?: string;
   teamId?: string | null;
   teamName?: string;
+  mgmtGroupId?: string | null;
+  mgmtGroupName?: string | null;
   recruiterName?: string | null; // For organic hierarchy grouping
   phone?: string;
   doors: number;
@@ -138,6 +151,9 @@ export interface ReportsV2Data {
   
   // Team baseline
   teamBaseline?: TeamBaseline;
+  
+  // Intraday pace (live view only)
+  intradayPace?: IntradayPaceResult;
   
   // Rep-level data
   repsWithEffort: RepWithEffort[];
@@ -186,14 +202,21 @@ export const useReportsV2Data = ({
   excludeUserIds = [],
   isLiveView = false,
   customThresholds,
+  accessibleReps = [],
 }: UseReportsV2DataParams): ReportsV2Data => {
   // Use custom thresholds or defaults
   const effortThresholds = customThresholds || DEFAULT_EFFORT_THRESHOLDS;
+
+  const accessibleRepMap = useMemo(
+    () => new Map(accessibleReps.filter((rep) => rep.userId).map((rep) => [rep.userId as string, rep])),
+    [accessibleReps]
+  );
 
   // Fetch live data (for today view)
   const liveQuery = useTeamLiveData({
     userIds,
     excludeUserIds,
+    accessibleReps,
   });
   
   // Fetch aggregated data (for date range views)
@@ -315,6 +338,7 @@ export const useReportsV2Data = ({
       const { liveReps, workingCount } = liveQuery.data;
       
       const repsWithEffort: RepWithEffort[] = liveReps.map(rep => {
+        const orgRep = accessibleRepMap.get(rep.userId);
         // Calculate hours worked
         let hoursWorked = 0;
         if (rep.workStartTime) {
@@ -345,12 +369,14 @@ export const useReportsV2Data = ({
         return {
           userId: rep.userId,
           name: rep.name,
-          year: rep.year,
+          year: rep.year || orgRep?.year || undefined,
           timezone: rep.timezone,
-          teamId: rep.teamId,
-          teamName: rep.teamName,
-          recruiterName: rep.recruiterName,
-          phone: rep.phone,
+          teamId: orgRep?.teamId ?? rep.teamId,
+          teamName: orgRep?.teamName ?? rep.teamName,
+          mgmtGroupId: orgRep?.mgmtGroupId ?? rep.mgmtGroupId,
+          mgmtGroupName: orgRep?.mgmtGroupName ?? rep.mgmtGroupName,
+          recruiterName: orgRep?.recruiterName ?? rep.recruiterName,
+          phone: rep.phone || orgRep?.phone || undefined,
           doors: rep.todayStats.doors,
           dms: rep.todayStats.dms,
           pitches: rep.todayStats.pitches,
@@ -594,11 +620,18 @@ export const useReportsV2Data = ({
       
       // Calculate team baseline from 14-day data
       let teamBaseline: TeamBaseline | undefined;
+      let intradayPace: IntradayPaceResult | undefined;
       if (baselineQuery.data) {
         const { entries, plannedDays, reps } = baselineQuery.data;
         
-        // Build per-rep baselines
-        const repBaselines: RepBaseline[] = reps
+        // Determine today's day type for intraday pacing
+        const todayDayIndex = today.getDay(); // 0=Sun, 6=Sat
+        const currentDayType = getDayType(todayDayIndex);
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDayName = dayNames[todayDayIndex];
+        
+        // Build per-rep baselines (overall for team baseline)
+        const buildRepBaselines = (dayTypeFilter?: 'weekday' | 'saturday') => reps
           .filter(r => r.user_id)
           .map(rep => {
             const repEntries = entries
@@ -625,11 +658,35 @@ export const useReportsV2Data = ({
               rep.user_id!,
               rep.name,
               repEntries,
-              isWorkingToday
+              isWorkingToday,
+              dayTypeFilter,
             );
           });
         
+        // Overall baselines (no day-type filter) for general team baseline
+        const repBaselines = buildRepBaselines();
         teamBaseline = calculateTeamBaseline(repBaselines);
+        
+        // Day-type-specific baselines for intraday pacing
+        if (currentDayType) {
+          const dayTypeBaselines = buildRepBaselines(currentDayType);
+          
+          // Get current local time in minutes from midnight
+          const nowMinutes = today.getHours() * 60 + today.getMinutes();
+          
+          const actualKpis = {
+            doors: totals.doors,
+            dms: totals.dms,
+            pitches: totals.pitches,
+            transitions: totals.transitions,
+            presentations: totals.presentations,
+            fp: totals.fp,
+          };
+          
+          const pace = calculateIntradayPace(dayTypeBaselines, actualKpis, nowMinutes, currentDayType);
+          pace.dayName = currentDayName;
+          intradayPace = pace;
+        }
       }
       
       // Get names of reps currently working (unfinalized entries)
@@ -651,6 +708,7 @@ export const useReportsV2Data = ({
         teamGoalStatus,
         teamGoalStatusDetails,
         teamBaseline,
+        intradayPace,
         repsWithEffort,
         funnelData: {
           doors: totals.doors,
@@ -669,7 +727,13 @@ export const useReportsV2Data = ({
       // Process aggregated insights data
       const data = insightsQuery.data;
       
-      const repsWithEffort: RepWithEffort[] = data.repBreakdown.map(rep => {
+      // Only include reps who had actual activity during the period
+      const activeRepBreakdown = data.repBreakdown.filter(rep =>
+        rep.doors > 0 || rep.pitches > 0 || rep.fp > 0 || rep.presentations > 0 || rep.closes > 0
+      );
+
+      const repsWithEffort: RepWithEffort[] = activeRepBreakdown.map(rep => {
+        const orgRep = accessibleRepMap.get(rep.userId);
         const effortData: RepEffortData = {
           userId: rep.userId,
           name: rep.name,
@@ -683,11 +747,13 @@ export const useReportsV2Data = ({
         return {
           userId: rep.userId,
           name: rep.name,
-          year: rep.year,
+          year: rep.year || orgRep?.year || undefined,
           timezone: rep.timezone,
-          teamId: rep.teamId,
-          teamName: rep.teamName,
-          recruiterName: rep.recruiterName,
+          teamId: orgRep?.teamId ?? rep.teamId,
+          teamName: orgRep?.teamName ?? rep.teamName,
+          mgmtGroupId: orgRep?.mgmtGroupId ?? rep.mgmtGroupId,
+          mgmtGroupName: orgRep?.mgmtGroupName ?? rep.mgmtGroupName,
+          recruiterName: orgRep?.recruiterName ?? rep.recruiterName,
           doors: rep.doors,
           dms: rep.dms,
           pitches: rep.pitches,

@@ -2,6 +2,12 @@ import { useState } from "react";
 import { Calendar, Bell, X } from "lucide-react";
 import { format, parse } from "date-fns";
 import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { 
   getCalendarTitle, 
   buildCalendarDescription,
@@ -20,7 +26,8 @@ import { hapticSuccess } from "@/utils/haptics";
 import { cn } from "@/lib/utils";
 import { formatTime12 } from "@/components/ui/time-picker";
 
-interface AddToCalendarPromptProps {
+interface AddToCalendarDrawerProps {
+  open: boolean;
   activityId: string;
   recruit: Recruit;
   scheduledDate: string; // YYYY-MM-DD format
@@ -30,7 +37,8 @@ interface AddToCalendarPromptProps {
   previousDate?: string;
 }
 
-export function AddToCalendarPrompt({
+export function AddToCalendarDrawer({
+  open,
   activityId,
   recruit,
   scheduledDate,
@@ -38,7 +46,7 @@ export function AddToCalendarPrompt({
   onClose,
   isReschedule = false,
   previousDate,
-}: AddToCalendarPromptProps) {
+}: AddToCalendarDrawerProps) {
   const [isAdding, setIsAdding] = useState(false);
   
   const addCalendarEventMutation = useAddCalendarEvent();
@@ -112,42 +120,45 @@ export function AddToCalendarPrompt({
   };
 
   return (
-    <div className="border-t border-border bg-muted/30 p-4 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">
-          {isReschedule ? 'Update calendar?' : 'Add to calendar?'} · {formattedDate}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 rounded-full"
-          onClick={onClose}
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-      
-      <div className="flex gap-2">
-        <Button
-          variant={suggestedType === 'event' ? 'default' : 'outline'}
-          className="flex-1 gap-2"
-          onClick={() => handleAdd('event')}
-          disabled={isAdding}
-        >
-          <Calendar className="h-4 w-4" />
-          Calendar
-        </Button>
-        <Button
-          variant={suggestedType === 'reminder' ? 'default' : 'outline'}
-          className="flex-1 gap-2"
-          onClick={() => handleAdd('reminder')}
-          disabled={isAdding}
-        >
-          <Bell className="h-4 w-4" />
-          Reminder
-        </Button>
-      </div>
-    </div>
+    <Drawer open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle className="text-center">
+            {isReschedule ? 'Update calendar?' : 'Add to calendar?'}
+          </DrawerTitle>
+          <p className="text-sm text-muted-foreground text-center">{formattedDate}</p>
+        </DrawerHeader>
+        <div className="px-4 pb-6 pt-2 space-y-3">
+          <div className="flex gap-3">
+            <Button
+              variant={suggestedType === 'event' ? 'default' : 'outline'}
+              className="flex-1 gap-2 h-12"
+              onClick={() => handleAdd('event')}
+              disabled={isAdding}
+            >
+              <Calendar className="h-4 w-4" />
+              Calendar
+            </Button>
+            <Button
+              variant={suggestedType === 'reminder' ? 'default' : 'outline'}
+              className="flex-1 gap-2 h-12"
+              onClick={() => handleAdd('reminder')}
+              disabled={isAdding}
+            >
+              <Bell className="h-4 w-4" />
+              Reminder
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            className="w-full text-muted-foreground"
+            onClick={onClose}
+          >
+            Skip
+          </Button>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
